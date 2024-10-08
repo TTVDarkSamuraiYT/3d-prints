@@ -3,6 +3,95 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Print Store</title>
+    <style>
+        /* Add basic styling here */
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+        }
+        .item {
+            margin-bottom: 20px;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        button {
+            margin-top: 10px;
+            padding: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>3D Print Store</h1>
+    <div id="menu-items"></div>
+
+    <script>
+        // Function to fetch items from Google Sheets
+        function loadMenuItems() {
+            fetch('https://spreadsheets.google.com/feeds/list/11-9VxCZfMXiFpmEy2LUsmHtHlF8sIu_FuAX8oz-zQyE/od6/public/values?alt=json')
+                .then(response => response.json())
+                .then(data => {
+                    const items = data.feed.entry;
+                    const menuItemsContainer = document.getElementById('menu-items');
+                    menuItemsContainer.innerHTML = '';
+
+                    items.forEach(item => {
+                        const name = item.gsx$name.$t;
+                        const price = item.gsx$price.$t;
+                        const colors = item.gsx$colors.$t.split(',');
+                        const sizes = item.gsx$sizes.$t.split(',');
+
+                        const itemDiv = document.createElement('div');
+                        itemDiv.classList.add('item');
+
+                        const colorSelect = document.createElement('select');
+                        colors.forEach(color => {
+                            const option = document.createElement('option');
+                            option.value = color;
+                            option.textContent = color;
+                            colorSelect.appendChild(option);
+                        });
+
+                        const sizeSelect = document.createElement('select');
+                        sizes.forEach(size => {
+                            const option = document.createElement('option');
+                            option.value = size;
+                            option.textContent = size;
+                            sizeSelect.appendChild(option);
+                        });
+
+                        itemDiv.innerHTML = `
+                            <h3>${name}</h3>
+                            <p>Price: ${price}</p>
+                        `;
+                        itemDiv.appendChild(colorSelect);
+                        itemDiv.appendChild(sizeSelect);
+
+                        const addButton = document.createElement('button');
+                        addButton.textContent = 'Add to Cart';
+                        addButton.onclick = () => addToCart(name, price, colorSelect.value, sizeSelect.value);
+                        itemDiv.appendChild(addButton);
+
+                        menuItemsContainer.appendChild(itemDiv);
+                    });
+                });
+        }
+
+        // Placeholder function for adding items to cart
+        function addToCart(name, price, color, size) {
+            alert(`Added ${name} (Color: ${color}, Size: ${size}) to the cart.`);
+        }
+
+        // Load the menu items on page load
+        window.onload = loadMenuItems;
+    </script>
+</body>
+</html><!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>3D Print Shop</title>
     <style>
         body { font-family: Arial, sans-serif; margin: 0; padding: 0; }

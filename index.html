@@ -41,19 +41,12 @@
         async function fetchData() {
             const sheetURL = "https://script.google.com/macros/s/AKfycbwzsHAQauKF3_U2G8cC3KR1XL0KG6xw4MgM-8tHppVc8leqpwTXxtmoSGhKVsB4dR_-/exec";
             const response = await fetch(sheetURL);
-            const text = await response.text();
-            const json = JSON.parse(text.substr(47).slice(0, -2));
-            const rows = json.table.rows;
+            const data = await response.json();
             let prints = document.getElementById("prints");
             prints.innerHTML = "<option value='custom'>Custom STL Upload</option>";
-            rows.forEach((row, index) => {
-                if (index > 0) {
-                    let name = row.c[0]?.v || ""; // Column A: Print Name
-                    let stock = row.c[1]?.v || ""; // Column B: Print Stock
-                    let price = row.c[2]?.v || "0"; // Column C: Price
-                    if (name && (stock !== 0 || stock === "Null")) {
-                        prints.innerHTML += `<option value="${name}" data-price="${price}">${name} - $${price}</option>`;
-                    }
+            data.slice(1).forEach(item => { // Ignore first row (column names)
+                if (item.name && (item.stock !== 0 || item.stock === "Null")) {
+                    prints.innerHTML += `<option value="${item.name}" data-price="${item.price}">${item.name} - $${item.price}</option>`;
                 }
             });
         }
@@ -76,7 +69,7 @@
             if (stlFile) {
                 formData.append("file", stlFile);
             }
-            await fetch("https://discord.com/api/webhooks/1354424183932719286/gwbawkCd8nUWS_N0Q4lqBuDSk38uPLr7ok0my5SNBOiJOo8cz_sH46tNqffr_kZigxFG", {
+            await fetch("https://discord.com/api/webhooks/1354465627066208417/qOel2tlsqqbQEByO16DSAaWvpu5cJtBO8xMU4s3ehXBf0rrRUwp0h1FD4jFdc2x1F1ef", {
                 method: "POST",
                 body: formData
             });

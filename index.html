@@ -1,1 +1,113 @@
-
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Print Orders</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            text-align: center;
+            padding: 20px;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            max-width: 400px;
+            margin: auto;
+        }
+        select, input, button {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+        button {
+            background-color: #28a745;
+            color: white;
+            font-size: 16px;
+            border: none;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #218838;
+        }
+    </style>
+    <script>
+        async function fetchData() {
+            const sheetURL = "https://script.google.com/macros/s/AKfycbwzsHAQauKF3_U2G8cC3KR1XL0KG6xw4MgM-8tHppVc8leqpwTXxtmoSGhKVsB4dR_-/exec";
+            const response = await fetch(sheetURL);
+            const text = await response.text();
+            const json = JSON.parse(text.substr(47).slice(0, -2));
+            const rows = json.table.rows;
+            let prints = document.getElementById("prints");
+            prints.innerHTML = "<option value='custom'>Custom STL Upload</option>";
+            rows.forEach((row, index) => {
+                if (index > 0) {
+                    let name = row.c[0]?.v || ""; // Column A: Print Name
+                    let stock = row.c[1]?.v || ""; // Column B: Print Stock
+                    let price = row.c[2]?.v || "0"; // Column C: Price
+                    if (name && (stock !== 0 || stock === "Null")) {
+                        prints.innerHTML += `<option value="${name}" data-price="${price}">${name} - $${price}</option>`;
+                    }
+                }
+            });
+        }
+        function updatePrice() {
+            let select = document.getElementById("prints");
+            let priceDisplay = document.getElementById("price");
+            let selectedOption = select.options[select.selectedIndex];
+            priceDisplay.innerText = selectedOption.dataset.price ? `$${selectedOption.dataset.price}` : "$0";
+            document.getElementById("stlUpload").style.display = select.value === "custom" ? "block" : "none";
+        }
+        async function sendOrder() {
+            let formData = new FormData();
+            let print = document.getElementById("prints").value;
+            let price = document.getElementById("prints").selectedOptions[0].dataset.price || "Custom";
+            let color = document.getElementById("color").value;
+            let printer = document.getElementById("printer").value;
+            let stlFile = document.getElementById("stl").files[0];
+            let message = `New Order:\nPrint: ${print}\nPrice: ${price}\nColor: ${color}\nPrinter: ${printer}`;
+            formData.append("content", message);
+            if (stlFile) {
+                formData.append("file", stlFile);
+            }
+            await fetch("https://discord.com/api/webhooks/1354424183932719286/gwbawkCd8nUWS_N0Q4lqBuDSk38uPLr7ok0my5SNBOiJOo8cz_sH46tNqffr_kZigxFG", {
+                method: "POST",
+                body: formData
+            });
+            alert("Order sent successfully!");
+        }
+        window.onload = fetchData;
+    </script>
+</head>
+<body>
+    <div class="container">
+        <h1>3D Print Order Form</h1>
+        <label for="prints">Choose a Print:</label>
+        <select id="prints" onchange="updatePrice()"></select>
+        <p>Price: <span id="price">$0</span></p>
+        <label for="color">Choose a Color:</label>
+        <select id="color">
+            <option value="Red">Red</option>
+            <option value="Blue">Blue</option>
+            <option value="Black">Black</option>
+            <option value="White">White</option>
+        </select>
+        <label for="printer">Choose a Printer:</label>
+        <select id="printer">
+            <option value="K9">K9 (Low Precision)</option>
+            <option value="Toybox Alpha">Toybox Alpha (High Precision)</option>
+        </select>
+        <div id="stlUpload" style="display: none;">
+            <label for="stl">Upload STL File:</label>
+            <input type="file" id="stl" accept=".stl">
+        </div>
+        <button onclick="sendOrder()">Place Order</button>
+    </div>
+</body>
+</html>

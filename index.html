@@ -23,7 +23,13 @@
       box-shadow:0 4px 10px rgba(0,0,0,.08);
       margin-bottom:1.25rem;
     }
-    .badge{padding:.15rem .5rem;background:#e5e7eb;border-radius:999px;font-size:.7rem;}
+    .badge{
+      padding:.15rem .5rem;
+      background:#e5e7eb;
+      border-radius:999px;
+      font-size:.7rem;
+      color:#111827; /* darker text so it shows on light pill */
+    }
     .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:1rem;margin-top:.75rem;}
     .card{background:#f9fafb;border:1px solid #e5e7eb;padding:.9rem 1rem;border-radius:.75rem;display:flex;flex-direction:column;gap:.6rem;}
     .card-header{display:flex;justify-content:space-between;align-items:flex-start;gap:.5rem;}
@@ -76,6 +82,7 @@
     body.dark .order-summary-table td,
     body.dark .order-summary-table th{border-color:#1f2937;}
     body.dark button.secondary{background:#1f2937;color:#e5e7eb;}
+    body.dark .badge{ color:#111827; } /* keep badge text dark in dark mode too */
   </style>
 </head>
 
@@ -211,7 +218,6 @@ const PREMADE_PRINTS = [
 
 function cleanCell(v){
   v = (v || "").trim();
-  // Strip surrounding quotes once, e.g. "Red" -> Red, "Temporarily unavailable" -> Temporarily unavailable
   if (v.startsWith('"') && v.endsWith('"') && v.length >= 2) {
     v = v.slice(1, -1).trim();
   }
@@ -224,7 +230,7 @@ function colorName(id){ return COLORS.find(c => c.id === id)?.name || id; }
 function normalizeStatus(status){
   const s = (status || "").toLowerCase();
   if (s.includes("in stock") || s.includes("available")) return "instock";
-  if (s.includes("temp")) return "temp"; // matches "Temporarily unavailable"
+  if (s.includes("temp")) return "temp";
   if (s.includes("resup")) return "resup";
   if (s.includes("sold")) return "soldout";
   return "unknown";
@@ -328,13 +334,24 @@ async function loadDataFromSheets(){
     const invRows = parseCsv(invCsv);
     const newItems = [];
     for (let i = 1; i < invRows.length; i++){
-      const [itemName, priceStr, stockStr, status, notes] = invRows[i];
+      const [itemNameRaw, priceRaw, stockRaw, statusRaw, notesRaw] = invRows[i];
 
-      // Skip rows with any blank required field (item, price, stock, status).
-      if (!itemName || !priceStr || !stockStr || !status) continue;
+      const itemName = itemNameRaw;
+      const priceStr = priceRaw;
+      const stockStr = stockRaw;
+      const status = statusRaw;
+      const notes = notesRaw;
+
+      // Required: item name, price, status. Stock can be blank (print-to-order).
+      if (!itemName || !priceStr || !status) continue;
 
       const price = parseFloat((priceStr || "").replace(/[^\d.]/g,"")) || 0;
-      const stock = parseInt((stockStr || "").replace(/[^\d]/g,"")) || 0;
+
+      let stock = null; // null = not tracked / print-to-order
+      if (stockStr) {
+        stock = parseInt((stockStr || "").replace(/[^\d]/g,"")) || 0;
+      }
+
       newItems.push({
         id: itemName.toLowerCase().replace(/\s+/g,"_"),
         name: itemName,
@@ -442,7 +459,8 @@ function renderPremadeCards(){
     addBtn.style.marginTop = ".6rem";
     addBtn.textContent = "Add to order";
 
-    if (!stInfo.available || item.stock === 0){
+    // Disable if status is unavailable OR explicit stock 0.
+    if (!stInfo.available || (item.stock !== null && item.stock === 0)){
       addBtn.disabled = true;
       addBtn.textContent = "Unavailable";
     }

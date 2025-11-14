@@ -321,7 +321,11 @@ async function loadDataFromSheets(){
     const newItems = [];
     for (let i = 1; i < invRows.length; i++){
       const [itemName, priceStr, stockStr, status, notes] = invRows[i];
-      if (!itemName) continue;
+
+      // Skip rows with any blank required field (item, price, stock, status).
+      // Notes column is allowed to be empty.
+      if (!itemName || !priceStr || !stockStr || !status) continue;
+
       const price = parseFloat((priceStr || "").replace(/[^\d.]/g,"")) || 0;
       const stock = parseInt((stockStr || "").replace(/[^\d]/g,"")) || 0;
       newItems.push({
@@ -364,7 +368,6 @@ function addItemToCart(item){
   if (existing){
     existing.qty += item.qty;
     if (item.priceEach && !existing.priceEach) existing.priceEach = item.priceEach;
-    // If existing has no file but the new item does, keep the file for sending
     if (!existing.file && item.file) existing.file = item.file;
   } else {
     orderItems.push(item);
@@ -482,7 +485,7 @@ function renderOrderSummary(){
 
 /* ===== Custom price estimator ===== */
 function calculateCustomPrice(){
-  let base = 8; // base small print
+  let base = 8;
   const size = customSizeSelect.value;
   const detail = customDetailSelect.value;
   const infill = customInfillSelect.value;
@@ -499,7 +502,6 @@ function calculateCustomPrice(){
   else if (infill === "solid") mult *= 1.25;
 
   let priceEach = base * mult;
-  // keep it reasonable
   priceEach = Math.max(5, Math.min(priceEach, 60));
 
   const total = priceEach * qty;
@@ -533,7 +535,7 @@ addCustomBtn.addEventListener("click", () => {
     color: customColorSelect.value,
     notes: customNotesInput.value.trim(),
     priceEach,
-    file // keep File object so we can send it to Discord
+    file
   });
 });
 
@@ -579,7 +581,6 @@ sendBtn.addEventListener("click", () => {
   const fd = new FormData();
   fd.append("content", msg);
 
-  // Attach all custom print files (if any)
   const files = [];
   orderItems.forEach(i => {
     if (i.type === "custom" && i.file instanceof File) {
@@ -588,7 +589,6 @@ sendBtn.addEventListener("click", () => {
   });
 
   files.forEach((file, idx) => {
-    // Discord accepts file, file1, file2, ...
     const fieldName = idx === 0 ? "file" : `file${idx+1}`;
     fd.append(fieldName, file, file.name);
   });

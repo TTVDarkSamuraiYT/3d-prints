@@ -209,12 +209,22 @@ const PREMADE_PRINTS = [
 
 /* ===== Helper functions ===== */
 
+function cleanCell(v){
+  v = (v || "").trim();
+  // Strip surrounding quotes once, e.g. "Red" -> Red, "Temporarily unavailable" -> Temporarily unavailable
+  if (v.startsWith('"') && v.endsWith('"') && v.length >= 2) {
+    v = v.slice(1, -1).trim();
+  }
+  if (v === '""') v = "";
+  return v;
+}
+
 function colorName(id){ return COLORS.find(c => c.id === id)?.name || id; }
 
 function normalizeStatus(status){
   const s = (status || "").toLowerCase();
   if (s.includes("in stock") || s.includes("available")) return "instock";
-  if (s.includes("temp")) return "temp";
+  if (s.includes("temp")) return "temp"; // matches "Temporarily unavailable"
   if (s.includes("resup")) return "resup";
   if (s.includes("sold")) return "soldout";
   return "unknown";
@@ -238,18 +248,16 @@ function isColorAvailable(status){
 
 function parseCsv(text){
   const lines = text.trim().split(/\r?\n/);
-  return lines.map(line => line.split(",").map(v => v.trim()));
+  return lines.map(line => line.split(",").map(cleanCell));
 }
 
 /* ===== Theme (dark / light) ===== */
 const themeToggleBtn = document.getElementById("theme-toggle");
 
 function updateThemeButton(){
-  if (document.body.classList.contains("dark")) {
-    themeToggleBtn.textContent = "Light mode";
-  } else {
-    themeToggleBtn.textContent = "Dark mode";
-  }
+  themeToggleBtn.textContent = document.body.classList.contains("dark")
+    ? "Light mode"
+    : "Dark mode";
 }
 
 function applySavedTheme(){
@@ -323,7 +331,6 @@ async function loadDataFromSheets(){
       const [itemName, priceStr, stockStr, status, notes] = invRows[i];
 
       // Skip rows with any blank required field (item, price, stock, status).
-      // Notes column is allowed to be empty.
       if (!itemName || !priceStr || !stockStr || !status) continue;
 
       const price = parseFloat((priceStr || "").replace(/[^\d.]/g,"")) || 0;

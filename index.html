@@ -1,106 +1,605 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>3D Print Orders</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            background-color: #f4f4f4;
-            text-align: center;
-            padding: 20px;
-        }
-        .container {
-            background: white;
-            padding: 20px;
-            border-radius: 10px;
-            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-            max-width: 400px;
-            margin: auto;
-        }
-        select, input, button {
-            width: 100%;
-            padding: 10px;
-            margin: 10px 0;
-            border: 1px solid #ccc;
-            border-radius: 5px;
-        }
-        button {
-            background-color: #28a745;
-            color: white;
-            font-size: 16px;
-            border: none;
-            cursor: pointer;
-        }
-        button:hover {
-            background-color: #218838;
-        }
-    </style>
-    <script>
-        async function fetchData() {
-            const sheetURL = "https://script.google.com/macros/s/AKfycbwzsHAQauKF3_U2G8cC3KR1XL0KG6xw4MgM-8tHppVc8leqpwTXxtmoSGhKVsB4dR_-/exec";
-            const response = await fetch(sheetURL);
-            const data = await response.json();
-            let prints = document.getElementById("prints");
-            prints.innerHTML = "<option value='custom'>Custom STL Upload</option>";
-            data.slice(1).forEach(item => { // Ignore first row (column names)
-                if (item.name && (item.stock !== 0 || item.stock === "Null")) {
-                    prints.innerHTML += `<option value="${item.name}" data-price="${item.price}">${item.name} - $${item.price}</option>`;
-                }
-            });
-        }
-        function updatePrice() {
-            let select = document.getElementById("prints");
-            let priceDisplay = document.getElementById("price");
-            let selectedOption = select.options[select.selectedIndex];
-            priceDisplay.innerText = selectedOption.dataset.price ? `$${selectedOption.dataset.price}` : "$0";
-            document.getElementById("stlUpload").style.display = select.value === "custom" ? "block" : "none";
-        }
-        async function sendOrder() {
-            let formData = new FormData();
-            let print = document.getElementById("prints").value;
-            let price = document.getElementById("prints").selectedOptions[0].dataset.price || "Custom";
-            let color = document.getElementById("color").value;
-            let printer = document.getElementById("printer").value;
-            let stlFile = document.getElementById("stl").files[0];
-            let message = `New Order:\nPrint: ${print}\nPrice: ${price}\nColor: ${color}\nPrinter: ${printer}`;
-            formData.append("content", message);
-            if (stlFile) {
-                formData.append("file", stlFile);
-            }
-            await fetch("https://discord.com/api/webhooks/1354465627066208417/qOel2tlsqqbQEByO16DSAaWvpu5cJtBO8xMU4s3ehXBf0rrRUwp0h1FD4jFdc2x1F1ef", {
-                method: "POST",
-                body: formData
-            });
-            alert("Order sent successfully!");
-        }
-        window.onload = fetchData;
-    </script>
+  <meta charset="UTF-8" />
+  <title>Silvio's 3D Prints</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, sans-serif; }
+    body { background: #f5f5f7; color: #111827; }
+    header {
+      background:#111827;color:#fff;
+      padding:1.2rem 1.5rem;
+      display:flex;justify-content:space-between;flex-wrap:wrap;gap:.75rem;
+    }
+    header h1 { font-size:1.5rem; }
+
+    main { max-width:1100px;margin:1.5rem auto;padding:0 1rem 2rem; }
+
+    .section {
+      background:#fff;border-radius:.75rem;
+      padding:1.25rem 1.5rem;
+      box-shadow:0 4px 10px rgba(0,0,0,.08);
+      margin-bottom:1.25rem;
+    }
+    .badge{padding:.15rem .5rem;background:#e5e7eb;border-radius:999px;font-size:.7rem;}
+    .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:1rem;margin-top:.75rem;}
+    .card{background:#f9fafb;border:1px solid #e5e7eb;padding:.9rem 1rem;border-radius:.75rem;display:flex;flex-direction:column;gap:.6rem;}
+    .card-header{display:flex;justify-content:space-between;align-items:flex-start;gap:.5rem;}
+    .price{font-weight:600;}
+    label{font-size:.8rem;margin-bottom:.15rem;}
+    select,input,textarea{
+      width:100%;padding:.4rem .5rem;border-radius:.5rem;border:1px solid #d1d5db;
+      background:#fff;color:#111827;
+    }
+    textarea{min-height:60px;}
+
+    button{
+      padding:.45rem .9rem;border:none;border-radius:999px;font-size:.85rem;font-weight:500;cursor:pointer;
+      transition:.1s;
+    }
+    button.primary{background:#111827;color:#fff;}
+    button.secondary{background:#e5e7eb;color:#111827;}
+    button:disabled{opacity:.45;cursor:not-allowed;box-shadow:none;transform:none;}
+
+    .two-column{display:grid;grid-template-columns:2fr 1.2fr;gap:1rem;}
+    @media(max-width:800px){ .two-column{grid-template-columns:1fr;} }
+
+    .order-summary-table{width:100%;border-collapse:collapse;font-size:.85rem;}
+    .order-summary-table td,.order-summary-table th{border-bottom:1px solid #e5e7eb;padding:.4rem;}
+    .order-summary-table th{text-align:left;}
+
+    .empty-note{font-size:.85rem;color:#6b7280;font-style:italic;}
+
+    .status-pill{
+      display:inline-block;
+      padding:0.15rem 0.5rem;
+      border-radius:999px;
+      font-size:0.75rem;
+      white-space:nowrap;
+    }
+    .status-instock{background:#bbf7d0;color:#166534;}
+    .status-temp{background:#fef9c3;color:#854d0e;}
+    .status-resup{background:#fee2f2;color:#9d174d;}
+    .status-soldout{background:#fecaca;color:#991b1b;}
+    .status-unknown{background:#e5e7eb;color:#374151;}
+
+    /* Dark mode */
+    body.dark { background:#020617;color:#e5e7eb; }
+    body.dark header{background:#020617;color:#e5e7eb;}
+    body.dark .section{background:#020617;border-color:#1f2937;box-shadow:none;}
+    body.dark .card{background:#020617;border-color:#1f2937;}
+    body.dark select,body.dark input,body.dark textarea{
+      background:#020617;border-color:#4b5563;color:#e5e7eb;
+    }
+    body.dark .order-summary-table td,
+    body.dark .order-summary-table th{border-color:#1f2937;}
+    body.dark button.secondary{background:#1f2937;color:#e5e7eb;}
+  </style>
 </head>
+
 <body>
-    <div class="container">
-        <h1>3D Print Order Form</h1>
-        <label for="prints">Choose a Print:</label>
-        <select id="prints" onchange="updatePrice()"></select>
-        <p>Price: <span id="price">$0</span></p>
-        <label for="color">Choose a Color:</label>
-        <select id="color">
-            <option value="Red">Red</option>
-            <option value="Blue">Blue</option>
-            <option value="Black">Black</option>
-            <option value="White">White</option>
+<header>
+  <div>
+    <h1>Silvio's 3D Printing</h1>
+    <p>Custom 3D prints, made to order.</p>
+  </div>
+  <div style="text-align:right;">
+    <div><strong>Worcester, MA</strong></div>
+    <button id="theme-toggle" class="secondary" style="margin-top:.4rem;">Dark mode</button>
+  </div>
+</header>
+
+<main>
+
+<section class="section">
+  <div class="two-column">
+
+    <!-- LEFT SIDE -->
+    <div>
+      <h2>Premade Prints <span class="badge">Live inventory</span></h2>
+      <p>Items, prices, and status are loaded from my Google Sheets inventory.</p>
+      <div id="premade-grid" class="grid"></div>
+
+      <hr style="margin:1.2rem 0;">
+
+      <h2>Custom Print <span class="badge">Price estimator</span></h2>
+      <p>Upload your model, choose options, and get an estimated price.</p>
+
+      <div class="card">
+        <label>Model file (STL / 3MF / OBJ)</label>
+        <input id="custom-file" type="file">
+
+        <label style="margin-top:.6rem;">Color</label>
+        <select id="custom-color"></select>
+
+        <label style="margin-top:.6rem;">Quantity</label>
+        <input id="custom-qty" type="number" min="1" value="1">
+
+        <label style="margin-top:.6rem;">Size</label>
+        <select id="custom-size">
+          <option value="small">Small (up to ~8 cm)</option>
+          <option value="medium" selected>Medium (~8–15 cm)</option>
+          <option value="large">Large (~15–22 cm)</option>
         </select>
-        <label for="printer">Choose a Printer:</label>
-        <select id="printer">
-            <option value="K9">K9 (Low Precision)</option>
-            <option value="Toybox Alpha">Toybox Alpha (High Precision)</option>
+
+        <label style="margin-top:.6rem;">Detail level</label>
+        <select id="custom-detail">
+          <option value="draft">Draft (fast print)</option>
+          <option value="standard" selected>Standard</option>
+          <option value="high">High detail</option>
         </select>
-        <div id="stlUpload" style="display: none;">
-            <label for="stl">Upload STL File:</label>
-            <input type="file" id="stl" accept=".stl">
-        </div>
-        <button onclick="sendOrder()">Place Order</button>
+
+        <label style="margin-top:.6rem;">Infill</label>
+        <select id="custom-infill">
+          <option value="light">Light (10–15%)</option>
+          <option value="standard" selected>Standard (20–30%)</option>
+          <option value="solid">Solid (40%+)</option>
+        </select>
+
+        <p id="custom-price-display" style="margin-top:.6rem;font-size:.85rem;">
+          Estimated price for this custom item(s): calculating...
+        </p>
+
+        <label style="margin-top:.6rem;">Notes</label>
+        <textarea id="custom-notes" placeholder="Size in cm, special requests, deadline, etc."></textarea>
+
+        <button class="primary" id="add-custom-btn" style="margin-top:.6rem;">Add custom print</button>
+      </div>
     </div>
+
+    <!-- RIGHT SIDE -->
+    <div>
+      <h2>Your Order Summary</h2>
+      <div id="order-summary-wrapper" class="card">
+        <div id="order-summary-body">
+          <p class="empty-note">No items added yet.</p>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:.75rem;">
+        <h3>Your Contact Info</h3>
+
+        <label style="margin-top:.4rem;">Name</label>
+        <input id="customer-name" type="text">
+
+        <label style="margin-top:.4rem;">Best way to contact you</label>
+        <input id="customer-contact" type="text" placeholder="Email or phone">
+
+        <label style="margin-top:.4rem;">Extra notes</label>
+        <textarea id="customer-notes"></textarea>
+
+        <button class="primary" id="send-discord-btn" style="margin-top:.75rem;width:100%;">Submit Order</button>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<section class="section">
+  <h2>Info</h2>
+  <p><strong>Location:</strong> Worcester, MA</p>
+  <p><strong>Materials:</strong> PLA / PETG (others available)</p>
+  <p><strong>Quality:</strong> Tuned for best results per print</p>
+</section>
+
+</main>
+
+<script>
+/* ===== CONFIG ===== */
+const DISCORD_WEBHOOK_URL =
+ "https://discord.com/api/webhooks/1438824526942175429/CZT4o7kLEhnwxHGoT_YHb8vfTr33n-GO3lHL5A-fGDyAicyJ_BbMTeY04_JXTPIZWiFu";
+
+const SHEET_ID = "11-9VxCZfMXiFpmEy2LUsmHtHlF8sIu_FuAX8oz-zQyE";
+const INVENTORY_SHEET_NAME = "Inventory";
+const COLORS_SHEET_NAME = "colors";
+
+/* Default fallback data (overwritten by Sheets if load succeeds) */
+const COLORS = [
+  {id:"red",  name:"Red",  status:"available"},
+  {id:"black",name:"Black",status:"available"},
+  {id:"blue", name:"Blue", status:"available"},
+  {id:"white",name:"White",status:"available"},
+];
+
+const PREMADE_PRINTS = [
+  { id:"placeholder", name:"Example Item", description:"Loaded from Sheets when available.", basePrice:10, stock:0, status:"Temporarily unavailable" }
+];
+
+/* ===== Helper functions ===== */
+
+function colorName(id){ return COLORS.find(c => c.id === id)?.name || id; }
+
+function normalizeStatus(status){
+  const s = (status || "").toLowerCase();
+  if (s.includes("in stock") || s.includes("available")) return "instock";
+  if (s.includes("temp")) return "temp";
+  if (s.includes("resup")) return "resup";
+  if (s.includes("sold")) return "soldout";
+  return "unknown";
+}
+
+function statusInfo(status){
+  const kind = normalizeStatus(status);
+  switch(kind){
+    case "instock": return {cls:"status-instock", label:status || "In stock", available:true};
+    case "temp": return {cls:"status-temp", label:status || "Temporarily unavailable", available:false};
+    case "resup": return {cls:"status-resup", label:status || "Being resupplied", available:false};
+    case "soldout": return {cls:"status-soldout", label:status || "Sold out", available:false};
+    default: return {cls:"status-unknown", label:status || "Status unknown", available:true};
+  }
+}
+
+function isColorAvailable(status){
+  const s = (status || "").toLowerCase();
+  return s.includes("available") || s.includes("in stock");
+}
+
+function parseCsv(text){
+  const lines = text.trim().split(/\r?\n/);
+  return lines.map(line => {
+    // simple split; assumes no commas inside fields
+    return line.split(",").map(v => v.trim());
+  });
+}
+
+/* ===== Theme (dark / light) ===== */
+const themeToggleBtn = document.getElementById("theme-toggle");
+
+function updateThemeButton(){
+  if (document.body.classList.contains("dark")) {
+    themeToggleBtn.textContent = "Light mode";
+  } else {
+    themeToggleBtn.textContent = "Dark mode";
+  }
+}
+
+function applySavedTheme(){
+  const saved = localStorage.getItem("silvio_theme") || "light";
+  if (saved === "dark") document.body.classList.add("dark");
+  updateThemeButton();
+}
+
+themeToggleBtn.addEventListener("click", () => {
+  document.body.classList.toggle("dark");
+  localStorage.setItem("silvio_theme", document.body.classList.contains("dark") ? "dark" : "light");
+  updateThemeButton();
+});
+
+/* ===== DOM refs ===== */
+const premadeGrid = document.getElementById("premade-grid");
+const customColorSelect = document.getElementById("custom-color");
+const customFileInput = document.getElementById("custom-file");
+const customQtyInput = document.getElementById("custom-qty");
+const customNotesInput = document.getElementById("custom-notes");
+const customSizeSelect = document.getElementById("custom-size");
+const customDetailSelect = document.getElementById("custom-detail");
+const customInfillSelect = document.getElementById("custom-infill");
+const customPriceDisplay = document.getElementById("custom-price-display");
+const addCustomBtn = document.getElementById("add-custom-btn");
+const orderSummaryBody = document.getElementById("order-summary-body");
+const sendBtn = document.getElementById("send-discord-btn");
+
+const customerName = document.getElementById("customer-name");
+const customerContact = document.getElementById("customer-contact");
+const customerNotes = document.getElementById("customer-notes");
+
+let orderItems = [];
+
+/* ===== Google Sheets data loading ===== */
+async function fetchSheetCsv(sheetName){
+  const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheetName)}`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error("Failed to fetch sheet " + sheetName);
+  return await res.text();
+}
+
+async function loadDataFromSheets(){
+  try {
+    const [invCsv, colCsv] = await Promise.all([
+      fetchSheetCsv(INVENTORY_SHEET_NAME),
+      fetchSheetCsv(COLORS_SHEET_NAME)
+    ]);
+
+    // COLORS
+    const colorRows = parseCsv(colCsv);
+    const newColors = [];
+    for (let i = 1; i < colorRows.length; i++){
+      const [name, status, notes] = colorRows[i];
+      if (!name) continue;
+      newColors.push({
+        id: name.toLowerCase(),
+        name,
+        status: status || ""
+      });
+    }
+    if (newColors.length){
+      COLORS.length = 0;
+      newColors.forEach(c => COLORS.push(c));
+    }
+
+    // INVENTORY
+    const invRows = parseCsv(invCsv);
+    const newItems = [];
+    for (let i = 1; i < invRows.length; i++){
+      const [itemName, priceStr, stockStr, status, notes] = invRows[i];
+      if (!itemName) continue;
+      const price = parseFloat((priceStr || "").replace(/[^\d.]/g,"")) || 0;
+      const stock = parseInt((stockStr || "").replace(/[^\d]/g,"")) || 0;
+      newItems.push({
+        id: itemName.toLowerCase().replace(/\s+/g,"_"),
+        name: itemName,
+        description: notes || "",
+        basePrice: price,
+        stock,
+        status: status || ""
+      });
+    }
+    if (newItems.length){
+      PREMADE_PRINTS.length = 0;
+      newItems.forEach(p => PREMADE_PRINTS.push(p));
+    }
+  } catch (err){
+    console.error("Error loading Sheets data:", err);
+  }
+}
+
+/* ===== Order / cart logic ===== */
+function renderColorsToSelect(){
+  customColorSelect.innerHTML = "";
+  COLORS.forEach(c => {
+    const opt = document.createElement("option");
+    opt.value = c.id;
+    opt.textContent = isColorAvailable(c.status) ? c.name : `${c.name} (${c.status || "Unavailable"})`;
+    if (!isColorAvailable(c.status)) opt.disabled = true;
+    customColorSelect.appendChild(opt);
+  });
+}
+
+function addItemToCart(item){
+  const existing = orderItems.find(i =>
+    i.type === item.type &&
+    i.name === item.name &&
+    i.color === item.color &&
+    (i.notes || "") === (item.notes || "")
+  );
+  if (existing){
+    existing.qty += item.qty;
+    if (item.priceEach && !existing.priceEach) existing.priceEach = item.priceEach;
+  } else {
+    orderItems.push(item);
+  }
+  renderOrderSummary();
+}
+
+function renderPremadeCards(){
+  premadeGrid.innerHTML = "";
+  PREMADE_PRINTS.forEach(item => {
+    const card = document.createElement("div");
+    card.className = "card";
+
+    const header = document.createElement("div");
+    header.className = "card-header";
+
+    const titleDiv = document.createElement("div");
+    titleDiv.innerHTML = `<strong>${item.name}</strong><br>
+      <span style="font-size:.8rem;color:#4b5563;">$${item.basePrice.toFixed(2)}</span>`;
+    header.appendChild(titleDiv);
+
+    const stInfo = statusInfo(item.status);
+    const pill = document.createElement("span");
+    pill.className = `status-pill ${stInfo.cls}`;
+    pill.textContent = stInfo.label;
+    header.appendChild(pill);
+
+    card.appendChild(header);
+
+    if (item.description){
+      const desc = document.createElement("p");
+      desc.style.fontSize = ".85rem";
+      desc.textContent = item.description;
+      card.appendChild(desc);
+    }
+
+    const formWrap = document.createElement("div");
+    formWrap.style.marginTop = ".4rem";
+
+    const colorLabel = document.createElement("label");
+    colorLabel.textContent = "Color";
+    const colorSel = document.createElement("select");
+    COLORS.forEach(c => {
+      const opt = document.createElement("option");
+      opt.value = c.id;
+      opt.textContent = isColorAvailable(c.status) ? c.name : `${c.name} (${c.status || "Unavailable"})`;
+      if (!isColorAvailable(c.status)) opt.disabled = true;
+      colorSel.appendChild(opt);
+    });
+
+    const qtyLabel = document.createElement("label");
+    qtyLabel.style.marginTop = ".4rem";
+    qtyLabel.textContent = "Quantity";
+    const qtyInput = document.createElement("input");
+    qtyInput.type = "number"; qtyInput.min = "1"; qtyInput.value = "1";
+
+    formWrap.appendChild(colorLabel);
+    formWrap.appendChild(colorSel);
+    formWrap.appendChild(qtyLabel);
+    formWrap.appendChild(qtyInput);
+    card.appendChild(formWrap);
+
+    const addBtn = document.createElement("button");
+    addBtn.className = "primary";
+    addBtn.style.marginTop = ".6rem";
+    addBtn.textContent = "Add to order";
+
+    if (!stInfo.available || item.stock === 0){
+      addBtn.disabled = true;
+      addBtn.textContent = "Unavailable";
+    }
+
+    addBtn.addEventListener("click", () => {
+      const qty = Math.max(parseInt(qtyInput.value) || 1, 1);
+      addItemToCart({
+        type: "premade",
+        name: item.name,
+        qty,
+        color: colorSel.value,
+        notes: "",
+        priceEach: item.basePrice
+      });
+    });
+
+    card.appendChild(addBtn);
+    premadeGrid.appendChild(card);
+  });
+}
+
+function renderOrderSummary(){
+  if (orderItems.length === 0){
+    orderSummaryBody.innerHTML = `<p class="empty-note">No items added yet.</p>`;
+    return;
+  }
+
+  let html = `<table class="order-summary-table">
+    <tr><th>Item</th><th>Qty</th><th>Color</th><th>Est. each</th><th>Est. total</th></tr>`;
+
+  orderItems.forEach(i => {
+    const each = i.priceEach ? `$${i.priceEach.toFixed(2)}` : "-";
+    const total = i.priceEach ? `$${(i.priceEach * i.qty).toFixed(2)}` : "-";
+    html += `<tr>
+      <td>${i.name}</td>
+      <td>${i.qty}</td>
+      <td>${colorName(i.color)}</td>
+      <td>${each}</td>
+      <td>${total}</td>
+    </tr>`;
+  });
+
+  html += `</table>`;
+  orderSummaryBody.innerHTML = html;
+}
+
+/* ===== Custom price estimator ===== */
+function calculateCustomPrice(){
+  let base = 8; // base small print
+  const size = customSizeSelect.value;
+  const detail = customDetailSelect.value;
+  const infill = customInfillSelect.value;
+  const qty = Math.max(Number(customQtyInput.value) || 1, 1);
+
+  let mult = 1;
+  if (size === "medium") mult *= 1.5;
+  else if (size === "large") mult *= 2.2;
+
+  if (detail === "draft") mult *= 0.9;
+  else if (detail === "high") mult *= 1.3;
+
+  if (infill === "standard") mult *= 1.1;
+  else if (infill === "solid") mult *= 1.25;
+
+  let priceEach = base * mult;
+  // keep it reasonable
+  priceEach = Math.max(5, Math.min(priceEach, 60));
+
+  const total = priceEach * qty;
+  return { priceEach, total };
+}
+
+function updateCustomPriceDisplay(){
+  const { priceEach, total } = calculateCustomPrice();
+  customPriceDisplay.textContent =
+    `Estimated price: $${priceEach.toFixed(2)} each, $${total.toFixed(2)} total`;
+}
+
+/* ===== Order number generator ===== */
+function getNextOrderNumber(){
+  let n = parseInt(localStorage.getItem("silvio_order_counter") || "0", 10);
+  n += 1;
+  localStorage.setItem("silvio_order_counter", String(n));
+  return n;
+}
+
+/* ===== Custom add button ===== */
+addCustomBtn.addEventListener("click", () => {
+  const file = customFileInput.files[0];
+  const qty = Math.max(Number(customQtyInput.value) || 1, 1);
+  const { priceEach } = calculateCustomPrice();
+
+  addItemToCart({
+    type: "custom",
+    name: file ? file.name : "(Custom model – no file name)",
+    qty,
+    color: customColorSelect.value,
+    notes: customNotesInput.value.trim(),
+    priceEach
+  });
+});
+
+/* ===== Build Discord message & submit ===== */
+function buildDiscordMessage(orderNumber){
+  let msg = `📦 **New 3D Print Order #${String(orderNumber).padStart(4,"0")}**\n`;
+
+  const name = customerName.value.trim();
+  const contact = customerContact.value.trim();
+  const extra = customerNotes.value.trim();
+
+  if (name) msg += `**Name:** ${name}\n`;
+  if (contact) msg += `**Contact:** ${contact}\n`;
+  if (extra) msg += `**Extra notes:** ${extra}\n`;
+
+  msg += `\n**Items:**\n`;
+  if (orderItems.length === 0){
+    msg += `- (No items added)\n`;
+  } else {
+    orderItems.forEach((i, idx) => {
+      msg += `**${idx+1}. ${i.name}**\n`;
+      msg += `Qty: ${i.qty}\n`;
+      msg += `Color: ${colorName(i.color)}\n`;
+      if (i.priceEach){
+        msg += `Estimated price each: $${i.priceEach.toFixed(2)}\n`;
+        msg += `Estimated total: $${(i.priceEach * i.qty).toFixed(2)}\n`;
+      }
+      if (i.notes) msg += `Notes: ${i.notes}\n`;
+      msg += `\n`;
+    });
+  }
+
+  return msg;
+}
+
+sendBtn.addEventListener("click", () => {
+  const orderNumber = getNextOrderNumber();
+  const msg = buildDiscordMessage(orderNumber);
+
+  const fd = new FormData();
+  fd.append("content", msg);
+
+  fetch(DISCORD_WEBHOOK_URL, {
+    method: "POST",
+    body: fd
+  }).finally(() => {
+    alert("Order submitted");
+  });
+});
+
+/* ===== Init ===== */
+async function init(){
+  applySavedTheme();
+  await loadDataFromSheets();
+  renderColorsToSelect();
+  renderPremadeCards();
+  renderOrderSummary();
+  updateCustomPriceDisplay();
+}
+
+customQtyInput.addEventListener("input", updateCustomPriceDisplay);
+customSizeSelect.addEventListener("change", updateCustomPriceDisplay);
+customDetailSelect.addEventListener("change", updateCustomPriceDisplay);
+customInfillSelect.addEventListener("change", updateCustomPriceDisplay);
+
+init();
+</script>
+
 </body>
 </html>

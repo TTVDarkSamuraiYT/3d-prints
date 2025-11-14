@@ -238,10 +238,7 @@ function isColorAvailable(status){
 
 function parseCsv(text){
   const lines = text.trim().split(/\r?\n/);
-  return lines.map(line => {
-    // simple split; assumes no commas inside fields
-    return line.split(",").map(v => v.trim());
-  });
+  return lines.map(line => line.split(",").map(v => v.trim()));
 }
 
 /* ===== Theme (dark / light) ===== */
@@ -367,6 +364,8 @@ function addItemToCart(item){
   if (existing){
     existing.qty += item.qty;
     if (item.priceEach && !existing.priceEach) existing.priceEach = item.priceEach;
+    // If existing has no file but the new item does, keep the file for sending
+    if (!existing.file && item.file) existing.file = item.file;
   } else {
     orderItems.push(item);
   }
@@ -446,7 +445,8 @@ function renderPremadeCards(){
         qty,
         color: colorSel.value,
         notes: "",
-        priceEach: item.basePrice
+        priceEach: item.basePrice,
+        file: null
       });
     });
 
@@ -468,7 +468,7 @@ function renderOrderSummary(){
     const each = i.priceEach ? `$${i.priceEach.toFixed(2)}` : "-";
     const total = i.priceEach ? `$${(i.priceEach * i.qty).toFixed(2)}` : "-";
     html += `<tr>
-      <td>${i.name}</td>
+      <td>${i.name}${i.type === "custom" ? " (custom)" : ""}</td>
       <td>${i.qty}</td>
       <td>${colorName(i.color)}</td>
       <td>${each}</td>
@@ -522,7 +522,7 @@ function getNextOrderNumber(){
 
 /* ===== Custom add button ===== */
 addCustomBtn.addEventListener("click", () => {
-  const file = customFileInput.files[0];
+  const file = customFileInput.files[0] || null;
   const qty = Math.max(Number(customQtyInput.value) || 1, 1);
   const { priceEach } = calculateCustomPrice();
 
@@ -532,7 +532,8 @@ addCustomBtn.addEventListener("click", () => {
     qty,
     color: customColorSelect.value,
     notes: customNotesInput.value.trim(),
-    priceEach
+    priceEach,
+    file // keep File object so we can send it to Discord
   });
 });
 
@@ -553,12 +554,15 @@ function buildDiscordMessage(orderNumber){
     msg += `- (No items added)\n`;
   } else {
     orderItems.forEach((i, idx) => {
-      msg += `**${idx+1}. ${i.name}**\n`;
+      msg += `**${idx+1}. ${i.name}${i.type === "custom" ? " (custom)" : ""}**\n`;
       msg += `Qty: ${i.qty}\n`;
       msg += `Color: ${colorName(i.color)}\n`;
       if (i.priceEach){
         msg += `Estimated price each: $${i.priceEach.toFixed(2)}\n`;
         msg += `Estimated total: $${(i.priceEach * i.qty).toFixed(2)}\n`;
+      }
+      if (i.type === "custom" && i.file){
+        msg += `File: ${i.file.name} (attached)\n`;
       }
       if (i.notes) msg += `Notes: ${i.notes}\n`;
       msg += `\n`;
@@ -574,6 +578,20 @@ sendBtn.addEventListener("click", () => {
 
   const fd = new FormData();
   fd.append("content", msg);
+
+  // Attach all custom print files (if any)
+  const files = [];
+  orderItems.forEach(i => {
+    if (i.type === "custom" && i.file instanceof File) {
+      files.push(i.file);
+    }
+  });
+
+  files.forEach((file, idx) => {
+    // Discord accepts file, file1, file2, ...
+    const fieldName = idx === 0 ? "file" : `file${idx+1}`;
+    fd.append(fieldName, file, file.name);
+  });
 
   fetch(DISCORD_WEBHOOK_URL, {
     method: "POST",

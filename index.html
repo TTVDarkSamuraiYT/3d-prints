@@ -257,7 +257,7 @@ function normalizeStatus(status){
   const s = (status || "").toLowerCase();
   if (s.includes("temporarily")) return "temp";
   if (s.includes("limited")) return "limited";
-  if (s.includes("unavailable")) return "unavailable"; // plain "unavailable"
+  if (s.includes("unavailable")) return "unavailable";
   if (s.includes("available") || s.includes("in stock")) return "instock";
   if (s.includes("resup")) return "resup";
   return "unknown";
@@ -285,7 +285,7 @@ function parseCsv(text){
   return lines.map(line => line.split(",").map(cleanCell));
 }
 
-/* ===== Contact validation ===== */
+/* ===== Contact & phone formatting ===== */
 function looksLikeEmail(str){
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   return emailRegex.test(str);
@@ -293,8 +293,10 @@ function looksLikeEmail(str){
 
 function isNonTrivialEmail(email){
   const lower = email.toLowerCase();
-  const [local, domain] = lower.split("@");
-  if (!local || !domain) return false;
+  const parts = lower.split("@");
+  if (parts.length !== 2) return false;
+  const local = parts[0];
+  const domain = parts[1];
 
   const bannedLocals = ["spam","fake","test","asdf","none","noemail","na"];
   if (bannedLocals.includes(local)) return false;
@@ -312,10 +314,25 @@ function looksLikePhone(str){
 function isNonTrivialPhone(str){
   const digits = str.replace(/\D/g,"");
   if (digits.length < 10 || digits.length > 15) return false;
-  if (/^(\d)\1+$/.test(digits)) return false;          // all same digit
+  if (/^(\d)\1+$/.test(digits)) return false;
   const banned = ["0000000000","1111111111","1234567890","7740000000"];
   if (banned.includes(digits)) return false;
   return true;
+}
+
+function formatPhoneDisplay(digits){
+  let d = digits.replace(/\D/g,"");
+  if (d.length > 11) d = d.slice(0,11);
+
+  if (d.length <= 3) {
+    return "(" + d;
+  } else if (d.length <= 6) {
+    return "(" + d.slice(0,3) + ")-" + d.slice(3);
+  } else if (d.length <= 10) {
+    return "(" + d.slice(0,3) + ")-" + d.slice(3,6) + "-" + d.slice(6);
+  } else {
+    return "(" + d.slice(0,3) + ")-" + d.slice(3,7) + "-" + d.slice(7);
+  }
 }
 
 function isValidContact(str){
@@ -374,6 +391,21 @@ const customerNotes = document.getElementById("customer-notes");
 
 let orderItems = [];
 
+/* Live formatting for phone input (but not email / letters) */
+customerContact.addEventListener("input", () => {
+  let val = customerContact.value;
+  // If user typed any letters or '@', assume email / text and don't auto-format
+  if (/[a-zA-Z@]/.test(val)) {
+    return;
+  }
+  const digits = val.replace(/\D/g,"");
+  if (!digits) {
+    customerContact.value = "";
+    return;
+  }
+  customerContact.value = formatPhoneDisplay(digits);
+});
+
 /* ===== Google Sheets data loading ===== */
 async function fetchSheetCsv(sheetName){
   const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheetName)}`;
@@ -423,7 +455,7 @@ async function loadDataFromSheets(){
 
       const price = parseFloat((priceStr || "").replace(/[^\d.]/g,"")) || 0;
 
-      let stock = null; // null = not tracked / print-to-order
+      let stock = null;
       if (stockStr) {
         stock = parseInt((stockStr || "").replace(/[^\d]/g,"")) || 0;
       }
@@ -551,7 +583,6 @@ function renderPremadeCards(){
     addBtn.style.marginTop = ".6rem";
     addBtn.textContent = "Add to order";
 
-    // Disable if status is unavailable-type OR explicit stock 0.
     if (!stInfo.available || (item.stock !== null && item.stock === 0)){
       addBtn.disabled = true;
       addBtn.textContent = "Unavailable";
@@ -561,7 +592,6 @@ function renderPremadeCards(){
       let qty = Math.max(parseInt(qtyInput.value) || 1, 1);
 
       if (statusKind === "limited" && item.stock !== null){
-        // Total quantity already in cart for this premade name
         let currentTotal = 0;
         orderItems.forEach(it => {
           if (it.type === "premade" && it.name === item.name){
@@ -628,7 +658,6 @@ function renderOrderSummary(){
   html += `</table>`;
   orderSummaryBody.innerHTML = html;
 
-  // Attach quantity handlers
   orderSummaryBody.querySelectorAll(".qty-btn").forEach(btn => {
     const index = parseInt(btn.dataset.index, 10);
     const dir = parseInt(btn.dataset.dir, 10);
@@ -637,7 +666,6 @@ function renderOrderSummary(){
       if (!item) return;
 
       if (dir > 0) {
-        // Check limited stock before incrementing
         const statusKind = normalizeStatus(item.status);
         if (statusKind === "limited" && item.stock !== null){
           let totalQty = 0;
@@ -647,7 +675,6 @@ function renderOrderSummary(){
             }
           });
           if (totalQty >= item.stock){
-            // Can't go above stock
             return;
           }
         }
@@ -662,7 +689,6 @@ function renderOrderSummary(){
     });
   });
 
-  // Attach remove handlers
   orderSummaryBody.querySelectorAll(".remove-btn").forEach(btn => {
     const index = parseInt(btn.dataset.index, 10);
     btn.addEventListener("click", () => {
@@ -704,12 +730,23 @@ function updateCustomPriceDisplay(){
     `Estimated price: $${priceEach.toFixed(2)} each, $${total.toFixed(2)} total`;
 }
 
-/* ===== Order number generator ===== */
+/* ===== Order number generator: resets automatically per day ===== */
+function getTodayKey(){
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2,"0");
+  const day = String(d.getDate()).padStart(2,"0");
+  return `${y}${m}${day}`; // e.g. 20251116
+}
+
 function getNextOrderNumber(){
-  let n = parseInt(localStorage.getItem("silvio_order_counter") || "0", 10);
+  const dayKey = getTodayKey();
+  const storageKey = `silvio_order_counter_${dayKey}`;
+  let n = parseInt(localStorage.getItem(storageKey) || "0", 10);
   n += 1;
-  localStorage.setItem("silvio_order_counter", String(n));
-  return n;
+  localStorage.setItem(storageKey, String(n));
+  // Return human-readable ID like 20251116-001
+  return `${dayKey}-${String(n).padStart(3,"0")}`;
 }
 
 /* ===== Custom add button ===== */
@@ -735,22 +772,27 @@ addCustomBtn.addEventListener("click", () => {
     stock: null
   });
 
-  // Reset file and quantity after adding
   customFileInput.value = "";
   customQtyInput.value = "1";
   updateCustomPriceDisplay();
 });
 
 /* ===== Build Discord message & submit ===== */
-function buildDiscordMessage(orderNumber){
-  let msg = `📦 **New 3D Print Order #${String(orderNumber).padStart(4,"0")}**\n`;
+function buildDiscordMessage(orderId){
+  let msg = `📦 **New 3D Print Order #${orderId}**\n`;
 
   const name = customerName.value.trim();
-  const contact = customerContact.value.trim();
+  const rawContact = customerContact.value.trim();
   const extra = customerNotes.value.trim();
 
+  let displayContact = rawContact;
+  if (looksLikePhone(rawContact)) {
+    const digits = rawContact.replace(/\D/g,"");
+    displayContact = formatPhoneDisplay(digits);
+  }
+
   if (name) msg += `**Name:** ${name}\n`;
-  if (contact) msg += `**Contact:** ${contact}\n`;
+  if (rawContact) msg += `**Contact:** ${displayContact}\n`;
   if (extra) msg += `**Extra notes:** ${extra}\n`;
 
   msg += `\n**Items:**\n`;
@@ -787,8 +829,8 @@ sendBtn.addEventListener("click", () => {
     return;
   }
 
-  const orderNumber = getNextOrderNumber();
-  const msg = buildDiscordMessage(orderNumber);
+  const orderId = getNextOrderNumber();
+  const msg = buildDiscordMessage(orderId);
 
   const fd = new FormData();
   fd.append("content", msg);

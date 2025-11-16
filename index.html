@@ -28,12 +28,11 @@
       background:#e5e7eb;
       border-radius:999px;
       font-size:.7rem;
-      color:#111827; /* dark text so visible in dark mode too */
+      color:#111827;
     }
     .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:1rem;margin-top:.75rem;}
     .card{background:#f9fafb;border:1px solid #e5e7eb;padding:.9rem 1rem;border-radius:.75rem;display:flex;flex-direction:column;gap:.6rem;}
     .card-header{display:flex;justify-content:space-between;align-items:flex-start;gap:.5rem;}
-    .price{font-weight:600;}
     label{font-size:.8rem;margin-bottom:.15rem;}
     select,input,textarea{
       width:100%;padding:.4rem .5rem;border-radius:.5rem;border:1px solid #d1d5db;
@@ -195,13 +194,13 @@
       <div class="card" style="margin-top:.75rem;">
         <h3>Your Contact Info</h3>
 
-        <label style="margin-top:.4rem;">Name</label>
+        <label style="margin-top:.4rem;">Name (optional)</label>
         <input id="customer-name" type="text">
 
-        <label style="margin-top:.4rem;">Best way to contact you</label>
+        <label style="margin-top:.4rem;">Best way to contact you (required)</label>
         <input id="customer-contact" type="text" placeholder="Email or phone">
 
-        <label style="margin-top:.4rem;">Extra notes</label>
+        <label style="margin-top:.4rem;">Extra notes (optional)</label>
         <textarea id="customer-notes"></textarea>
 
         <button class="primary" id="send-discord-btn" style="margin-top:.75rem;width:100%;">Submit Order</button>
@@ -443,6 +442,7 @@ function renderPremadeCards(){
     header.appendChild(titleDiv);
 
     const stInfo = statusInfo(item.status);
+    const statusKind = normalizeStatus(item.status);
     const pill = document.createElement("span");
     pill.className = `status-pill ${stInfo.cls}`;
     pill.textContent = stInfo.label;
@@ -455,6 +455,14 @@ function renderPremadeCards(){
       desc.style.fontSize = ".85rem";
       desc.textContent = item.description;
       card.appendChild(desc);
+    }
+
+    if (statusKind === "limited" && item.stock !== null){
+      const stockP = document.createElement("p");
+      stockP.style.fontSize = ".8rem";
+      stockP.style.color = "#b45309";
+      stockP.textContent = `Limited stock: ${item.stock} available`;
+      card.appendChild(stockP);
     }
 
     const formWrap = document.createElement("div");
@@ -475,7 +483,12 @@ function renderPremadeCards(){
     qtyLabel.style.marginTop = ".4rem";
     qtyLabel.textContent = "Quantity";
     const qtyInput = document.createElement("input");
-    qtyInput.type = "number"; qtyInput.min = "1"; qtyInput.value = "1";
+    qtyInput.type = "number";
+    qtyInput.min = "1";
+    qtyInput.value = "1";
+    if (statusKind === "limited" && item.stock !== null){
+      qtyInput.max = String(item.stock);
+    }
 
     formWrap.appendChild(colorLabel);
     formWrap.appendChild(colorSel);
@@ -495,7 +508,27 @@ function renderPremadeCards(){
     }
 
     addBtn.addEventListener("click", () => {
-      const qty = Math.max(parseInt(qtyInput.value) || 1, 1);
+      let qty = Math.max(parseInt(qtyInput.value) || 1, 1);
+
+      if (statusKind === "limited" && item.stock !== null){
+        // Total quantity already in cart for this premade name
+        let currentTotal = 0;
+        orderItems.forEach(it => {
+          if (it.type === "premade" && it.name === item.name){
+            currentTotal += it.qty;
+          }
+        });
+        const remaining = item.stock - currentTotal;
+        if (remaining <= 0){
+          alert("No more of this limited item are available.");
+          return;
+        }
+        if (qty > remaining){
+          alert(`Only ${remaining} of this limited item are left.`);
+          qty = remaining;
+        }
+      }
+
       addItemToCart({
         type: "premade",
         name: item.name,
@@ -503,7 +536,9 @@ function renderPremadeCards(){
         color: colorSel.value,
         notes: "",
         priceEach: item.basePrice,
-        file: null
+        file: null,
+        status: item.status || "",
+        stock: item.stock
       });
     });
 
@@ -548,10 +583,30 @@ function renderOrderSummary(){
     const index = parseInt(btn.dataset.index, 10);
     const dir = parseInt(btn.dataset.dir, 10);
     btn.addEventListener("click", () => {
-      if (!orderItems[index]) return;
-      orderItems[index].qty += dir;
-      if (orderItems[index].qty <= 0) {
-        orderItems.splice(index, 1);
+      const item = orderItems[index];
+      if (!item) return;
+
+      if (dir > 0) {
+        // Check limited stock before incrementing
+        const statusKind = normalizeStatus(item.status);
+        if (statusKind === "limited" && item.stock !== null){
+          let totalQty = 0;
+          orderItems.forEach(it => {
+            if (it.type === "premade" && it.name === item.name){
+              totalQty += it.qty;
+            }
+          });
+          if (totalQty >= item.stock){
+            // Can't go above stock
+            return;
+          }
+        }
+        item.qty += 1;
+      } else {
+        item.qty -= 1;
+        if (item.qty <= 0){
+          orderItems.splice(index, 1);
+        }
       }
       renderOrderSummary();
     });
@@ -625,12 +680,15 @@ addCustomBtn.addEventListener("click", () => {
     color: customColorSelect.value,
     notes: customNotesInput.value.trim(),
     priceEach,
-    file
+    file,
+    status: null,
+    stock: null
   });
 
   // Reset file and quantity after adding
   customFileInput.value = "";
   customQtyInput.value = "1";
+  updateCustomPriceDisplay();
 });
 
 /* ===== Build Discord message & submit ===== */
@@ -669,6 +727,12 @@ function buildDiscordMessage(orderNumber){
 }
 
 sendBtn.addEventListener("click", () => {
+  const contact = customerContact.value.trim();
+  if (!contact){
+    alert("Please enter at least an email or phone number so I can contact you.");
+    return;
+  }
+
   const orderNumber = getNextOrderNumber();
   const msg = buildDiscordMessage(orderNumber);
 

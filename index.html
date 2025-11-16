@@ -28,7 +28,7 @@
       background:#e5e7eb;
       border-radius:999px;
       font-size:.7rem;
-      color:#111827; /* darker text so it shows on light pill */
+      color:#111827; /* dark text so visible in dark mode too */
     }
     .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:1rem;margin-top:.75rem;}
     .card{background:#f9fafb;border:1px solid #e5e7eb;padding:.9rem 1rem;border-radius:.75rem;display:flex;flex-direction:column;gap:.6rem;}
@@ -53,7 +53,7 @@
     @media(max-width:800px){ .two-column{grid-template-columns:1fr;} }
 
     .order-summary-table{width:100%;border-collapse:collapse;font-size:.85rem;}
-    .order-summary-table td,.order-summary-table th{border-bottom:1px solid #e5e7eb;padding:.4rem;}
+    .order-summary-table td,.order-summary-table th{border-bottom:1px solid #e5e7eb;padding:.4rem;vertical-align:middle;}
     .order-summary-table th{text-align:left;}
 
     .empty-note{font-size:.85rem;color:#6b7280;font-style:italic;}
@@ -68,8 +68,36 @@
     .status-instock{background:#bbf7d0;color:#166534;}
     .status-temp{background:#fef9c3;color:#854d0e;}
     .status-resup{background:#fee2f2;color:#9d174d;}
-    .status-soldout{background:#fecaca;color:#991b1b;}
+    .status-limited{background:#e0f2fe;color:#075985;}
+    .status-unavailable{background:#fecaca;color:#991b1b;}
     .status-unknown{background:#e5e7eb;color:#374151;}
+
+    .qty-controls{
+      display:inline-flex;
+      align-items:center;
+      gap:.25rem;
+    }
+    .qty-btn{
+      padding:.1rem .45rem;
+      border-radius:999px;
+      border:none;
+      font-size:.85rem;
+      cursor:pointer;
+      background:#e5e7eb;
+      color:#111827;
+    }
+    body.dark .qty-btn{background:#1f2937;color:#e5e7eb;}
+
+    .remove-btn{
+      padding:.1rem .5rem;
+      border-radius:999px;
+      border:none;
+      background:#fee2e2;
+      color:#991b1b;
+      cursor:pointer;
+      font-size:.75rem;
+    }
+    body.dark .remove-btn{background:#7f1d1d;color:#fee2e2;}
 
     /* Dark mode */
     body.dark { background:#020617;color:#e5e7eb; }
@@ -82,7 +110,6 @@
     body.dark .order-summary-table td,
     body.dark .order-summary-table th{border-color:#1f2937;}
     body.dark button.secondary{background:#1f2937;color:#e5e7eb;}
-    body.dark .badge{ color:#111827; } /* keep badge text dark in dark mode too */
   </style>
 </head>
 
@@ -146,7 +173,7 @@
         </select>
 
         <p id="custom-price-display" style="margin-top:.6rem;font-size:.85rem;">
-          Estimated price for this custom item(s): calculating...
+          Estimated price: ...
         </p>
 
         <label style="margin-top:.6rem;">Notes</label>
@@ -204,14 +231,14 @@ const COLORS_SHEET_NAME = "colors";
 
 /* Default fallback data (overwritten by Sheets if load succeeds) */
 const COLORS = [
-  {id:"red",  name:"Red",  status:"available"},
-  {id:"black",name:"Black",status:"available"},
-  {id:"blue", name:"Blue", status:"available"},
-  {id:"white",name:"White",status:"available"},
+  {id:"red",  name:"Red",  status:"Available"},
+  {id:"black",name:"Black",status:"Available"},
+  {id:"blue", name:"Blue", status:"Available"},
+  {id:"white",name:"White",status:"Available"},
 ];
 
 const PREMADE_PRINTS = [
-  { id:"placeholder", name:"Example Item", description:"Loaded from Sheets when available.", basePrice:10, stock:0, status:"Temporarily unavailable" }
+  { id:"placeholder", name:"Example Item", description:"Loaded from Sheets when available.", basePrice:10, stock:null, status:"Temporarily unavailable" }
 ];
 
 /* ===== Helper functions ===== */
@@ -229,27 +256,29 @@ function colorName(id){ return COLORS.find(c => c.id === id)?.name || id; }
 
 function normalizeStatus(status){
   const s = (status || "").toLowerCase();
-  if (s.includes("in stock") || s.includes("available")) return "instock";
-  if (s.includes("temp")) return "temp";
+  if (s.includes("temporarily")) return "temp";
+  if (s.includes("limited")) return "limited";
+  if (s.includes("unavailable")) return "unavailable"; // plain "unavailable"
+  if (s.includes("available") || s.includes("in stock")) return "instock";
   if (s.includes("resup")) return "resup";
-  if (s.includes("sold")) return "soldout";
   return "unknown";
 }
 
 function statusInfo(status){
   const kind = normalizeStatus(status);
   switch(kind){
-    case "instock": return {cls:"status-instock", label:status || "In stock", available:true};
+    case "instock": return {cls:"status-instock", label:status || "Available", available:true};
+    case "limited": return {cls:"status-limited", label:status || "Limited", available:true};
     case "temp": return {cls:"status-temp", label:status || "Temporarily unavailable", available:false};
     case "resup": return {cls:"status-resup", label:status || "Being resupplied", available:false};
-    case "soldout": return {cls:"status-soldout", label:status || "Sold out", available:false};
+    case "unavailable": return {cls:"status-unavailable", label:status || "Unavailable", available:false};
     default: return {cls:"status-unknown", label:status || "Status unknown", available:true};
   }
 }
 
 function isColorAvailable(status){
-  const s = (status || "").toLowerCase();
-  return s.includes("available") || s.includes("in stock");
+  const k = normalizeStatus(status);
+  return k === "instock" || k === "limited";
 }
 
 function parseCsv(text){
@@ -342,7 +371,7 @@ async function loadDataFromSheets(){
       const status = statusRaw;
       const notes = notesRaw;
 
-      // Required: item name, price, status. Stock can be blank (print-to-order).
+      // Required: item name, price, status. Stock can be blank.
       if (!itemName || !priceStr || !status) continue;
 
       const price = parseFloat((priceStr || "").replace(/[^\d.]/g,"")) || 0;
@@ -459,7 +488,7 @@ function renderPremadeCards(){
     addBtn.style.marginTop = ".6rem";
     addBtn.textContent = "Add to order";
 
-    // Disable if status is unavailable OR explicit stock 0.
+    // Disable if status is unavailable-type OR explicit stock 0.
     if (!stInfo.available || (item.stock !== null && item.stock === 0)){
       addBtn.disabled = true;
       addBtn.textContent = "Unavailable";
@@ -490,22 +519,53 @@ function renderOrderSummary(){
   }
 
   let html = `<table class="order-summary-table">
-    <tr><th>Item</th><th>Qty</th><th>Color</th><th>Est. each</th><th>Est. total</th></tr>`;
+    <tr><th>Item</th><th>Qty</th><th>Color</th><th>Est. each</th><th>Est. total</th><th></th></tr>`;
 
-  orderItems.forEach(i => {
+  orderItems.forEach((i, idx) => {
     const each = i.priceEach ? `$${i.priceEach.toFixed(2)}` : "-";
     const total = i.priceEach ? `$${(i.priceEach * i.qty).toFixed(2)}` : "-";
     html += `<tr>
       <td>${i.name}${i.type === "custom" ? " (custom)" : ""}</td>
-      <td>${i.qty}</td>
+      <td>
+        <div class="qty-controls">
+          <button class="qty-btn" data-index="${idx}" data-dir="-1">-</button>
+          <span>${i.qty}</span>
+          <button class="qty-btn" data-index="${idx}" data-dir="1">+</button>
+        </div>
+      </td>
       <td>${colorName(i.color)}</td>
       <td>${each}</td>
       <td>${total}</td>
+      <td><button class="remove-btn" data-index="${idx}">Remove</button></td>
     </tr>`;
   });
 
   html += `</table>`;
   orderSummaryBody.innerHTML = html;
+
+  // Attach quantity handlers
+  orderSummaryBody.querySelectorAll(".qty-btn").forEach(btn => {
+    const index = parseInt(btn.dataset.index, 10);
+    const dir = parseInt(btn.dataset.dir, 10);
+    btn.addEventListener("click", () => {
+      if (!orderItems[index]) return;
+      orderItems[index].qty += dir;
+      if (orderItems[index].qty <= 0) {
+        orderItems.splice(index, 1);
+      }
+      renderOrderSummary();
+    });
+  });
+
+  // Attach remove handlers
+  orderSummaryBody.querySelectorAll(".remove-btn").forEach(btn => {
+    const index = parseInt(btn.dataset.index, 10);
+    btn.addEventListener("click", () => {
+      if (!orderItems[index]) return;
+      orderItems.splice(index, 1);
+      renderOrderSummary();
+    });
+  });
 }
 
 /* ===== Custom price estimator ===== */
@@ -549,19 +609,28 @@ function getNextOrderNumber(){
 
 /* ===== Custom add button ===== */
 addCustomBtn.addEventListener("click", () => {
-  const file = customFileInput.files[0] || null;
+  const file = customFileInput.files[0];
+  if (!file) {
+    alert("Please choose a model file before adding a custom print.");
+    return;
+  }
+
   const qty = Math.max(Number(customQtyInput.value) || 1, 1);
   const { priceEach } = calculateCustomPrice();
 
   addItemToCart({
     type: "custom",
-    name: file ? file.name : "(Custom model – no file name)",
+    name: file.name,
     qty,
     color: customColorSelect.value,
     notes: customNotesInput.value.trim(),
     priceEach,
     file
   });
+
+  // Reset file and quantity after adding
+  customFileInput.value = "";
+  customQtyInput.value = "1";
 });
 
 /* ===== Build Discord message & submit ===== */

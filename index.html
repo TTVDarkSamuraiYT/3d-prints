@@ -285,6 +285,54 @@ function parseCsv(text){
   return lines.map(line => line.split(",").map(cleanCell));
 }
 
+/* ===== Contact validation ===== */
+function looksLikeEmail(str){
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return emailRegex.test(str);
+}
+
+function isNonTrivialEmail(email){
+  const lower = email.toLowerCase();
+  const [local, domain] = lower.split("@");
+  if (!local || !domain) return false;
+
+  const bannedLocals = ["spam","fake","test","asdf","none","noemail","na"];
+  if (bannedLocals.includes(local)) return false;
+
+  if (domain.startsWith("example.")) return false;
+
+  return true;
+}
+
+function looksLikePhone(str){
+  const digits = str.replace(/\D/g,"");
+  return digits.length >= 10 && digits.length <= 15;
+}
+
+function isNonTrivialPhone(str){
+  const digits = str.replace(/\D/g,"");
+  if (digits.length < 10 || digits.length > 15) return false;
+  if (/^(\d)\1+$/.test(digits)) return false;          // all same digit
+  const banned = ["0000000000","1111111111","1234567890","7740000000"];
+  if (banned.includes(digits)) return false;
+  return true;
+}
+
+function isValidContact(str){
+  str = str.trim();
+  if (!str) return false;
+
+  if (looksLikeEmail(str)){
+    return isNonTrivialEmail(str);
+  }
+
+  if (looksLikePhone(str)){
+    return isNonTrivialPhone(str);
+  }
+
+  return false;
+}
+
 /* ===== Theme (dark / light) ===== */
 const themeToggleBtn = document.getElementById("theme-toggle");
 
@@ -421,6 +469,8 @@ function addItemToCart(item){
     existing.qty += item.qty;
     if (item.priceEach && !existing.priceEach) existing.priceEach = item.priceEach;
     if (!existing.file && item.file) existing.file = item.file;
+    if (item.stock != null) existing.stock = item.stock;
+    if (item.status != null) existing.status = item.status;
   } else {
     orderItems.push(item);
   }
@@ -730,6 +780,10 @@ sendBtn.addEventListener("click", () => {
   const contact = customerContact.value.trim();
   if (!contact){
     alert("Please enter at least an email or phone number so I can contact you.");
+    return;
+  }
+  if (!isValidContact(contact)){
+    alert("Please enter a valid email address or phone number (no obvious fake values).");
     return;
   }
 

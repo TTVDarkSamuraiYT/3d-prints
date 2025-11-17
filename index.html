@@ -98,6 +98,56 @@
     }
     body.dark .remove-btn{background:#7f1d1d;color:#fee2e2;}
 
+    .totals{
+      margin-top:.6rem;
+      font-size:.85rem;
+      border-top:1px solid #e5e7eb;
+      padding-top:.5rem;
+    }
+    .totals-line{
+      display:flex;
+      justify-content:space-between;
+      margin-bottom:.2rem;
+    }
+    .totals-line strong{font-weight:600;}
+
+    /* Expedite styling */
+    .expedite-container {
+      margin-top:.6rem;
+      padding:.6rem .7rem;
+      border-radius:.75rem;
+      background:#f3f4f6;
+      border:1px solid #e5e7eb;
+    }
+    .expedite-header {
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:.5rem;
+    }
+    .expedite-label {
+      font-size:.85rem;
+      font-weight:600;
+    }
+    .expedite-toggle {
+      border-radius:999px;
+      border:none;
+      padding:.25rem .75rem;
+      font-size:.8rem;
+      cursor:pointer;
+      background:#e5e7eb;
+      color:#374151;
+    }
+    .expedite-toggle.active {
+      background:#111827;
+      color:#f9fafb;
+    }
+    .expedite-description {
+      margin-top:.25rem;
+      font-size:.75rem;
+      color:#6b7280;
+    }
+
     /* Dark mode */
     body.dark { background:#020617;color:#e5e7eb; }
     body.dark header{background:#020617;color:#e5e7eb;}
@@ -109,6 +159,9 @@
     body.dark .order-summary-table td,
     body.dark .order-summary-table th{border-color:#1f2937;}
     body.dark button.secondary{background:#1f2937;color:#e5e7eb;}
+    body.dark .expedite-container{background:#020617;border-color:#1f2937;}
+    body.dark .expedite-toggle{background:#1f2937;color:#e5e7eb;}
+    body.dark .expedite-toggle.active{background:#f9fafb;color:#111827;}
   </style>
 </head>
 
@@ -146,6 +199,10 @@
 
         <label style="margin-top:.6rem;">Color</label>
         <select id="custom-color"></select>
+        <p style="font-size:.75rem;color:#6b7280;">
+          Tip: Choose <strong>Premade</strong> if you’re okay with using an existing color I have on hand.
+          It’s usually a little cheaper and faster to ship.
+        </p>
 
         <label style="margin-top:.6rem;">Quantity</label>
         <input id="custom-qty" type="number" min="1" value="1">
@@ -189,6 +246,35 @@
         <div id="order-summary-body">
           <p class="empty-note">No items added yet.</p>
         </div>
+
+        <hr style="margin:0.7rem 0;">
+
+        <div>
+          <label>Shipping option</label>
+          <select id="shipping-method">
+            <option value="pickup" selected>Pickup / local meet-up (no shipping added)</option>
+            <option value="carrier_ground">
+              Ground shipping (typical 2–5 days, est. ~$9)
+            </option>
+          </select>
+          <p style="font-size:.75rem;color:#6b7280;margin-top:.25rem;">
+            Shipping cost is an estimate based on small 1–5 lb packages. I’ll confirm the final price once I have your address.
+          </p>
+        </div>
+
+        <div class="expedite-container">
+          <div class="expedite-header">
+            <span class="expedite-label">Expedite this order</span>
+            <button type="button" id="expedite-toggle" class="expedite-toggle">Normal</button>
+          </div>
+          <p class="expedite-description">
+            Expedite adds an extra fee so your order is printed sooner.
+            If you also choose shipping, you can pick faster or next-day delivery (when possible).
+          </p>
+          <input type="checkbox" id="expedite-order" style="display:none;">
+        </div>
+
+        <div id="totals-display" class="totals"></div>
       </div>
 
       <div class="card" style="margin-top:.75rem;">
@@ -199,6 +285,9 @@
 
         <label style="margin-top:.4rem;">Best way to contact you (required)</label>
         <input id="customer-contact" type="text" placeholder="Email or phone">
+
+        <label style="margin-top:.4rem;">Shipping info (city / ZIP / address)</label>
+        <textarea id="shipping-info" placeholder="City, state/region, and full address for shipping quote"></textarea>
 
         <label style="margin-top:.4rem;">Extra notes (optional)</label>
         <textarea id="customer-notes"></textarea>
@@ -240,6 +329,8 @@ const PREMADE_PRINTS = [
   { id:"placeholder", name:"Example Item", description:"Loaded from Sheets when available.", basePrice:10, stock:null, status:"Temporarily unavailable" }
 ];
 
+let inventoryFromSheetsCount = -1;  // -1 = unknown, 0 = problem, >0 = OK
+
 /* ===== Helper functions ===== */
 
 function cleanCell(v){
@@ -251,7 +342,11 @@ function cleanCell(v){
   return v;
 }
 
-function colorName(id){ return COLORS.find(c => c.id === id)?.name || id; }
+function colorName(id){
+  if (id === "premade") return "Premade (pre-printed)";
+  const found = COLORS.find(c => c.id === id);
+  return found ? found.name : id;
+}
 
 function normalizeStatus(status){
   const s = (status || "").toLowerCase();
@@ -383,18 +478,24 @@ const customInfillSelect = document.getElementById("custom-infill");
 const customPriceDisplay = document.getElementById("custom-price-display");
 const addCustomBtn = document.getElementById("add-custom-btn");
 const orderSummaryBody = document.getElementById("order-summary-body");
+const totalsDisplay = document.getElementById("totals-display");
 const sendBtn = document.getElementById("send-discord-btn");
+
+const shippingMethodSelect = document.getElementById("shipping-method");
+const expediteCheckbox = document.getElementById("expedite-order");
+const expediteToggleBtn = document.getElementById("expedite-toggle");
 
 const customerName = document.getElementById("customer-name");
 const customerContact = document.getElementById("customer-contact");
+const shippingInfoInput = document.getElementById("shipping-info");
 const customerNotes = document.getElementById("customer-notes");
 
 let orderItems = [];
+let expediteSpeed = "standard"; // "standard" | "fast" | "next-day"
 
 /* Live formatting for phone input (but not email / letters) */
 customerContact.addEventListener("input", () => {
   let val = customerContact.value;
-  // If user typed any letters or '@', assume email / text and don't auto-format
   if (/[a-zA-Z@]/.test(val)) {
     return;
   }
@@ -469,12 +570,16 @@ async function loadDataFromSheets(){
         status: status || ""
       });
     }
+
+    inventoryFromSheetsCount = newItems.length;
+
     if (newItems.length){
       PREMADE_PRINTS.length = 0;
       newItems.forEach(p => PREMADE_PRINTS.push(p));
     }
   } catch (err){
     console.error("Error loading Sheets data:", err);
+    inventoryFromSheetsCount = 0; // treat as problem
   }
 }
 
@@ -511,6 +616,12 @@ function addItemToCart(item){
 
 function renderPremadeCards(){
   premadeGrid.innerHTML = "";
+
+  if (inventoryFromSheetsCount === 0) {
+    premadeGrid.innerHTML = `<p class="empty-note">Sorry, looks like there’s an issue with the inventory system right now, so premade items can’t be shown.</p>`;
+    return;
+  }
+
   PREMADE_PRINTS.forEach(item => {
     const card = document.createElement("div");
     card.className = "card";
@@ -609,13 +720,18 @@ function renderPremadeCards(){
         }
       }
 
+      let priceEach = item.basePrice;
+      if (colorSel.value === "premade") {
+        priceEach = item.basePrice * 0.9;
+      }
+
       addItemToCart({
         type: "premade",
         name: item.name,
         qty,
         color: colorSel.value,
         notes: "",
-        priceEach: item.basePrice,
+        priceEach,
         file: null,
         status: item.status || "",
         stock: item.stock
@@ -630,6 +746,7 @@ function renderPremadeCards(){
 function renderOrderSummary(){
   if (orderItems.length === 0){
     orderSummaryBody.innerHTML = `<p class="empty-note">No items added yet.</p>`;
+    updateTotalsDisplay();
     return;
   }
 
@@ -697,6 +814,8 @@ function renderOrderSummary(){
       renderOrderSummary();
     });
   });
+
+  updateTotalsDisplay();
 }
 
 /* ===== Custom price estimator ===== */
@@ -706,6 +825,7 @@ function calculateCustomPrice(){
   const detail = customDetailSelect.value;
   const infill = customInfillSelect.value;
   const qty = Math.max(Number(customQtyInput.value) || 1, 1);
+  const colorId = customColorSelect.value;
 
   let mult = 1;
   if (size === "medium") mult *= 1.5;
@@ -716,6 +836,10 @@ function calculateCustomPrice(){
 
   if (infill === "standard") mult *= 1.1;
   else if (infill === "solid") mult *= 1.25;
+
+  if (colorId === "premade") {
+    mult *= 0.9;
+  }
 
   let priceEach = base * mult;
   priceEach = Math.max(5, Math.min(priceEach, 60));
@@ -730,13 +854,119 @@ function updateCustomPriceDisplay(){
     `Estimated price: $${priceEach.toFixed(2)} each, $${total.toFixed(2)} total`;
 }
 
-/* ===== Order number generator: resets automatically per day ===== */
+/* ===== Totals with shipping + expedite ===== */
+function getItemsSubtotal(){
+  let subtotal = 0;
+  orderItems.forEach(i => {
+    if (i.priceEach) subtotal += i.priceEach * i.qty;
+  });
+  return subtotal;
+}
+
+function getShippingEstimate(){
+  const method = shippingMethodSelect.value;
+  if (method === "carrier_ground"){
+    // Based on USPS/UPS typical ground for 1–5 lb domestic: usually in the $7–$12 range.
+    let base = 9; // middle-ish estimate
+    if (expediteCheckbox.checked){
+      if (expediteSpeed === "fast") {
+        base += 4;   // faster service (2–3 day)
+      } else if (expediteSpeed === "next-day") {
+        base += 15;  // next-day style pricing bump
+      }
+    }
+    return base;
+  }
+  return 0;
+}
+
+function getExpediteFee(itemsSubtotal){
+  if (!expediteCheckbox.checked) return 0;
+  // Fee for printing priority (not shipping) – 20% of items subtotal, min $5
+  const fee = itemsSubtotal * 0.20;
+  return Math.max(5, fee);
+}
+
+function computeTotals(){
+  const itemsSubtotal = getItemsSubtotal();
+  const shippingEstimate = getShippingEstimate();
+  const expediteFee = getExpediteFee(itemsSubtotal);
+  const grandTotal = itemsSubtotal + shippingEstimate + expediteFee;
+  return { itemsSubtotal, shippingEstimate, expediteFee, grandTotal };
+}
+
+function updateTotalsDisplay(){
+  const { itemsSubtotal, shippingEstimate, expediteFee, grandTotal } = computeTotals();
+
+  totalsDisplay.innerHTML = `
+    <div class="totals-line">
+      <span>Items subtotal</span>
+      <span>$${itemsSubtotal.toFixed(2)}</span>
+    </div>
+    <div class="totals-line">
+      <span>Estimated shipping</span>
+      <span>${shippingEstimate > 0 ? "$" + shippingEstimate.toFixed(2) : "$0.00"}</span>
+    </div>
+    <div class="totals-line">
+      <span>Expedite fee</span>
+      <span>${expediteFee > 0 ? "$" + expediteFee.toFixed(2) : "$0.00"}</span>
+    </div>
+    <div class="totals-line">
+      <strong>Estimated order value</strong>
+      <strong>$${grandTotal.toFixed(2)}</strong>
+    </div>
+  `;
+}
+
+/* Expedite UI sync */
+function updateExpediteUI(){
+  if (expediteCheckbox.checked) {
+    expediteToggleBtn.classList.add("active");
+    expediteToggleBtn.textContent = (expediteSpeed === "next-day")
+      ? "Next-day (pref.)"
+      : "Fast (pref.)";
+  } else {
+    expediteToggleBtn.classList.remove("active");
+    expediteToggleBtn.textContent = "Normal";
+    expediteSpeed = "standard";
+  }
+  updateTotalsDisplay();
+}
+
+expediteToggleBtn.addEventListener("click", () => {
+  expediteCheckbox.checked = !expediteCheckbox.checked;
+
+  if (expediteCheckbox.checked && shippingMethodSelect.value !== "pickup") {
+    const choice = window.prompt(
+      "Expedite + shipping:\nType 'fast' for faster shipping (around 2–3 days),\n" +
+      "or 'next' for next-day shipping if available.\nLeave blank for 'fast'."
+    );
+    if (choice && choice.toLowerCase().startsWith("n")) {
+      expediteSpeed = "next-day";
+    } else {
+      expediteSpeed = "fast";
+    }
+  } else if (!expediteCheckbox.checked) {
+    expediteSpeed = "standard";
+  }
+
+  updateExpediteUI();
+});
+
+shippingMethodSelect.addEventListener("change", () => {
+  if (shippingMethodSelect.value === "pickup") {
+    expediteSpeed = "standard";
+  }
+  updateExpediteUI();
+});
+
+/* ===== Order number generator ===== */
 function getTodayKey(){
   const d = new Date();
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2,"0");
   const day = String(d.getDate()).padStart(2,"0");
-  return `${y}${m}${day}`; // e.g. 20251116
+  return `${y}${m}${day}`;
 }
 
 function getNextOrderNumber(){
@@ -745,7 +975,6 @@ function getNextOrderNumber(){
   let n = parseInt(localStorage.getItem(storageKey) || "0", 10);
   n += 1;
   localStorage.setItem(storageKey, String(n));
-  // Return human-readable ID like 20251116-001
   return `${dayKey}-${String(n).padStart(3,"0")}`;
 }
 
@@ -779,11 +1008,14 @@ addCustomBtn.addEventListener("click", () => {
 
 /* ===== Build Discord message & submit ===== */
 function buildDiscordMessage(orderId){
+  const { itemsSubtotal, shippingEstimate, expediteFee, grandTotal } = computeTotals();
+
   let msg = `📦 **New 3D Print Order #${orderId}**\n`;
 
   const name = customerName.value.trim();
   const rawContact = customerContact.value.trim();
   const extra = customerNotes.value.trim();
+  const shippingInfo = shippingInfoInput.value.trim();
 
   let displayContact = rawContact;
   if (looksLikePhone(rawContact)) {
@@ -815,6 +1047,37 @@ function buildDiscordMessage(orderId){
     });
   }
 
+  const shippingMethodValue = shippingMethodSelect.value;
+  const shippingMethodLabel =
+    shippingMethodSelect.options[shippingMethodSelect.selectedIndex]?.text ||
+    shippingMethodValue;
+
+  msg += `**Shipping:**\n`;
+  msg += `Method: ${shippingMethodLabel} (estimate)\n`;
+  if (shippingInfo) {
+    msg += `Shipping info (for quote): ${shippingInfo}\n`;
+  }
+  msg += `Estimated shipping cost: $${shippingEstimate.toFixed(2)}\n`;
+
+  if (expediteCheckbox.checked) {
+    msg += `\n**Expedite:** Yes (estimated extra fee: $${expediteFee.toFixed(2)})\n`;
+    if (shippingMethodValue !== "pickup") {
+      msg += `Expedite shipping preference: ${
+        expediteSpeed === "next-day"
+          ? "Next-day if available"
+          : "Faster (around 2–3 days) if available"
+      }\n`;
+    }
+  } else {
+    msg += `\n**Expedite:** No\n`;
+  }
+
+  msg += `\n**Estimates summary:**\n`;
+  msg += `Items subtotal: $${itemsSubtotal.toFixed(2)}\n`;
+  msg += `Estimated shipping: $${shippingEstimate.toFixed(2)}\n`;
+  msg += `Expedite fee: $${expediteFee.toFixed(2)}\n`;
+  msg += `\n**Estimated order value (items + shipping + expedite): $${grandTotal.toFixed(2)}**\n`;
+
   return msg;
 }
 
@@ -826,6 +1089,12 @@ sendBtn.addEventListener("click", () => {
   }
   if (!isValidContact(contact)){
     alert("Please enter a valid email address or phone number (no obvious fake values).");
+    return;
+  }
+
+  if (shippingMethodSelect.value !== "pickup" &&
+      !shippingInfoInput.value.trim()) {
+    alert("Please enter shipping info (city / ZIP / address) so I can get a shipping quote.");
     return;
   }
 
@@ -852,6 +1121,13 @@ sendBtn.addEventListener("click", () => {
     body: fd
   }).finally(() => {
     alert("Order submitted");
+    // Clear cart & reset shipping/expedite
+    orderItems = [];
+    renderOrderSummary();
+    shippingMethodSelect.value = "pickup";
+    expediteCheckbox.checked = false;
+    expediteSpeed = "standard";
+    updateExpediteUI();
   });
 });
 
@@ -863,12 +1139,14 @@ async function init(){
   renderPremadeCards();
   renderOrderSummary();
   updateCustomPriceDisplay();
+  updateExpediteUI();
 }
 
 customQtyInput.addEventListener("input", updateCustomPriceDisplay);
 customSizeSelect.addEventListener("change", updateCustomPriceDisplay);
 customDetailSelect.addEventListener("change", updateCustomPriceDisplay);
 customInfillSelect.addEventListener("change", updateCustomPriceDisplay);
+customColorSelect.addEventListener("change", updateCustomPriceDisplay);
 
 init();
 </script>

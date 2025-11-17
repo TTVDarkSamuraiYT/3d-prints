@@ -147,6 +147,19 @@
       font-size:.75rem;
       color:#6b7280;
     }
+    .expedite-speed-wrapper{
+      margin-top:.4rem;
+    }
+    .expedite-speed-wrapper label{
+      font-size:.75rem;
+      display:block;
+      margin-bottom:.15rem;
+    }
+    .expedite-speed-wrapper p{
+      font-size:.7rem;
+      color:#6b7280;
+      margin-top:.15rem;
+    }
 
     /* Dark mode */
     body.dark { background:#020617;color:#e5e7eb; }
@@ -200,8 +213,7 @@
         <label style="margin-top:.6rem;">Color</label>
         <select id="custom-color"></select>
         <p style="font-size:.75rem;color:#6b7280;">
-          Tip: Choose <strong>Premade</strong> if you’re okay with using an existing color I have on hand.
-          It’s usually a little cheaper and faster to ship.
+          Tip: Choose one of the available filament colors. Custom prints don’t use the Premade option.
         </p>
 
         <label style="margin-top:.6rem;">Quantity</label>
@@ -271,6 +283,15 @@
             Expedite adds an extra fee so your order is printed sooner.
             If you also choose shipping, you can pick faster or next-day delivery (when possible).
           </p>
+          <div class="expedite-speed-wrapper">
+            <label for="expedite-speed">Shipping speed preference (when shipping is selected)</label>
+            <select id="expedite-speed">
+              <option value="standard">Standard ground (~2–5 days)</option>
+              <option value="fast">Fast (around 2–3 days)</option>
+              <option value="next-day">Next-day (if offered)</option>
+            </select>
+            <p>Only applied when shipping is selected and the order is expedited.</p>
+          </div>
           <input type="checkbox" id="expedite-order" style="display:none;">
         </div>
 
@@ -484,6 +505,7 @@ const sendBtn = document.getElementById("send-discord-btn");
 const shippingMethodSelect = document.getElementById("shipping-method");
 const expediteCheckbox = document.getElementById("expedite-order");
 const expediteToggleBtn = document.getElementById("expedite-toggle");
+const expediteSpeedSelect = document.getElementById("expedite-speed");
 
 const customerName = document.getElementById("customer-name");
 const customerContact = document.getElementById("customer-contact");
@@ -587,6 +609,8 @@ async function loadDataFromSheets(){
 function renderColorsToSelect(){
   customColorSelect.innerHTML = "";
   COLORS.forEach(c => {
+    // Hide "Premade" from custom colors
+    if (c.id.toLowerCase() === "premade") return;
     const opt = document.createElement("option");
     opt.value = c.id;
     opt.textContent = isColorAvailable(c.status) ? c.name : `${c.name} (${c.status || "Unavailable"})`;
@@ -664,13 +688,23 @@ function renderPremadeCards(){
     const colorLabel = document.createElement("label");
     colorLabel.textContent = "Color";
     const colorSel = document.createElement("select");
-    COLORS.forEach(c => {
+
+    if (statusKind === "limited") {
+      // Limited items: only Premade option
       const opt = document.createElement("option");
-      opt.value = c.id;
-      opt.textContent = isColorAvailable(c.status) ? c.name : `${c.name} (${c.status || "Unavailable"})`;
-      if (!isColorAvailable(c.status)) opt.disabled = true;
+      opt.value = "premade";
+      opt.textContent = "Premade (pre-printed)";
       colorSel.appendChild(opt);
-    });
+      colorSel.disabled = true;
+    } else {
+      COLORS.forEach(c => {
+        const opt = document.createElement("option");
+        opt.value = c.id;
+        opt.textContent = isColorAvailable(c.status) ? c.name : `${c.name} (${c.status || "Unavailable"})`;
+        if (!isColorAvailable(c.status)) opt.disabled = true;
+        colorSel.appendChild(opt);
+      });
+    }
 
     const qtyLabel = document.createElement("label");
     qtyLabel.style.marginTop = ".4rem";
@@ -797,9 +831,9 @@ function renderOrderSummary(){
         }
         item.qty += 1;
       } else {
-        item.qty -= 1;
-        if (item.qty <= 0){
-          orderItems.splice(index, 1);
+        // Do not allow going below 1; use Remove button to delete
+        if (item.qty > 1) {
+          item.qty -= 1;
         }
       }
       renderOrderSummary();
@@ -837,7 +871,7 @@ function calculateCustomPrice(){
   if (infill === "standard") mult *= 1.1;
   else if (infill === "solid") mult *= 1.25;
 
-  if (colorId === "premade") {
+  if (colorId === "premade") { // shouldn't happen for custom, but safe
     mult *= 0.9;
   }
 
@@ -866,13 +900,13 @@ function getItemsSubtotal(){
 function getShippingEstimate(){
   const method = shippingMethodSelect.value;
   if (method === "carrier_ground"){
-    // Based on USPS/UPS typical ground for 1–5 lb domestic: usually in the $7–$12 range.
-    let base = 9; // middle-ish estimate
+    // Ground shipping baseline
+    let base = 9;
     if (expediteCheckbox.checked){
       if (expediteSpeed === "fast") {
-        base += 4;   // faster service (2–3 day)
+        base += 4;   // faster (2–3 day-ish)
       } else if (expediteSpeed === "next-day") {
-        base += 15;  // next-day style pricing bump
+        base += 15;  // next-day style bump
       }
     }
     return base;
@@ -882,7 +916,6 @@ function getShippingEstimate(){
 
 function getExpediteFee(itemsSubtotal){
   if (!expediteCheckbox.checked) return 0;
-  // Fee for printing priority (not shipping) – 20% of items subtotal, min $5
   const fee = itemsSubtotal * 0.20;
   return Math.max(5, fee);
 }
@@ -921,42 +954,37 @@ function updateTotalsDisplay(){
 /* Expedite UI sync */
 function updateExpediteUI(){
   if (expediteCheckbox.checked) {
+    expediteSpeed = expediteSpeedSelect.value;
+    expediteSpeedSelect.disabled = (shippingMethodSelect.value === "pickup");
+    let label = "Expedited";
+    if (shippingMethodSelect.value !== "pickup") {
+      if (expediteSpeed === "fast") label = "Expedited (fast)";
+      else if (expediteSpeed === "next-day") label = "Expedited (next-day)";
+    }
     expediteToggleBtn.classList.add("active");
-    expediteToggleBtn.textContent = (expediteSpeed === "next-day")
-      ? "Next-day (pref.)"
-      : "Fast (pref.)";
+    expediteToggleBtn.textContent = label;
   } else {
+    expediteSpeed = "standard";
+    expediteSpeedSelect.disabled = true;
     expediteToggleBtn.classList.remove("active");
     expediteToggleBtn.textContent = "Normal";
-    expediteSpeed = "standard";
   }
   updateTotalsDisplay();
 }
 
 expediteToggleBtn.addEventListener("click", () => {
   expediteCheckbox.checked = !expediteCheckbox.checked;
-
-  if (expediteCheckbox.checked && shippingMethodSelect.value !== "pickup") {
-    const choice = window.prompt(
-      "Expedite + shipping:\nType 'fast' for faster shipping (around 2–3 days),\n" +
-      "or 'next' for next-day shipping if available.\nLeave blank for 'fast'."
-    );
-    if (choice && choice.toLowerCase().startsWith("n")) {
-      expediteSpeed = "next-day";
-    } else {
-      expediteSpeed = "fast";
-    }
-  } else if (!expediteCheckbox.checked) {
-    expediteSpeed = "standard";
-  }
-
   updateExpediteUI();
 });
 
-shippingMethodSelect.addEventListener("change", () => {
-  if (shippingMethodSelect.value === "pickup") {
-    expediteSpeed = "standard";
+expediteSpeedSelect.addEventListener("change", () => {
+  if (expediteCheckbox.checked) {
+    expediteSpeed = expediteSpeedSelect.value;
+    updateExpediteUI();
   }
+});
+
+shippingMethodSelect.addEventListener("change", () => {
   updateExpediteUI();
 });
 
@@ -1126,7 +1154,7 @@ sendBtn.addEventListener("click", () => {
     renderOrderSummary();
     shippingMethodSelect.value = "pickup";
     expediteCheckbox.checked = false;
-    expediteSpeed = "standard";
+    expediteSpeedSelect.value = "standard";
     updateExpediteUI();
   });
 });

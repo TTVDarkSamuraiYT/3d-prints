@@ -3,1181 +3,1045 @@
 <head>
   <meta charset="UTF-8" />
   <title>Silvio's 3D Prints</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, sans-serif; }
-    body { background: #f5f5f7; color: #111827; }
-    header {
-      background:#111827;color:#fff;
-      padding:1.2rem 1.5rem;
-      display:flex;justify-content:space-between;flex-wrap:wrap;gap:.75rem;
+    :root {
+      --bg: #050814;
+      --bg-alt: #0b1020;
+      --card: #111827;
+      --accent: #22c55e;
+      --accent-soft: rgba(34, 197, 94, 0.16);
+      --accent-danger: #ef4444;
+      --border: #1f2937;
+      --text: #e5e7eb;
+      --muted: #9ca3af;
+      --badge-green: #bbf7d0;
+      --badge-green-text: #166534;
+      --badge-yellow: #fef9c3;
+      --badge-yellow-text: #854d0e;
+      --badge-red: #fee2e2;
+      --badge-red-text: #b91c1c;
+      --badge-pink: #fce7f3;
+      --badge-pink-text: #9d174d;
     }
-    header h1 { font-size:1.5rem; }
-
-    main { max-width:1100px;margin:1.5rem auto;padding:0 1rem 2rem; }
-
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: radial-gradient(circle at top, #111827 0, #020617 50%, #000 100%);
+      color: var(--text);
+    }
+    main {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 1.5rem 1rem 3rem;
+    }
+    h1, h2, h3 { margin: 0; }
+    .flex { display: flex; }
+    .flex-col { display: flex; flex-direction: column; }
+    .gap-4 { gap: 1rem; }
+    .gap-2 { gap: .5rem; }
     .section {
-      background:#fff;border-radius:.75rem;
-      padding:1.25rem 1.5rem;
-      box-shadow:0 4px 10px rgba(0,0,0,.08);
-      margin-bottom:1.25rem;
+      margin-top: 1.5rem;
+      padding: 1.25rem;
+      border-radius: 16px;
+      background: linear-gradient(145deg, rgba(15,23,42,.95), rgba(3,7,18,.98));
+      border: 1px solid var(--border);
+      box-shadow: 0 18px 35px rgba(15,23,42,.75);
     }
-    .badge{
-      padding:.15rem .5rem;
-      background:#e5e7eb;
-      border-radius:999px;
-      font-size:.7rem;
-      color:#111827;
+    .section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 0.75rem;
     }
-    .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:1rem;margin-top:.75rem;}
-    .card{background:#f9fafb;border:1px solid #e5e7eb;padding:.9rem 1rem;border-radius:.75rem;display:flex;flex-direction:column;gap:.6rem;}
-    .card-header{display:flex;justify-content:space-between;align-items:flex-start;gap:.5rem;}
-    label{font-size:.8rem;margin-bottom:.15rem;}
-    select,input,textarea{
-      width:100%;padding:.4rem .5rem;border-radius:.5rem;border:1px solid #d1d5db;
-      background:#fff;color:#111827;
-    }
-    textarea{min-height:60px;}
+    .section-header small { color: var(--muted); }
 
-    button{
-      padding:.45rem .9rem;border:none;border-radius:999px;font-size:.85rem;font-weight:500;cursor:pointer;
-      transition:.1s;
-    }
-    button.primary{background:#111827;color:#fff;}
-    button.secondary{background:#e5e7eb;color:#111827;}
-    button:disabled{opacity:.45;cursor:not-allowed;box-shadow:none;transform:none;}
-
-    .two-column{display:grid;grid-template-columns:2fr 1.2fr;gap:1rem;}
-    @media(max-width:800px){ .two-column{grid-template-columns:1fr;} }
-
-    .order-summary-table{width:100%;border-collapse:collapse;font-size:.85rem;}
-    .order-summary-table td,.order-summary-table th{border-bottom:1px solid #e5e7eb;padding:.4rem;vertical-align:middle;}
-    .order-summary-table th{text-align:left;}
-
-    .empty-note{font-size:.85rem;color:#6b7280;font-style:italic;}
-
-    .status-pill{
-      display:inline-block;
-      padding:0.15rem 0.5rem;
-      border-radius:999px;
-      font-size:0.75rem;
-      white-space:nowrap;
-    }
-    .status-instock{background:#bbf7d0;color:#166534;}
-    .status-temp{background:#fef9c3;color:#854d0e;}
-    .status-resup{background:#fee2f2;color:#9d174d;}
-    .status-limited{background:#e0f2fe;color:#075985;}
-    .status-unavailable{background:#fecaca;color:#991b1b;}
-    .status-unknown{background:#e5e7eb;color:#374151;}
-
-    .qty-controls{
-      display:inline-flex;
-      align-items:center;
-      gap:.25rem;
-    }
-    .qty-btn{
-      padding:.1rem .45rem;
-      border-radius:999px;
-      border:none;
-      font-size:.85rem;
-      cursor:pointer;
-      background:#e5e7eb;
-      color:#111827;
-    }
-    body.dark .qty-btn{background:#1f2937;color:#e5e7eb;}
-
-    .remove-btn{
-      padding:.1rem .5rem;
-      border-radius:999px;
-      border:none;
-      background:#fee2e2;
-      color:#991b1b;
-      cursor:pointer;
-      font-size:.75rem;
-    }
-    body.dark .remove-btn{background:#7f1d1d;color:#fee2e2;}
-
-    .totals{
-      margin-top:.6rem;
-      font-size:.85rem;
-      border-top:1px solid #e5e7eb;
-      padding-top:.5rem;
-    }
-    .totals-line{
-      display:flex;
-      justify-content:space-between;
-      margin-bottom:.2rem;
-    }
-    .totals-line strong{font-weight:600;}
-
-    /* Expedite styling */
-    .expedite-container {
-      margin-top:.6rem;
-      padding:.6rem .7rem;
-      border-radius:.75rem;
-      background:#f3f4f6;
-      border:1px solid #e5e7eb;
-    }
-    .expedite-header {
-      display:flex;
-      justify-content:space-between;
-      align-items:center;
-      gap:.5rem;
-    }
-    .expedite-label {
-      font-size:.85rem;
-      font-weight:600;
-    }
-    .expedite-toggle {
-      border-radius:999px;
-      border:none;
-      padding:.25rem .75rem;
-      font-size:.8rem;
-      cursor:pointer;
-      background:#e5e7eb;
-      color:#374151;
-    }
-    .expedite-toggle.active {
-      background:#111827;
-      color:#f9fafb;
-    }
-    .expedite-description {
-      margin-top:.25rem;
-      font-size:.75rem;
-      color:#6b7280;
-    }
-    .expedite-speed-wrapper{
-      margin-top:.4rem;
-    }
-    .expedite-speed-wrapper label{
-      font-size:.75rem;
-      display:block;
-      margin-bottom:.15rem;
-    }
-    .expedite-speed-wrapper p{
-      font-size:.7rem;
-      color:#6b7280;
-      margin-top:.15rem;
+    .inventory-grid {
+      display: grid;
+      gap: 1rem;
+      grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
     }
 
-    /* Dark mode */
-    body.dark { background:#020617;color:#e5e7eb; }
-    body.dark header{background:#020617;color:#e5e7eb;}
-    body.dark .section{background:#020617;border-color:#1f2937;box-shadow:none;}
-    body.dark .card{background:#020617;border-color:#1f2937;}
-    body.dark select,body.dark input,body.dark textarea{
-      background:#020617;border-color:#4b5563;color:#e5e7eb;
+    .card {
+      background: radial-gradient(circle at top left, #1f2937 0, #020617 55%);
+      border-radius: 14px;
+      padding: 1rem;
+      border: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
     }
-    body.dark .order-summary-table td,
-    body.dark .order-summary-table th{border-color:#1f2937;}
-    body.dark button.secondary{background:#1f2937;color:#e5e7eb;}
-    body.dark .expedite-container{background:#020617;border-color:#1f2937;}
-    body.dark .expedite-toggle{background:#1f2937;color:#e5e7eb;}
-    body.dark .expedite-toggle.active{background:#f9fafb;color:#111827;}
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .badge {
+      padding: 0.2rem 0.6rem;
+      border-radius: 999px;
+      font-size: 0.7rem;
+      font-weight: 600;
+      text-transform: lowercase;
+    }
+    .badge-green { background: var(--badge-green); color: var(--badge-green-text); }
+    .badge-yellow { background: var(--badge-yellow); color: var(--badge-yellow-text); }
+    .badge-red { background: var(--badge-red); color: var(--badge-red-text); }
+    .badge-pink { background: var(--badge-pink); color: var(--badge-pink-text); }
+
+    label {
+      font-size: 0.8rem;
+      color: var(--muted);
+      display: block;
+      margin-bottom: 0.15rem;
+    }
+    select, input, textarea {
+      width: 100%;
+      padding: 0.45rem 0.55rem;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: rgba(15,23,42,.9);
+      color: var(--text);
+      font-size: 0.85rem;
+    }
+    textarea { min-height: 80px; resize: vertical; }
+
+    .btn {
+      border-radius: 999px;
+      padding: 0.55rem 1.1rem;
+      border: none;
+      font-weight: 600;
+      font-size: 0.9rem;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.4rem;
+    }
+    .btn-full { width: 100%; }
+    .btn-primary {
+      background: radial-gradient(circle at top, var(--accent) 0, #16a34a 40%, #166534 100%);
+      color: #022c22;
+      box-shadow: 0 12px 25px rgba(34,197,94,.35);
+    }
+    .btn-primary:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+      box-shadow: none;
+    }
+    .btn-ghost {
+      background: #020617;
+      color: var(--muted);
+      border: 1px solid var(--border);
+    }
+    .btn-danger {
+      background: rgba(239,68,68,.12);
+      color: #fecaca;
+      border: 1px solid rgba(239,68,68,.4);
+    }
+    .cart-list {
+      max-height: 240px;
+      overflow-y: auto;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: radial-gradient(circle at top, #020617 0, #020617 60%, #000 100%);
+      padding: 0.5rem;
+      font-size: 0.85rem;
+    }
+    .cart-item {
+      display: grid;
+      grid-template-columns: 1.8fr 0.9fr 0.9fr auto;
+      align-items: center;
+      padding: 0.3rem 0.2rem;
+      border-bottom: 1px solid rgba(31,41,55,.7);
+      gap: 0.25rem;
+    }
+    .cart-item:last-child { border-bottom: none; }
+    .cart-item-name { font-weight: 500; }
+    .cart-qty-controls {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25rem;
+    }
+    .cart-qty-controls button {
+      width: 22px;
+      height: 22px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: #020617;
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 0.75rem;
+      line-height: 1;
+    }
+    .totals-line {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.85rem;
+      margin-top: 0.3rem;
+      color: var(--muted);
+    }
+    .totals-line strong { color: var(--text); }
+
+    .error-text {
+      color: var(--accent-danger);
+      font-size: 0.8rem;
+      margin-top: 0.2rem;
+    }
+    .hint { font-size: 0.75rem; color: var(--muted); }
+
+    @media (max-width: 800px) {
+      .flex-col-md { flex-direction: column; }
+    }
   </style>
 </head>
-
 <body>
-<header>
-  <div>
-    <h1>Silvio's 3D Printing</h1>
-    <p>Custom 3D prints, made to order.</p>
-  </div>
-  <div style="text-align:right;">
-    <div><strong>Worcester, MA</strong></div>
-    <button id="theme-toggle" class="secondary" style="margin-top:.4rem;">Dark mode</button>
-  </div>
-</header>
-
-<main>
-
-<section class="section">
-  <div class="two-column">
-
-    <!-- LEFT SIDE -->
-    <div>
-      <h2>Premade Prints <span class="badge">Live inventory</span></h2>
-      <p>Items, prices, and status are loaded from my Google Sheets inventory.</p>
-      <div id="premade-grid" class="grid"></div>
-
-      <hr style="margin:1.2rem 0;">
-
-      <h2>Custom Print <span class="badge">Price estimator</span></h2>
-      <p>Upload your model, choose options, and get an estimated price.</p>
-
-      <div class="card">
-        <label>Model file (STL / 3MF / OBJ)</label>
-        <input id="custom-file" type="file">
-
-        <label style="margin-top:.6rem;">Color</label>
-        <select id="custom-color"></select>
-        <p style="font-size:.75rem;color:#6b7280;">
-          Tip: Choose one of the available filament colors. Custom prints don’t use the Premade option.
-        </p>
-
-        <label style="margin-top:.6rem;">Quantity</label>
-        <input id="custom-qty" type="number" min="1" value="1">
-
-        <label style="margin-top:.6rem;">Size</label>
-        <select id="custom-size">
-          <option value="small">Small (up to ~8 cm)</option>
-          <option value="medium" selected>Medium (~8–15 cm)</option>
-          <option value="large">Large (~15–22 cm)</option>
-        </select>
-
-        <label style="margin-top:.6rem;">Detail level</label>
-        <select id="custom-detail">
-          <option value="draft">Draft (fast print)</option>
-          <option value="standard" selected>Standard</option>
-          <option value="high">High detail</option>
-        </select>
-
-        <label style="margin-top:.6rem;">Infill</label>
-        <select id="custom-infill">
-          <option value="light">Light (10–15%)</option>
-          <option value="standard" selected>Standard (20–30%)</option>
-          <option value="solid">Solid (40%+)</option>
-        </select>
-
-        <p id="custom-price-display" style="margin-top:.6rem;font-size:.85rem;">
-          Estimated price: ...
-        </p>
-
-        <label style="margin-top:.6rem;">Notes</label>
-        <textarea id="custom-notes" placeholder="Size in cm, special requests, deadline, etc."></textarea>
-
-        <button class="primary" id="add-custom-btn" style="margin-top:.6rem;">Add custom print</button>
-      </div>
-    </div>
-
-    <!-- RIGHT SIDE -->
-    <div>
-      <h2>Your Order Summary</h2>
-      <div id="order-summary-wrapper" class="card">
-        <div id="order-summary-body">
-          <p class="empty-note">No items added yet.</p>
-        </div>
-
-        <hr style="margin:0.7rem 0;">
-
+  <main>
+    <header class="section">
+      <div class="section-header">
         <div>
-          <label>Shipping option</label>
-          <select id="shipping-method">
-            <option value="pickup" selected>Pickup / local meet-up (no shipping added)</option>
-            <option value="carrier_ground">
-              Ground shipping (typical 2–5 days, est. ~$9)
-            </option>
+          <h1>Silvio's 3D Prints</h1>
+          <small>Choose a premade design or upload your own custom model.</small>
+        </div>
+      </div>
+    </header>
+
+    <!-- Premade prints -->
+    <section class="section">
+      <div class="section-header">
+        <h2>Premade prints</h2>
+        <small id="liveInventoryLabel">Live inventory from sheet</small>
+      </div>
+      <div id="inventoryGrid" class="inventory-grid">
+        <!-- cards inserted by JS -->
+      </div>
+      <div id="inventoryError" class="error-text" style="display:none;margin-top:.5rem;">
+        Sorry, looks like there's an issue with the inventory system.
+      </div>
+    </section>
+
+    <!-- Custom print -->
+    <section class="section">
+      <div class="section-header">
+        <h2>Custom print</h2>
+        <small>Upload your own .stl / .3mf, choose size & detail for an estimate.</small>
+      </div>
+      <div class="flex flex-col-md gap-4">
+        <div class="card" style="flex:1;">
+          <div class="card-header">
+            <h3>Upload file</h3>
+            <span class="badge badge-green">Custom</span>
+          </div>
+
+          <label for="customFile">Model file (required for custom prints)</label>
+          <input type="file" id="customFile" accept=".stl,.3mf,.obj,.gcode" />
+
+          <label for="customColor" style="margin-top:.5rem;">Color</label>
+          <select id="customColor"></select>
+
+          <label for="customSize" style="margin-top:.5rem;">Approx size</label>
+          <select id="customSize">
+            <option value="small">Small (under 5 cm)</option>
+            <option value="medium" selected>Medium (5–15 cm)</option>
+            <option value="large">Large (15–25 cm)</option>
+            <option value="xl">XL (25+ cm)</option>
           </select>
-          <p style="font-size:.75rem;color:#6b7280;margin-top:.25rem;">
-            Shipping cost is an estimate based on small 1–5 lb packages. I’ll confirm the final price once I have your address.
-          </p>
+
+          <label for="customDetail" style="margin-top:.5rem;">Detail level</label>
+          <select id="customDetail">
+            <option value="standard" selected>Standard</option>
+            <option value="high">High</option>
+            <option value="ultra">Ultra</option>
+          </select>
+
+          <label for="customNotes" style="margin-top:.5rem;">Notes (optional)</label>
+          <textarea id="customNotes" placeholder="Pose, scaling, hollow/solid, etc."></textarea>
+
+          <div style="margin-top:.75rem;">
+            <div class="totals-line">
+              <span>Estimated price</span>
+              <strong id="customPriceEstimate">$0.00</strong>
+            </div>
+          </div>
+
+          <button id="addCustomToCart" class="btn btn-primary btn-full" style="margin-top:.75rem;">
+            + Add custom print to cart
+          </button>
+          <div id="customError" class="error-text" style="display:none;"></div>
         </div>
 
-        <div class="expedite-container">
-          <div class="expedite-header">
-            <span class="expedite-label">Expedite this order</span>
-            <button type="button" id="expedite-toggle" class="expedite-toggle">Normal</button>
+        <!-- Cart & checkout -->
+        <div class="card" style="flex:1;">
+          <div class="card-header">
+            <h3>Cart</h3>
+            <span class="badge badge-pink" id="cartBadge">0 items</span>
           </div>
-          <p class="expedite-description">
-            Expedite adds an extra fee so your order is printed sooner.
-            If you also choose shipping, you can pick faster or next-day delivery (when possible).
-          </p>
-          <div class="expedite-speed-wrapper">
-            <label for="expedite-speed">Shipping speed preference (when shipping is selected)</label>
-            <select id="expedite-speed">
-              <option value="standard">Standard ground (~2–5 days)</option>
-              <option value="fast">Fast (around 2–3 days)</option>
-              <option value="next-day">Next-day (if offered)</option>
+
+          <div id="cartList" class="cart-list">
+            <div style="color:var(--muted);font-size:.85rem;">Your cart is empty.</div>
+          </div>
+
+          <div class="totals-line">
+            <span>Items subtotal</span>
+            <strong id="itemsSubtotal">$0.00</strong>
+          </div>
+
+          <label for="shippingMethod" style="margin-top:.5rem;">Shipping / pickup</label>
+          <select id="shippingMethod">
+            <option value="pickup" selected>Local pickup (no shipping fee)</option>
+            <option value="shipping">Shipping (estimate)</option>
+          </select>
+          <div id="shippingExtra" style="margin-top:.5rem;display:none;">
+            <label for="shippingInfo">Shipping info (city/state/ZIP)</label>
+            <input id="shippingInfo" type="text" placeholder="Example: Southbridge, MA 01550" />
+            <div class="hint">Used only to calculate an accurate shipping quote.</div>
+
+            <label for="shippingSpeed" style="margin-top:.5rem;">Expedite options</label>
+            <select id="shippingSpeed">
+              <option value="standard" selected>Standard</option>
+              <option value="fast">Fast (extra fee)</option>
+              <option value="nextday">Next-day (if possible, extra fee)</option>
             </select>
-            <p>Only applied when shipping is selected and the order is expedited.</p>
           </div>
-          <input type="checkbox" id="expedite-order" style="display:none;">
+
+          <div class="totals-line" style="margin-top:.5rem;">
+            <span>Shipping estimate</span>
+            <strong id="shippingEstimate">$0.00</strong>
+          </div>
+          <div class="totals-line">
+            <span>Expedite fee</span>
+            <strong id="expediteFee">$0.00</strong>
+          </div>
+          <div class="totals-line" style="font-size:.95rem;">
+            <span>Total estimate</span>
+            <strong id="grandTotal">$0.00</strong>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Contact / submit -->
+    <section class="section">
+      <div class="section-header">
+        <h2>Info & submit</h2>
+        <small>Your info is only used to contact you about this order.</small>
+      </div>
+
+      <div class="flex flex-col-md gap-4">
+        <div class="card" style="flex:1;">
+          <h3>Your details</h3>
+
+          <label for="customerName" style="margin-top:.25rem;">Name (optional)</label>
+          <input id="customerName" type="text" placeholder="John Doe" />
+
+          <label for="contactInfo" style="margin-top:.5rem;">Contact (required)</label>
+          <input id="contactInfo" type="text" placeholder="Phone number or email" />
+          <div class="hint">
+            Phone: formats like 774-123-4567 • Email: needs to be a real-looking address.
+          </div>
+          <div id="contactError" class="error-text" style="display:none;"></div>
+
+          <label for="extraNotes" style="margin-top:.5rem;">Extra notes (optional)</label>
+          <textarea id="extraNotes" placeholder="Preferences, deadlines, etc."></textarea>
         </div>
 
-        <div id="totals-display" class="totals"></div>
+        <div class="card" style="flex:1;">
+          <h3>Order summary</h3>
+          <pre id="orderSummary" style="white-space:pre-wrap;font-size:.8rem;color:var(--muted);margin-top:.5rem;"></pre>
+          <div id="submitError" class="error-text" style="display:none;"></div>
+          <button id="submitOrder" class="btn btn-primary btn-full" style="margin-top:.75rem;">
+            Submit order
+          </button>
+        </div>
       </div>
+    </section>
+  </main>
 
-      <div class="card" style="margin-top:.75rem;">
-        <h3>Your Contact Info</h3>
-
-        <label style="margin-top:.4rem;">Name (optional)</label>
-        <input id="customer-name" type="text">
-
-        <label style="margin-top:.4rem;">Best way to contact you (required)</label>
-        <input id="customer-contact" type="text" placeholder="Email or phone">
-
-        <label style="margin-top:.4rem;">Shipping info (city / ZIP / address)</label>
-        <textarea id="shipping-info" placeholder="City, state/region, and full address for shipping quote"></textarea>
-
-        <label style="margin-top:.4rem;">Extra notes (optional)</label>
-        <textarea id="customer-notes"></textarea>
-
-        <button class="primary" id="send-discord-btn" style="margin-top:.75rem;width:100%;">Submit Order</button>
-      </div>
-    </div>
-
-  </div>
-</section>
-
-<section class="section">
-  <h2>Info</h2>
-  <p><strong>Location:</strong> Worcester, MA</p>
-  <p><strong>Materials:</strong> PLA / PETG (others available)</p>
-  <p><strong>Quality:</strong> Tuned for best results per print</p>
-</section>
-
-</main>
-
-<script>
-/* ===== CONFIG ===== */
-const DISCORD_WEBHOOK_URL =
- "https://discord.com/api/webhooks/1438824526942175429/CZT4o7kLEhnwxHGoT_YHb8vfTr33n-GO3lHL5A-fGDyAicyJ_BbMTeY04_JXTPIZWiFu";
-
-const SHEET_ID = "11-9VxCZfMXiFpmEy2LUsmHtHlF8sIu_FuAX8oz-zQyE";
-const INVENTORY_SHEET_NAME = "Inventory";
-const COLORS_SHEET_NAME = "colors";
-
-/* Default fallback data (overwritten by Sheets if load succeeds) */
-const COLORS = [
-  {id:"red",  name:"Red",  status:"Available"},
-  {id:"black",name:"Black",status:"Available"},
-  {id:"blue", name:"Blue", status:"Available"},
-  {id:"white",name:"White",status:"Available"},
-];
-
-const PREMADE_PRINTS = [
-  { id:"placeholder", name:"Example Item", description:"Loaded from Sheets when available.", basePrice:10, stock:null, status:"Temporarily unavailable" }
-];
-
-let inventoryFromSheetsCount = -1;  // -1 = unknown, 0 = problem, >0 = OK
-
-/* ===== Helper functions ===== */
-
-function cleanCell(v){
-  v = (v || "").trim();
-  if (v.startsWith('"') && v.endsWith('"') && v.length >= 2) {
-    v = v.slice(1, -1).trim();
-  }
-  if (v === '""') v = "";
-  return v;
-}
-
-function colorName(id){
-  if (id === "premade") return "Premade (pre-printed)";
-  const found = COLORS.find(c => c.id === id);
-  return found ? found.name : id;
-}
-
-function normalizeStatus(status){
-  const s = (status || "").toLowerCase();
-  if (s.includes("temporarily")) return "temp";
-  if (s.includes("limited")) return "limited";
-  if (s.includes("unavailable")) return "unavailable";
-  if (s.includes("available") || s.includes("in stock")) return "instock";
-  if (s.includes("resup")) return "resup";
-  return "unknown";
-}
-
-function statusInfo(status){
-  const kind = normalizeStatus(status);
-  switch(kind){
-    case "instock": return {cls:"status-instock", label:status || "Available", available:true};
-    case "limited": return {cls:"status-limited", label:status || "Limited", available:true};
-    case "temp": return {cls:"status-temp", label:status || "Temporarily unavailable", available:false};
-    case "resup": return {cls:"status-resup", label:status || "Being resupplied", available:false};
-    case "unavailable": return {cls:"status-unavailable", label:status || "Unavailable", available:false};
-    default: return {cls:"status-unknown", label:status || "Status unknown", available:true};
-  }
-}
-
-function isColorAvailable(status){
-  const k = normalizeStatus(status);
-  return k === "instock" || k === "limited";
-}
-
-function parseCsv(text){
-  const lines = text.trim().split(/\r?\n/);
-  return lines.map(line => line.split(",").map(cleanCell));
-}
-
-/* ===== Contact & phone formatting ===== */
-function looksLikeEmail(str){
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  return emailRegex.test(str);
-}
-
-function isNonTrivialEmail(email){
-  const lower = email.toLowerCase();
-  const parts = lower.split("@");
-  if (parts.length !== 2) return false;
-  const local = parts[0];
-  const domain = parts[1];
-
-  const bannedLocals = ["spam","fake","test","asdf","none","noemail","na"];
-  if (bannedLocals.includes(local)) return false;
-
-  if (domain.startsWith("example.")) return false;
-
-  return true;
-}
-
-function looksLikePhone(str){
-  const digits = str.replace(/\D/g,"");
-  return digits.length >= 10 && digits.length <= 15;
-}
-
-function isNonTrivialPhone(str){
-  const digits = str.replace(/\D/g,"");
-  if (digits.length < 10 || digits.length > 15) return false;
-  if (/^(\d)\1+$/.test(digits)) return false;
-  const banned = ["0000000000","1111111111","1234567890","7740000000"];
-  if (banned.includes(digits)) return false;
-  return true;
-}
-
-function formatPhoneDisplay(digits){
-  let d = digits.replace(/\D/g,"");
-  if (d.length > 11) d = d.slice(0,11);
-
-  if (d.length <= 3) {
-    return "(" + d;
-  } else if (d.length <= 6) {
-    return "(" + d.slice(0,3) + ")-" + d.slice(3);
-  } else if (d.length <= 10) {
-    return "(" + d.slice(0,3) + ")-" + d.slice(3,6) + "-" + d.slice(6);
-  } else {
-    return "(" + d.slice(0,3) + ")-" + d.slice(3,7) + "-" + d.slice(7);
-  }
-}
-
-function isValidContact(str){
-  str = str.trim();
-  if (!str) return false;
-
-  if (looksLikeEmail(str)){
-    return isNonTrivialEmail(str);
-  }
-
-  if (looksLikePhone(str)){
-    return isNonTrivialPhone(str);
-  }
-
-  return false;
-}
-
-/* ===== Theme (dark / light) ===== */
-const themeToggleBtn = document.getElementById("theme-toggle");
-
-function updateThemeButton(){
-  themeToggleBtn.textContent = document.body.classList.contains("dark")
-    ? "Light mode"
-    : "Dark mode";
-}
-
-function applySavedTheme(){
-  const saved = localStorage.getItem("silvio_theme") || "light";
-  if (saved === "dark") document.body.classList.add("dark");
-  updateThemeButton();
-}
-
-themeToggleBtn.addEventListener("click", () => {
-  document.body.classList.toggle("dark");
-  localStorage.setItem("silvio_theme", document.body.classList.contains("dark") ? "dark" : "light");
-  updateThemeButton();
-});
-
-/* ===== DOM refs ===== */
-const premadeGrid = document.getElementById("premade-grid");
-const customColorSelect = document.getElementById("custom-color");
-const customFileInput = document.getElementById("custom-file");
-const customQtyInput = document.getElementById("custom-qty");
-const customNotesInput = document.getElementById("custom-notes");
-const customSizeSelect = document.getElementById("custom-size");
-const customDetailSelect = document.getElementById("custom-detail");
-const customInfillSelect = document.getElementById("custom-infill");
-const customPriceDisplay = document.getElementById("custom-price-display");
-const addCustomBtn = document.getElementById("add-custom-btn");
-const orderSummaryBody = document.getElementById("order-summary-body");
-const totalsDisplay = document.getElementById("totals-display");
-const sendBtn = document.getElementById("send-discord-btn");
-
-const shippingMethodSelect = document.getElementById("shipping-method");
-const expediteCheckbox = document.getElementById("expedite-order");
-const expediteToggleBtn = document.getElementById("expedite-toggle");
-const expediteSpeedSelect = document.getElementById("expedite-speed");
-
-const customerName = document.getElementById("customer-name");
-const customerContact = document.getElementById("customer-contact");
-const shippingInfoInput = document.getElementById("shipping-info");
-const customerNotes = document.getElementById("customer-notes");
-
-let orderItems = [];
-let expediteSpeed = "standard"; // "standard" | "fast" | "next-day"
-
-/* Live formatting for phone input (but not email / letters) */
-customerContact.addEventListener("input", () => {
-  let val = customerContact.value;
-  if (/[a-zA-Z@]/.test(val)) {
-    return;
-  }
-  const digits = val.replace(/\D/g,"");
-  if (!digits) {
-    customerContact.value = "";
-    return;
-  }
-  customerContact.value = formatPhoneDisplay(digits);
-});
-
-/* ===== Google Sheets data loading ===== */
-async function fetchSheetCsv(sheetName){
-  const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheetName)}`;
-  const res = await fetch(url);
-  if (!res.ok) throw new Error("Failed to fetch sheet " + sheetName);
-  return await res.text();
-}
-
-async function loadDataFromSheets(){
-  try {
-    const [invCsv, colCsv] = await Promise.all([
-      fetchSheetCsv(INVENTORY_SHEET_NAME),
-      fetchSheetCsv(COLORS_SHEET_NAME)
-    ]);
-
-    // COLORS
-    const colorRows = parseCsv(colCsv);
-    const newColors = [];
-    for (let i = 1; i < colorRows.length; i++){
-      const [name, status, notes] = colorRows[i];
-      if (!name) continue;
-      newColors.push({
-        id: name.toLowerCase(),
-        name,
-        status: status || ""
-      });
-    }
-    if (newColors.length){
-      COLORS.length = 0;
-      newColors.forEach(c => COLORS.push(c));
-    }
-
-    // INVENTORY
-    const invRows = parseCsv(invCsv);
-    const newItems = [];
-    for (let i = 1; i < invRows.length; i++){
-      const [itemNameRaw, priceRaw, stockRaw, statusRaw, notesRaw] = invRows[i];
-
-      const itemName = itemNameRaw;
-      const priceStr = priceRaw;
-      const stockStr = stockRaw;
-      const status = statusRaw;
-      const notes = notesRaw;
-
-      // Required: item name, price, status. Stock can be blank.
-      if (!itemName || !priceStr || !status) continue;
-
-      const price = parseFloat((priceStr || "").replace(/[^\d.]/g,"")) || 0;
-
-      let stock = null;
-      if (stockStr) {
-        stock = parseInt((stockStr || "").replace(/[^\d]/g,"")) || 0;
+  <script type="module">
+    (async () => {
+      // ===== CONFIG =====
+      let CONFIG;
+      try {
+        const res = await fetch("config.json");
+        if (!res.ok) throw new Error("Failed to load config.json");
+        CONFIG = await res.json();
+      } catch (err) {
+        console.error(err);
+        alert("Error loading configuration. Check config.json.");
+        return;
       }
 
-      newItems.push({
-        id: itemName.toLowerCase().replace(/\s+/g,"_"),
-        name: itemName,
-        description: notes || "",
-        basePrice: price,
-        stock,
-        status: status || ""
-      });
-    }
+      const SHEET_ID = CONFIG.SHEET_ID;
+      const INVENTORY_SHEET_NAME = CONFIG.INVENTORY_SHEET_NAME;
+      const COLORS_SHEET_NAME = CONFIG.COLORS_SHEET_NAME;
+      const ORDER_WEBHOOK_URL = CONFIG.ORDER_WEBHOOK_URL;
+      const HISTORY_WEBHOOK_URL = CONFIG.HISTORY_WEBHOOK_URL;
 
-    inventoryFromSheetsCount = newItems.length;
+      // ===== DOM =====
+      const inventoryGrid = document.getElementById("inventoryGrid");
+      const inventoryError = document.getElementById("inventoryError");
+      const liveInventoryLabel = document.getElementById("liveInventoryLabel");
+      const customColorSelect = document.getElementById("customColor");
+      const customFileInput = document.getElementById("customFile");
+      const customSizeSelect = document.getElementById("customSize");
+      const customDetailSelect = document.getElementById("customDetail");
+      const customNotes = document.getElementById("customNotes");
+      const customPriceEstimate = document.getElementById("customPriceEstimate");
+      const addCustomToCartBtn = document.getElementById("addCustomToCart");
+      const customError = document.getElementById("customError");
 
-    if (newItems.length){
-      PREMADE_PRINTS.length = 0;
-      newItems.forEach(p => PREMADE_PRINTS.push(p));
-    }
-  } catch (err){
-    console.error("Error loading Sheets data:", err);
-    inventoryFromSheetsCount = 0; // treat as problem
-  }
-}
+      const cartBadge = document.getElementById("cartBadge");
+      const cartList = document.getElementById("cartList");
+      const itemsSubtotalEl = document.getElementById("itemsSubtotal");
+      const shippingMethodSelect = document.getElementById("shippingMethod");
+      const shippingExtra = document.getElementById("shippingExtra");
+      const shippingInfoInput = document.getElementById("shippingInfo");
+      const shippingSpeedSelect = document.getElementById("shippingSpeed");
+      const shippingEstimateEl = document.getElementById("shippingEstimate");
+      const expediteFeeEl = document.getElementById("expediteFee");
+      const grandTotalEl = document.getElementById("grandTotal");
 
-/* ===== Order / cart logic ===== */
-function renderColorsToSelect(){
-  customColorSelect.innerHTML = "";
-  COLORS.forEach(c => {
-    // Hide "Premade" from custom colors
-    if (c.id.toLowerCase() === "premade") return;
-    const opt = document.createElement("option");
-    opt.value = c.id;
-    opt.textContent = isColorAvailable(c.status) ? c.name : `${c.name} (${c.status || "Unavailable"})`;
-    if (!isColorAvailable(c.status)) opt.disabled = true;
-    customColorSelect.appendChild(opt);
-  });
-}
+      const customerNameInput = document.getElementById("customerName");
+      const contactInfoInput = document.getElementById("contactInfo");
+      const contactError = document.getElementById("contactError");
+      const extraNotesInput = document.getElementById("extraNotes");
+      const orderSummaryPre = document.getElementById("orderSummary");
+      const submitOrderBtn = document.getElementById("submitOrder");
+      const submitError = document.getElementById("submitError");
 
-function addItemToCart(item){
-  const existing = orderItems.find(i =>
-    i.type === item.type &&
-    i.name === item.name &&
-    i.color === item.color &&
-    (i.notes || "") === (item.notes || "")
-  );
-  if (existing){
-    existing.qty += item.qty;
-    if (item.priceEach && !existing.priceEach) existing.priceEach = item.priceEach;
-    if (!existing.file && item.file) existing.file = item.file;
-    if (item.stock != null) existing.stock = item.stock;
-    if (item.status != null) existing.status = item.status;
-  } else {
-    orderItems.push(item);
-  }
-  renderOrderSummary();
-}
+      // ===== STATE =====
+      let inventoryItems = [];
+      let colorOptions = [];
+      let cart = [];
+      let orderCounter = Number(localStorage.getItem("orderCounter") || "1");
 
-function renderPremadeCards(){
-  premadeGrid.innerHTML = "";
+      // ===== HELPERS =====
+      const fmtMoney = (n) => "$" + n.toFixed(2);
 
-  if (inventoryFromSheetsCount === 0) {
-    premadeGrid.innerHTML = `<p class="empty-note">Sorry, looks like there’s an issue with the inventory system right now, so premade items can’t be shown.</p>`;
-    return;
-  }
+      function computeCustomPrice() {
+        let base = 10;
+        const size = customSizeSelect.value;
+        const detail = customDetailSelect.value;
 
-  PREMADE_PRINTS.forEach(item => {
-    const card = document.createElement("div");
-    card.className = "card";
+        if (size === "small") base = 7;
+        else if (size === "medium") base = 12;
+        else if (size === "large") base = 20;
+        else if (size === "xl") base = 30;
 
-    const header = document.createElement("div");
-    header.className = "card-header";
+        if (detail === "high") base *= 1.25;
+        else if (detail === "ultra") base *= 1.6;
 
-    const titleDiv = document.createElement("div");
-    titleDiv.innerHTML = `<strong>${item.name}</strong><br>
-      <span style="font-size:.8rem;color:#4b5563;">$${item.basePrice.toFixed(2)}</span>`;
-    header.appendChild(titleDiv);
+        customPriceEstimate.textContent = fmtMoney(base);
+        return base;
+      }
 
-    const stInfo = statusInfo(item.status);
-    const statusKind = normalizeStatus(item.status);
-    const pill = document.createElement("span");
-    pill.className = `status-pill ${stInfo.cls}`;
-    pill.textContent = stInfo.label;
-    header.appendChild(pill);
+      function updateCartBadge() {
+        const totalQty = cart.reduce((sum, item) => sum + item.qty, 0);
+        cartBadge.textContent = totalQty + (totalQty === 1 ? " item" : " items");
+      }
 
-    card.appendChild(header);
-
-    if (item.description){
-      const desc = document.createElement("p");
-      desc.style.fontSize = ".85rem";
-      desc.textContent = item.description;
-      card.appendChild(desc);
-    }
-
-    if (statusKind === "limited" && item.stock !== null){
-      const stockP = document.createElement("p");
-      stockP.style.fontSize = ".8rem";
-      stockP.style.color = "#b45309";
-      stockP.textContent = `Limited stock: ${item.stock} available`;
-      card.appendChild(stockP);
-    }
-
-    const formWrap = document.createElement("div");
-    formWrap.style.marginTop = ".4rem";
-
-    const colorLabel = document.createElement("label");
-    colorLabel.textContent = "Color";
-    const colorSel = document.createElement("select");
-
-    if (statusKind === "limited") {
-      // Limited items: only Premade option
-      const opt = document.createElement("option");
-      opt.value = "premade";
-      opt.textContent = "Premade (pre-printed)";
-      colorSel.appendChild(opt);
-      colorSel.disabled = true;
-    } else {
-      COLORS.forEach(c => {
-        const opt = document.createElement("option");
-        opt.value = c.id;
-        opt.textContent = isColorAvailable(c.status) ? c.name : `${c.name} (${c.status || "Unavailable"})`;
-        if (!isColorAvailable(c.status)) opt.disabled = true;
-        colorSel.appendChild(opt);
-      });
-    }
-
-    const qtyLabel = document.createElement("label");
-    qtyLabel.style.marginTop = ".4rem";
-    qtyLabel.textContent = "Quantity";
-    const qtyInput = document.createElement("input");
-    qtyInput.type = "number";
-    qtyInput.min = "1";
-    qtyInput.value = "1";
-    if (statusKind === "limited" && item.stock !== null){
-      qtyInput.max = String(item.stock);
-    }
-
-    formWrap.appendChild(colorLabel);
-    formWrap.appendChild(colorSel);
-    formWrap.appendChild(qtyLabel);
-    formWrap.appendChild(qtyInput);
-    card.appendChild(formWrap);
-
-    const addBtn = document.createElement("button");
-    addBtn.className = "primary";
-    addBtn.style.marginTop = ".6rem";
-    addBtn.textContent = "Add to order";
-
-    if (!stInfo.available || (item.stock !== null && item.stock === 0)){
-      addBtn.disabled = true;
-      addBtn.textContent = "Unavailable";
-    }
-
-    addBtn.addEventListener("click", () => {
-      let qty = Math.max(parseInt(qtyInput.value) || 1, 1);
-
-      if (statusKind === "limited" && item.stock !== null){
-        let currentTotal = 0;
-        orderItems.forEach(it => {
-          if (it.type === "premade" && it.name === item.name){
-            currentTotal += it.qty;
-          }
-        });
-        const remaining = item.stock - currentTotal;
-        if (remaining <= 0){
-          alert("No more of this limited item are available.");
+      function renderCart() {
+        cartList.innerHTML = "";
+        if (cart.length === 0) {
+          cartList.innerHTML = '<div style="color:var(--muted);font-size:.85rem;">Your cart is empty.</div>';
+          updateCartBadge();
+          recalcTotals();
+          updateSummary();
           return;
         }
-        if (qty > remaining){
-          alert(`Only ${remaining} of this limited item are left.`);
-          qty = remaining;
+
+        cart.forEach((item, idx) => {
+          const row = document.createElement("div");
+          row.className = "cart-item";
+
+          const name = document.createElement("div");
+          name.className = "cart-item-name";
+          name.textContent = `${item.name} (${item.type === "custom" ? "Custom" : "Premade"} / ${item.color})`;
+
+          const qtyCell = document.createElement("div");
+          const qtyControls = document.createElement("div");
+          qtyControls.className = "cart-qty-controls";
+          const minusBtn = document.createElement("button");
+          minusBtn.textContent = "-";
+          minusBtn.onclick = () => {
+            if (item.qty > 1) {
+              item.qty -= 1;
+              renderCart();
+            }
+          };
+          const qtySpan = document.createElement("span");
+          qtySpan.textContent = item.qty;
+          const plusBtn = document.createElement("button");
+          plusBtn.textContent = "+";
+          plusBtn.onclick = () => {
+            if (item.maxQty && item.qty >= item.maxQty) return;
+            item.qty += 1;
+            renderCart();
+          };
+          qtyControls.append(minusBtn, qtySpan, plusBtn);
+          qtyCell.appendChild(qtyControls);
+
+          const priceCell = document.createElement("div");
+          priceCell.textContent = fmtMoney(item.unitPrice * item.qty);
+
+          const removeCell = document.createElement("div");
+          const remBtn = document.createElement("button");
+          remBtn.className = "btn btn-danger";
+          remBtn.style.padding = "0.25rem 0.6rem";
+          remBtn.style.fontSize = "0.75rem";
+          remBtn.textContent = "Remove";
+          remBtn.onclick = () => {
+            cart.splice(idx, 1);
+            renderCart();
+          };
+          removeCell.appendChild(remBtn);
+
+          row.append(name, qtyCell, priceCell, removeCell);
+          cartList.appendChild(row);
+        });
+
+        updateCartBadge();
+        recalcTotals();
+        updateSummary();
+      }
+
+      function recalcTotals() {
+        const itemsSubtotal = cart.reduce((sum, item) => sum + item.unitPrice * item.qty, 0);
+        itemsSubtotalEl.textContent = fmtMoney(itemsSubtotal);
+
+        let shipEst = 0;
+        if (shippingMethodSelect.value === "shipping" && itemsSubtotal > 0) {
+          if (itemsSubtotal < 20) shipEst = 6.5;
+          else if (itemsSubtotal < 50) shipEst = 8.5;
+          else shipEst = 10.5;
+        }
+
+        shippingEstimateEl.textContent = fmtMoney(shipEst);
+
+        let expediteFee = 0;
+        if (shippingMethodSelect.value === "shipping") {
+          const speed = shippingSpeedSelect.value;
+          if (speed === "fast") expediteFee = 4;
+          else if (speed === "nextday") expediteFee = 10;
+        }
+        expediteFeeEl.textContent = fmtMoney(expediteFee);
+
+        const grand = itemsSubtotal + shipEst + expediteFee;
+        grandTotalEl.textContent = fmtMoney(grand);
+        return { itemsSubtotal, shipEst, expediteFee, grand };
+      }
+
+      function updateSummary() {
+        const { itemsSubtotal, shipEst, expediteFee, grand } = recalcTotals();
+
+        if (cart.length === 0) {
+          orderSummaryPre.textContent = "Cart is empty.";
+          return;
+        }
+
+        const lines = [];
+        const orderNumber = orderCounter.toString().padStart(3, "0");
+        lines.push(`Order draft #${orderNumber}`);
+        lines.push("");
+        lines.push("Items:");
+        cart.forEach((item) => {
+          lines.push(
+            `- ${item.qty} x ${item.name} (${item.type === "custom" ? "Custom" : "Premade"} / ${item.color}) @ ${fmtMoney(item.unitPrice)}`
+          );
+        });
+        lines.push("");
+        lines.push(`Items subtotal: ${fmtMoney(itemsSubtotal)}`);
+        lines.push(`Shipping estimate: ${fmtMoney(shipEst)} (${shippingMethodSelect.value})`);
+        lines.push(`Expedite fee: ${fmtMoney(expediteFee)}`);
+        lines.push(`Estimated order value: ${fmtMoney(grand)}`);
+        orderSummaryPre.textContent = lines.join("\n");
+      }
+
+      function addItemToCart(item) {
+        // merge identical entries
+        const existing = cart.find(
+          (i) =>
+            i.type === item.type &&
+            i.name === item.name &&
+            i.color === item.color &&
+            i.unitPrice === item.unitPrice
+        );
+        if (existing) {
+          const potential = existing.qty + item.qty;
+          if (!existing.maxQty || potential <= existing.maxQty) {
+            existing.qty = potential;
+          } else {
+            existing.qty = existing.maxQty;
+          }
+        } else {
+          cart.push(item);
+        }
+        renderCart();
+      }
+
+      // ===== CONTACT VALIDATION =====
+      function isValidEmail(email) {
+        const re = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+        if (!re.test(email)) return false;
+        const lower = email.toLowerCase();
+        if (lower.includes("spam") || lower.includes("test") || lower.startsWith("a@")) return false;
+        return true;
+      }
+
+      function isValidPhone(phone) {
+        const digits = phone.replace(/\D/g, "");
+        if (digits.length < 10 || digits.length > 11) return false;
+        if (/^0+$/.test(digits)) return false;
+        if (digits.endsWith("0000")) return false;
+        return true;
+      }
+
+      function formatPhoneForDisplay(phone) {
+        const digits = phone.replace(/\D/g, "");
+        if (digits.length === 10) {
+          return `(${digits.slice(0,3)})-${digits.slice(3,7)}-${digits.slice(7)}`;
+        } else if (digits.length === 11) {
+          return `+${digits[0]} (${digits.slice(1,4)})-${digits.slice(4,8)}-${digits.slice(8)}`;
+        }
+        return phone;
+      }
+
+      function validateContact() {
+        const value = contactInfoInput.value.trim();
+        contactError.style.display = "none";
+        contactError.textContent = "";
+
+        if (!value) {
+          contactError.textContent = "Contact is required (phone or email).";
+          contactError.style.display = "block";
+          return false;
+        }
+
+        const looksEmail = value.includes("@");
+        const looksPhone = /[0-9]/.test(value);
+
+        if (looksEmail && isValidEmail(value)) {
+          return true;
+        }
+        if (!looksEmail && looksPhone && isValidPhone(value)) {
+          contactInfoInput.value = formatPhoneForDisplay(value);
+          return true;
+        }
+
+        contactError.textContent = "Please enter a realistic phone number or email.";
+        contactError.style.display = "block";
+        return false;
+      }
+
+      contactInfoInput.addEventListener("blur", validateContact);
+
+      // ===== SHEETS FETCH =====
+      async function fetchSheet(sheetName) {
+        const url =
+          `https://docs.google.com/spreadsheets/d/${encodeURIComponent(
+            SHEET_ID
+          )}/gviz/tq?sheet=${encodeURIComponent(sheetName)}&tqx=out:json`;
+
+        const res = await fetch(url);
+        if (!res.ok) throw new Error("Failed to fetch sheet " + sheetName);
+        const text = await res.text();
+        const jsonStr = text.substring(text.indexOf("{"), text.lastIndexOf("}") + 1);
+        return JSON.parse(jsonStr);
+      }
+
+      function sheetToRows(gvizJson) {
+        const cols = gvizJson.table.cols.map((c) => c.label);
+        return gvizJson.table.rows.map((r) => {
+          const obj = {};
+          r.c.forEach((cell, idx) => {
+            const key = cols[idx] || `col${idx}`;
+            obj[key] = cell ? cell.v : "";
+          });
+          return obj;
+        });
+      }
+
+      async function loadInventoryAndColors() {
+        try {
+          const [invJson, colorJson] = await Promise.all([
+            fetchSheet(INVENTORY_SHEET_NAME),
+            fetchSheet(COLORS_SHEET_NAME),
+          ]);
+          const invRows = sheetToRows(invJson);
+          const colorRows = sheetToRows(colorJson);
+
+          // Colors: include all except "Premade" in custom-color select
+          colorOptions = colorRows
+            .filter((row) => row.colors && row.Status && row.Status.toLowerCase() !== "unavailable")
+            .map((row) => ({
+              name: String(row.colors).trim(),
+              status: String(row.Status).trim().toLowerCase(),
+            }));
+
+          customColorSelect.innerHTML = "";
+          colorOptions
+            .filter((c) => c.name.toLowerCase() !== "premade")
+            .forEach((c) => {
+              const opt = document.createElement("option");
+              opt.value = c.name;
+              opt.textContent = c.name;
+              customColorSelect.appendChild(opt);
+            });
+
+          // Inventory items
+          inventoryItems = invRows
+            .map((row) => {
+              const name = String(row["Item name"] || "").trim();
+              const priceStr = String(row["Price"] || "").replace(/[^\d.]/g, "");
+              const stockStr = String(row["Stock"] || "").trim();
+              const statusRaw = String(row["Status"] || "").trim();
+              const notes = String(row["Notes"] || "").trim();
+
+              if (!name || !priceStr) return null; // skip blanks
+              const price = parseFloat(priceStr) || 0;
+              const stock = stockStr ? parseInt(stockStr, 10) || 0 : null;
+              const status = statusRaw.toLowerCase();
+
+              return { name, price, stock, status, notes };
+            })
+            .filter(Boolean);
+
+          renderInventory();
+        } catch (err) {
+          console.error(err);
+          inventoryError.style.display = "block";
+          liveInventoryLabel.style.color = "#f97316";
         }
       }
 
-      let priceEach = item.basePrice;
-      if (colorSel.value === "premade") {
-        priceEach = item.basePrice * 0.9;
+      function statusBadge(status) {
+        const s = status.toLowerCase();
+        if (s.includes("available")) return { class: "badge badge-green", text: status };
+        if (s.includes("limited")) return { class: "badge badge-pink", text: status };
+        if (s.includes("unavailable")) return { class: "badge badge-red", text: status };
+        if (s.includes("resupplied") || s.includes("resupplying")) return { class: "badge badge-yellow", text: status };
+        return { class: "badge badge-yellow", text: status || "status" };
       }
 
-      addItemToCart({
-        type: "premade",
-        name: item.name,
-        qty,
-        color: colorSel.value,
-        notes: "",
-        priceEach,
-        file: null,
-        status: item.status || "",
-        stock: item.stock
-      });
-    });
+      function renderInventory() {
+        inventoryGrid.innerHTML = "";
+        if (inventoryItems.length === 0) {
+          inventoryError.style.display = "block";
+          liveInventoryLabel.style.color = "#f97316";
+          return;
+        }
+        liveInventoryLabel.style.color = "#9ca3af";
 
-    card.appendChild(addBtn);
-    premadeGrid.appendChild(card);
-  });
-}
+        inventoryItems.forEach((item, idx) => {
+          const card = document.createElement("div");
+          card.className = "card";
 
-function renderOrderSummary(){
-  if (orderItems.length === 0){
-    orderSummaryBody.innerHTML = `<p class="empty-note">No items added yet.</p>`;
-    updateTotalsDisplay();
-    return;
-  }
+          const header = document.createElement("div");
+          header.className = "card-header";
+          const h3 = document.createElement("h3");
+          h3.textContent = item.name;
+          const badgeInfo = statusBadge(item.status);
+          const badge = document.createElement("span");
+          badge.className = badgeInfo.class;
+          badge.textContent = badgeInfo.text;
+          header.append(h3, badge);
 
-  let html = `<table class="order-summary-table">
-    <tr><th>Item</th><th>Qty</th><th>Color</th><th>Est. each</th><th>Est. total</th><th></th></tr>`;
+          const price = document.createElement("div");
+          price.style.fontWeight = "600";
+          price.textContent = fmtMoney(item.price);
 
-  orderItems.forEach((i, idx) => {
-    const each = i.priceEach ? `$${i.priceEach.toFixed(2)}` : "-";
-    const total = i.priceEach ? `$${(i.priceEach * i.qty).toFixed(2)}` : "-";
-    html += `<tr>
-      <td>${i.name}${i.type === "custom" ? " (custom)" : ""}</td>
-      <td>
-        <div class="qty-controls">
-          <button class="qty-btn" data-index="${idx}" data-dir="-1">-</button>
-          <span>${i.qty}</span>
-          <button class="qty-btn" data-index="${idx}" data-dir="1">+</button>
-        </div>
-      </td>
-      <td>${colorName(i.color)}</td>
-      <td>${each}</td>
-      <td>${total}</td>
-      <td><button class="remove-btn" data-index="${idx}">Remove</button></td>
-    </tr>`;
-  });
+          const notes = document.createElement("div");
+          notes.className = "hint";
+          notes.textContent = item.notes || "";
 
-  html += `</table>`;
-  orderSummaryBody.innerHTML = html;
+          const colorLabel = document.createElement("label");
+          colorLabel.textContent = "Color";
 
-  orderSummaryBody.querySelectorAll(".qty-btn").forEach(btn => {
-    const index = parseInt(btn.dataset.index, 10);
-    const dir = parseInt(btn.dataset.dir, 10);
-    btn.addEventListener("click", () => {
-      const item = orderItems[index];
-      if (!item) return;
+          const colorSelect = document.createElement("select");
+          // For "Limited" items only allow Premade option
+          const isLimited = item.status.toLowerCase().includes("limited");
+          const availableColors = isLimited
+            ? colorOptions.filter((c) => c.name.toLowerCase() === "premade")
+            : colorOptions;
 
-      if (dir > 0) {
-        const statusKind = normalizeStatus(item.status);
-        if (statusKind === "limited" && item.stock !== null){
-          let totalQty = 0;
-          orderItems.forEach(it => {
-            if (it.type === "premade" && it.name === item.name){
-              totalQty += it.qty;
+          if (availableColors.length === 0) {
+            const opt = document.createElement("option");
+            opt.value = "";
+            opt.textContent = "No colors available";
+            colorSelect.appendChild(opt);
+            colorSelect.disabled = true;
+          } else {
+            availableColors.forEach((c) => {
+              const opt = document.createElement("option");
+              opt.value = c.name;
+              opt.textContent = c.name;
+              colorSelect.appendChild(opt);
+            });
+          }
+
+          const qtyLabel = document.createElement("label");
+          qtyLabel.textContent = "Quantity";
+
+          const qtyInput = document.createElement("input");
+          qtyInput.type = "number";
+          qtyInput.min = "1";
+          qtyInput.value = "1";
+          if (item.status.toLowerCase().includes("limited") && item.stock) {
+            qtyInput.max = String(item.stock);
+          }
+
+          const btn = document.createElement("button");
+          btn.className = "btn btn-primary btn-full";
+          btn.textContent = "Add to cart";
+
+          const statusLower = item.status.toLowerCase();
+          const unavailable =
+            statusLower.includes("temporarily unavailable") ||
+            statusLower.includes("unavailable") ||
+            statusLower.includes("sold out");
+
+          if (unavailable) {
+            btn.disabled = true;
+            btn.textContent = "Unavailable";
+          }
+
+          btn.addEventListener("click", () => {
+            const qty = Math.max(1, parseInt(qtyInput.value || "1", 10));
+            let maxQty = null;
+            if (statusLower.includes("limited") && item.stock) {
+              maxQty = item.stock;
             }
+
+            const chosenColor = colorSelect.value || "Premade";
+            addItemToCart({
+              type: "premade",
+              name: item.name,
+              color: chosenColor,
+              unitPrice: item.price,
+              qty,
+              maxQty,
+            });
           });
-          if (totalQty >= item.stock){
+
+          card.append(header, price, notes, colorLabel, colorSelect, qtyLabel, qtyInput, btn);
+          inventoryGrid.appendChild(card);
+        });
+      }
+
+      // ===== CUSTOM PRICE / EVENTS =====
+      customSizeSelect.addEventListener("change", () => {
+        computeCustomPrice();
+        updateSummary();
+      });
+      customDetailSelect.addEventListener("change", () => {
+        computeCustomPrice();
+        updateSummary();
+      });
+      computeCustomPrice();
+
+      addCustomToCartBtn.addEventListener("click", () => {
+        customError.style.display = "none";
+        customError.textContent = "";
+
+        const file = customFileInput.files[0];
+        if (!file) {
+          customError.textContent = "Please attach a file for custom prints.";
+          customError.style.display = "block";
+          return;
+        }
+
+        const price = computeCustomPrice();
+        const color = customColorSelect.value || "MultiColor";
+
+        addItemToCart({
+          type: "custom",
+          name: file.name,
+          color,
+          unitPrice: price,
+          qty: 1,
+          maxQty: null,
+          file, // keep reference for upload
+          notes: customNotes.value.trim(),
+          size: customSizeSelect.value,
+          detail: customDetailSelect.value,
+        });
+
+        // clear custom form (but not color/detail settings)
+        customFileInput.value = "";
+        customNotes.value = "";
+        customError.style.display = "none";
+      });
+
+      shippingMethodSelect.addEventListener("change", () => {
+        if (shippingMethodSelect.value === "shipping") {
+          shippingExtra.style.display = "block";
+        } else {
+          shippingExtra.style.display = "none";
+        }
+        updateSummary();
+      });
+      shippingSpeedSelect.addEventListener("change", updateSummary);
+
+      // ===== SUBMIT =====
+      async function sendToWebhook(url, formData) {
+        const res = await fetch(url, { method: "POST", body: formData });
+        if (!res.ok) throw new Error(`Webhook error: ${res.status}`);
+      }
+
+      submitOrderBtn.addEventListener("click", async () => {
+        submitError.style.display = "none";
+        submitError.textContent = "";
+
+        // 1) Cart must not be empty
+        if (cart.length === 0) {
+          submitError.textContent = "Your cart is empty. Add at least one item before submitting.";
+          submitError.style.display = "block";
+          return;
+        }
+
+        // 2) Validate contact
+        if (!validateContact()) {
+          submitError.textContent = "Please fix contact info before submitting.";
+          submitError.style.display = "block";
+          return;
+        }
+
+        // 3) Shipping info required if shipping
+        if (shippingMethodSelect.value === "shipping") {
+          if (!shippingInfoInput.value.trim()) {
+            submitError.textContent = "Please provide shipping info for shipping orders.";
+            submitError.style.display = "block";
             return;
           }
         }
-        item.qty += 1;
-      } else {
-        // Do not allow going below 1; use Remove button to delete
-        if (item.qty > 1) {
-          item.qty -= 1;
+
+        const contact = contactInfoInput.value.trim();
+        const customerName = customerNameInput.value.trim();
+        const extraNotes = extraNotesInput.value.trim();
+
+        const { itemsSubtotal, shipEst, expediteFee, grand } = recalcTotals();
+        const orderNumber = orderCounter.toString().padStart(3, "0");
+        const nowIso = new Date().toISOString();
+
+        // Build text summary (same for both webhooks)
+        const lines = [];
+        lines.push(`New 3D Print Order #${orderNumber}`);
+        lines.push("");
+        lines.push("Items:");
+        cart.forEach((item) => {
+          lines.push(
+            `- ${item.qty} x ${item.name} (${item.type === "custom" ? "Custom" : "Premade"} / ${item.color}) @ ${fmtMoney(item.unitPrice)}`
+          );
+        });
+        lines.push("");
+        lines.push(`Items subtotal: ${fmtMoney(itemsSubtotal)}`);
+        lines.push(
+          `Shipping: ${fmtMoney(shipEst)} (${shippingMethodSelect.value}${
+            shippingMethodSelect.value === "shipping" ? " - " + shippingInfoInput.value.trim() : ""
+          })`
+        );
+        lines.push(
+          `Expedite: ${fmtMoney(expediteFee)} (${
+            shippingMethodSelect.value === "shipping" ? shippingSpeedSelect.value : "n/a"
+          })`
+        );
+        lines.push(`Estimated order value: ${fmtMoney(grand)}`);
+        lines.push("");
+        lines.push(`Name: ${customerName || "(not provided)"}`);
+        lines.push(`Contact: ${contact}`);
+        lines.push(
+          `Shipping info (for quote): ${
+            shippingMethodSelect.value === "shipping" ? shippingInfoInput.value.trim() : "Pickup"
+          }`
+        );
+        lines.push("");
+        lines.push(`Extra notes: ${extraNotes || "(none)"}`);
+        lines.push(`Created at: ${nowIso}`);
+        const summaryText = lines.join("\n");
+
+        // Build JSON metadata
+        const payload = {
+          order_id: orderNumber,
+          created_at: nowIso,
+          customer_name: customerName,
+          contact,
+          shipping_info:
+            shippingMethodSelect.value === "shipping" ? shippingInfoInput.value.trim() : "Pickup",
+          shipping_method: shippingMethodSelect.value,
+          shipping_speed: shippingSpeedSelect.value,
+          items_subtotal: itemsSubtotal,
+          shipping_estimate: shipEst,
+          expedite_fee: expediteFee,
+          grand_total_estimate: grand,
+          notes: extraNotes,
+          items: cart.map((item) => ({
+            type: item.type,
+            name: item.name,
+            color: item.color,
+            qty: item.qty,
+            unit_price: item.unitPrice,
+            est_total: item.unitPrice * item.qty,
+            size: item.size || null,
+            detail: item.detail || null,
+            custom_notes: item.notes || null,
+          })),
+        };
+
+        // Prepare two FormData payloads (cannot reuse the same instance twice)
+        function buildFormData() {
+          const fd = new FormData();
+          fd.append("content", "```" + summaryText + "```");
+          fd.append("payload_json", JSON.stringify({ content: null }));
+          // attach custom file if exists in cart (only the first one)
+          const customItem = cart.find((i) => i.type === "custom" && i.file);
+          if (customItem && customItem.file) {
+            fd.append("file", customItem.file, customItem.file.name);
+          }
+          fd.append("order_meta", JSON.stringify(payload));
+          return fd;
         }
-      }
-      renderOrderSummary();
-    });
-  });
 
-  orderSummaryBody.querySelectorAll(".remove-btn").forEach(btn => {
-    const index = parseInt(btn.dataset.index, 10);
-    btn.addEventListener("click", () => {
-      if (!orderItems[index]) return;
-      orderItems.splice(index, 1);
-      renderOrderSummary();
-    });
-  });
+        submitOrderBtn.disabled = true;
+        submitOrderBtn.textContent = "Submitting...";
 
-  updateTotalsDisplay();
-}
+        try {
+          // send to main orders webhook
+          await sendToWebhook(ORDER_WEBHOOK_URL, buildFormData());
+          // send to history webhook
+          await sendToWebhook(HISTORY_WEBHOOK_URL, buildFormData());
 
-/* ===== Custom price estimator ===== */
-function calculateCustomPrice(){
-  let base = 8;
-  const size = customSizeSelect.value;
-  const detail = customDetailSelect.value;
-  const infill = customInfillSelect.value;
-  const qty = Math.max(Number(customQtyInput.value) || 1, 1);
-  const colorId = customColorSelect.value;
+          // success
+          alert("Order submitted");
+          // reset cart and fields
+          cart = [];
+          renderCart();
+          customerNameInput.value = "";
+          extraNotesInput.value = "";
+          // keep contact in case they submit again
+          shippingInfoInput.value = "";
+          shippingMethodSelect.value = "pickup";
+          shippingExtra.style.display = "none";
+          shippingSpeedSelect.value = "standard";
+          updateSummary();
 
-  let mult = 1;
-  if (size === "medium") mult *= 1.5;
-  else if (size === "large") mult *= 2.2;
+          orderCounter += 1;
+          localStorage.setItem("orderCounter", String(orderCounter));
+        } catch (err) {
+          console.error(err);
+          submitError.textContent =
+            "There was a problem sending the order to Discord. Please try again.";
+          submitError.style.display = "block";
+        } finally {
+          submitOrderBtn.disabled = false;
+          submitOrderBtn.textContent = "Submit order";
+        }
+      });
 
-  if (detail === "draft") mult *= 0.9;
-  else if (detail === "high") mult *= 1.3;
-
-  if (infill === "standard") mult *= 1.1;
-  else if (infill === "solid") mult *= 1.25;
-
-  if (colorId === "premade") { // shouldn't happen for custom, but safe
-    mult *= 0.9;
-  }
-
-  let priceEach = base * mult;
-  priceEach = Math.max(5, Math.min(priceEach, 60));
-
-  const total = priceEach * qty;
-  return { priceEach, total };
-}
-
-function updateCustomPriceDisplay(){
-  const { priceEach, total } = calculateCustomPrice();
-  customPriceDisplay.textContent =
-    `Estimated price: $${priceEach.toFixed(2)} each, $${total.toFixed(2)} total`;
-}
-
-/* ===== Totals with shipping + expedite ===== */
-function getItemsSubtotal(){
-  let subtotal = 0;
-  orderItems.forEach(i => {
-    if (i.priceEach) subtotal += i.priceEach * i.qty;
-  });
-  return subtotal;
-}
-
-function getShippingEstimate(){
-  const method = shippingMethodSelect.value;
-  if (method === "carrier_ground"){
-    // Ground shipping baseline
-    let base = 9;
-    if (expediteCheckbox.checked){
-      if (expediteSpeed === "fast") {
-        base += 4;   // faster (2–3 day-ish)
-      } else if (expediteSpeed === "next-day") {
-        base += 15;  // next-day style bump
-      }
-    }
-    return base;
-  }
-  return 0;
-}
-
-function getExpediteFee(itemsSubtotal){
-  if (!expediteCheckbox.checked) return 0;
-  const fee = itemsSubtotal * 0.20;
-  return Math.max(5, fee);
-}
-
-function computeTotals(){
-  const itemsSubtotal = getItemsSubtotal();
-  const shippingEstimate = getShippingEstimate();
-  const expediteFee = getExpediteFee(itemsSubtotal);
-  const grandTotal = itemsSubtotal + shippingEstimate + expediteFee;
-  return { itemsSubtotal, shippingEstimate, expediteFee, grandTotal };
-}
-
-function updateTotalsDisplay(){
-  const { itemsSubtotal, shippingEstimate, expediteFee, grandTotal } = computeTotals();
-
-  totalsDisplay.innerHTML = `
-    <div class="totals-line">
-      <span>Items subtotal</span>
-      <span>$${itemsSubtotal.toFixed(2)}</span>
-    </div>
-    <div class="totals-line">
-      <span>Estimated shipping</span>
-      <span>${shippingEstimate > 0 ? "$" + shippingEstimate.toFixed(2) : "$0.00"}</span>
-    </div>
-    <div class="totals-line">
-      <span>Expedite fee</span>
-      <span>${expediteFee > 0 ? "$" + expediteFee.toFixed(2) : "$0.00"}</span>
-    </div>
-    <div class="totals-line">
-      <strong>Estimated order value</strong>
-      <strong>$${grandTotal.toFixed(2)}</strong>
-    </div>
-  `;
-}
-
-/* Expedite UI sync */
-function updateExpediteUI(){
-  if (expediteCheckbox.checked) {
-    expediteSpeed = expediteSpeedSelect.value;
-    expediteSpeedSelect.disabled = (shippingMethodSelect.value === "pickup");
-    let label = "Expedited";
-    if (shippingMethodSelect.value !== "pickup") {
-      if (expediteSpeed === "fast") label = "Expedited (fast)";
-      else if (expediteSpeed === "next-day") label = "Expedited (next-day)";
-    }
-    expediteToggleBtn.classList.add("active");
-    expediteToggleBtn.textContent = label;
-  } else {
-    expediteSpeed = "standard";
-    expediteSpeedSelect.disabled = true;
-    expediteToggleBtn.classList.remove("active");
-    expediteToggleBtn.textContent = "Normal";
-  }
-  updateTotalsDisplay();
-}
-
-expediteToggleBtn.addEventListener("click", () => {
-  expediteCheckbox.checked = !expediteCheckbox.checked;
-  updateExpediteUI();
-});
-
-expediteSpeedSelect.addEventListener("change", () => {
-  if (expediteCheckbox.checked) {
-    expediteSpeed = expediteSpeedSelect.value;
-    updateExpediteUI();
-  }
-});
-
-shippingMethodSelect.addEventListener("change", () => {
-  updateExpediteUI();
-});
-
-/* ===== Order number generator ===== */
-function getTodayKey(){
-  const d = new Date();
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2,"0");
-  const day = String(d.getDate()).padStart(2,"0");
-  return `${y}${m}${day}`;
-}
-
-function getNextOrderNumber(){
-  const dayKey = getTodayKey();
-  const storageKey = `silvio_order_counter_${dayKey}`;
-  let n = parseInt(localStorage.getItem(storageKey) || "0", 10);
-  n += 1;
-  localStorage.setItem(storageKey, String(n));
-  return `${dayKey}-${String(n).padStart(3,"0")}`;
-}
-
-/* ===== Custom add button ===== */
-addCustomBtn.addEventListener("click", () => {
-  const file = customFileInput.files[0];
-  if (!file) {
-    alert("Please choose a model file before adding a custom print.");
-    return;
-  }
-
-  const qty = Math.max(Number(customQtyInput.value) || 1, 1);
-  const { priceEach } = calculateCustomPrice();
-
-  addItemToCart({
-    type: "custom",
-    name: file.name,
-    qty,
-    color: customColorSelect.value,
-    notes: customNotesInput.value.trim(),
-    priceEach,
-    file,
-    status: null,
-    stock: null
-  });
-
-  customFileInput.value = "";
-  customQtyInput.value = "1";
-  updateCustomPriceDisplay();
-});
-
-/* ===== Build Discord message & submit ===== */
-function buildDiscordMessage(orderId){
-  const { itemsSubtotal, shippingEstimate, expediteFee, grandTotal } = computeTotals();
-
-  let msg = `📦 **New 3D Print Order #${orderId}**\n`;
-
-  const name = customerName.value.trim();
-  const rawContact = customerContact.value.trim();
-  const extra = customerNotes.value.trim();
-  const shippingInfo = shippingInfoInput.value.trim();
-
-  let displayContact = rawContact;
-  if (looksLikePhone(rawContact)) {
-    const digits = rawContact.replace(/\D/g,"");
-    displayContact = formatPhoneDisplay(digits);
-  }
-
-  if (name) msg += `**Name:** ${name}\n`;
-  if (rawContact) msg += `**Contact:** ${displayContact}\n`;
-  if (extra) msg += `**Extra notes:** ${extra}\n`;
-
-  msg += `\n**Items:**\n`;
-  if (orderItems.length === 0){
-    msg += `- (No items added)\n`;
-  } else {
-    orderItems.forEach((i, idx) => {
-      msg += `**${idx+1}. ${i.name}${i.type === "custom" ? " (custom)" : ""}**\n`;
-      msg += `Qty: ${i.qty}\n`;
-      msg += `Color: ${colorName(i.color)}\n`;
-      if (i.priceEach){
-        msg += `Estimated price each: $${i.priceEach.toFixed(2)}\n`;
-        msg += `Estimated total: $${(i.priceEach * i.qty).toFixed(2)}\n`;
-      }
-      if (i.type === "custom" && i.file){
-        msg += `File: ${i.file.name} (attached)\n`;
-      }
-      if (i.notes) msg += `Notes: ${i.notes}\n`;
-      msg += `\n`;
-    });
-  }
-
-  const shippingMethodValue = shippingMethodSelect.value;
-  const shippingMethodLabel =
-    shippingMethodSelect.options[shippingMethodSelect.selectedIndex]?.text ||
-    shippingMethodValue;
-
-  msg += `**Shipping:**\n`;
-  msg += `Method: ${shippingMethodLabel} (estimate)\n`;
-  if (shippingInfo) {
-    msg += `Shipping info (for quote): ${shippingInfo}\n`;
-  }
-  msg += `Estimated shipping cost: $${shippingEstimate.toFixed(2)}\n`;
-
-  if (expediteCheckbox.checked) {
-    msg += `\n**Expedite:** Yes (estimated extra fee: $${expediteFee.toFixed(2)})\n`;
-    if (shippingMethodValue !== "pickup") {
-      msg += `Expedite shipping preference: ${
-        expediteSpeed === "next-day"
-          ? "Next-day if available"
-          : "Faster (around 2–3 days) if available"
-      }\n`;
-    }
-  } else {
-    msg += `\n**Expedite:** No\n`;
-  }
-
-  msg += `\n**Estimates summary:**\n`;
-  msg += `Items subtotal: $${itemsSubtotal.toFixed(2)}\n`;
-  msg += `Estimated shipping: $${shippingEstimate.toFixed(2)}\n`;
-  msg += `Expedite fee: $${expediteFee.toFixed(2)}\n`;
-  msg += `\n**Estimated order value (items + shipping + expedite): $${grandTotal.toFixed(2)}**\n`;
-
-  return msg;
-}
-
-sendBtn.addEventListener("click", () => {
-  const contact = customerContact.value.trim();
-  if (!contact){
-    alert("Please enter at least an email or phone number so I can contact you.");
-    return;
-  }
-  if (!isValidContact(contact)){
-    alert("Please enter a valid email address or phone number (no obvious fake values).");
-    return;
-  }
-
-  if (shippingMethodSelect.value !== "pickup" &&
-      !shippingInfoInput.value.trim()) {
-    alert("Please enter shipping info (city / ZIP / address) so I can get a shipping quote.");
-    return;
-  }
-
-  const orderId = getNextOrderNumber();
-  const msg = buildDiscordMessage(orderId);
-
-  const fd = new FormData();
-  fd.append("content", msg);
-
-  const files = [];
-  orderItems.forEach(i => {
-    if (i.type === "custom" && i.file instanceof File) {
-      files.push(i.file);
-    }
-  });
-
-  files.forEach((file, idx) => {
-    const fieldName = idx === 0 ? "file" : `file${idx+1}`;
-    fd.append(fieldName, file, file.name);
-  });
-
-  fetch(DISCORD_WEBHOOK_URL, {
-    method: "POST",
-    body: fd
-  }).finally(() => {
-    alert("Order submitted");
-    // Clear cart & reset shipping/expedite
-    orderItems = [];
-    renderOrderSummary();
-    shippingMethodSelect.value = "pickup";
-    expediteCheckbox.checked = false;
-    expediteSpeedSelect.value = "standard";
-    updateExpediteUI();
-  });
-});
-
-/* ===== Init ===== */
-async function init(){
-  applySavedTheme();
-  await loadDataFromSheets();
-  renderColorsToSelect();
-  renderPremadeCards();
-  renderOrderSummary();
-  updateCustomPriceDisplay();
-  updateExpediteUI();
-}
-
-customQtyInput.addEventListener("input", updateCustomPriceDisplay);
-customSizeSelect.addEventListener("change", updateCustomPriceDisplay);
-customDetailSelect.addEventListener("change", updateCustomPriceDisplay);
-customInfillSelect.addEventListener("change", updateCustomPriceDisplay);
-customColorSelect.addEventListener("change", updateCustomPriceDisplay);
-
-init();
-</script>
-
+      // ===== INIT =====
+      await loadInventoryAndColors();
+      renderCart();
+      updateSummary();
+    })();
+  </script>
 </body>
 </html>

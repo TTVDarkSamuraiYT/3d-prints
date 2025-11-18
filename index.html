@@ -579,7 +579,7 @@
         renderCart();
       }
 
-      // ===== CONTACT VALIDATION =====
+      // ===== CONTACT VALIDATION & LIVE FORMATTING =====
       function isValidEmail(email) {
         const re = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
         if (!re.test(email)) return false;
@@ -604,6 +604,14 @@
           return `+${digits[0]} (${digits.slice(1,4)})-${digits.slice(4,8)}-${digits.slice(8)}`;
         }
         return phone;
+      }
+
+      function formatPhoneLive(value) {
+        const digits = value.replace(/\D/g, "").slice(0, 11);
+        if (digits.length === 0) return "";
+        if (digits.length <= 3) return `(${digits}`;
+        if (digits.length <= 7) return `(${digits.slice(0,3)})-${digits.slice(3)}`;
+        return `(${digits.slice(0,3)})-${digits.slice(3,7)}-${digits.slice(7)}`;
       }
 
       function validateContact() {
@@ -632,6 +640,14 @@
         contactError.style.display = "block";
         return false;
       }
+
+      // live formatting while typing (only if it's not an email)
+      contactInfoInput.addEventListener("input", () => {
+        const v = contactInfoInput.value;
+        if (v.includes("@")) return; // email in progress
+        const formatted = formatPhoneLive(v);
+        contactInfoInput.value = formatted;
+      });
 
       contactInfoInput.addEventListener("blur", validateContact);
 
@@ -702,7 +718,7 @@
               const stock = stockStr ? parseInt(stockStr, 10) || 0 : null;
               const status = statusRaw.toLowerCase();
 
-              return { name, price, stock, status, notes };
+              return { name, price, stock, status, notes, statusRaw };
             })
             .filter(Boolean);
 
@@ -714,13 +730,14 @@
         }
       }
 
-      function statusBadge(status) {
-        const s = status.toLowerCase();
-        if (s.includes("available")) return { class: "badge badge-green", text: status };
-        if (s.includes("limited")) return { class: "badge badge-pink", text: status };
-        if (s.includes("unavailable")) return { class: "badge badge-red", text: status };
-        if (s.includes("resupplied") || s.includes("resupplying")) return { class: "badge badge-yellow", text: status };
-        return { class: "badge badge-yellow", text: status || "status" };
+      function statusBadge(statusStr) {
+        const s = statusStr.toLowerCase();
+        if (s.includes("available") && !s.includes("temporarily")) return { class: "badge badge-green", text: statusStr };
+        if (s.includes("temporarily")) return { class: "badge badge-yellow", text: statusStr };
+        if (s.includes("limited")) return { class: "badge badge-pink", text: statusStr };
+        if (s.includes("unavailable")) return { class: "badge badge-red", text: statusStr };
+        if (s.includes("resupplied") || s.includes("resupplying")) return { class: "badge badge-yellow", text: statusStr };
+        return { class: "badge badge-yellow", text: statusStr || "status" };
       }
 
       function renderInventory() {
@@ -740,7 +757,7 @@
           header.className = "card-header";
           const h3 = document.createElement("h3");
           h3.textContent = item.name;
-          const badgeInfo = statusBadge(item.status);
+          const badgeInfo = statusBadge(item.statusRaw || item.status);
           const badge = document.createElement("span");
           badge.className = badgeInfo.class;
           badge.textContent = badgeInfo.text;
@@ -758,25 +775,29 @@
           colorLabel.textContent = "Color";
 
           const colorSelect = document.createElement("select");
-          // For "Limited" items only allow Premade option
-          const isLimited = item.status.toLowerCase().includes("limited");
-          const availableColors = isLimited
-            ? colorOptions.filter((c) => c.name.toLowerCase() === "premade")
-            : colorOptions;
+          const isLimited = (item.statusRaw || item.status).toLowerCase().includes("limited");
 
-          if (availableColors.length === 0) {
+          if (isLimited) {
+            // Limited items: force "Premade only"
             const opt = document.createElement("option");
-            opt.value = "";
-            opt.textContent = "No colors available";
+            opt.value = "Premade";
+            opt.textContent = "Premade only";
             colorSelect.appendChild(opt);
-            colorSelect.disabled = true;
           } else {
-            availableColors.forEach((c) => {
+            if (colorOptions.length === 0) {
               const opt = document.createElement("option");
-              opt.value = c.name;
-              opt.textContent = c.name;
+              opt.value = "";
+              opt.textContent = "No colors available";
               colorSelect.appendChild(opt);
-            });
+              colorSelect.disabled = true;
+            } else {
+              colorOptions.forEach((c) => {
+                const opt = document.createElement("option");
+                opt.value = c.name;
+                opt.textContent = c.name;
+                colorSelect.appendChild(opt);
+              });
+            }
           }
 
           const qtyLabel = document.createElement("label");
@@ -786,7 +807,7 @@
           qtyInput.type = "number";
           qtyInput.min = "1";
           qtyInput.value = "1";
-          if (item.status.toLowerCase().includes("limited") && item.stock) {
+          if (isLimited && item.stock) {
             qtyInput.max = String(item.stock);
           }
 
@@ -794,7 +815,7 @@
           btn.className = "btn btn-primary btn-full";
           btn.textContent = "Add to cart";
 
-          const statusLower = item.status.toLowerCase();
+          const statusLower = (item.statusRaw || item.status).toLowerCase();
           const unavailable =
             statusLower.includes("temporarily unavailable") ||
             statusLower.includes("unavailable") ||
@@ -808,11 +829,11 @@
           btn.addEventListener("click", () => {
             const qty = Math.max(1, parseInt(qtyInput.value || "1", 10));
             let maxQty = null;
-            if (statusLower.includes("limited") && item.stock) {
+            if (isLimited && item.stock) {
               maxQty = item.stock;
             }
 
-            const chosenColor = colorSelect.value || "Premade";
+            const chosenColor = isLimited ? "Premade" : (colorSelect.value || "Premade");
             addItemToCart({
               type: "premade",
               name: item.name,
@@ -992,7 +1013,6 @@
           const fd = new FormData();
           fd.append("content", "```" + summaryText + "```");
           fd.append("payload_json", JSON.stringify({ content: null }));
-          // attach custom file if exists in cart (only the first one)
           const customItem = cart.find((i) => i.type === "custom" && i.file);
           if (customItem && customItem.file) {
             fd.append("file", customItem.file, customItem.file.name);
@@ -1005,19 +1025,14 @@
         submitOrderBtn.textContent = "Submitting...";
 
         try {
-          // send to main orders webhook
           await sendToWebhook(ORDER_WEBHOOK_URL, buildFormData());
-          // send to history webhook
           await sendToWebhook(HISTORY_WEBHOOK_URL, buildFormData());
 
-          // success
           alert("Order submitted");
-          // reset cart and fields
           cart = [];
           renderCart();
           customerNameInput.value = "";
           extraNotesInput.value = "";
-          // keep contact in case they submit again
           shippingInfoInput.value = "";
           shippingMethodSelect.value = "pickup";
           shippingExtra.style.display = "none";
@@ -1029,7 +1044,7 @@
         } catch (err) {
           console.error(err);
           submitError.textContent =
-            "There was a problem sending the order to Discord. Please try again.";
+            "Sorry, there was an error submitting your order. Please try again.";
           submitError.style.display = "block";
         } finally {
           submitOrderBtn.disabled = false;

@@ -355,6 +355,7 @@
       let COLORS_SHEET_NAME = "";
       let ORDER_WEBHOOK_URL = "";
       let HISTORY_WEBHOOK_URL = "";
+      let STOCK_WEBAPP_URL = "";   // NEW: Apps Script web app endpoint
 
       async function loadConfig() {
         const res = await fetch("config.json", { cache: "no-store" });
@@ -365,6 +366,7 @@
         COLORS_SHEET_NAME = cfg.COLORS_SHEET_NAME;
         ORDER_WEBHOOK_URL = cfg.ORDER_WEBHOOK_URL;
         HISTORY_WEBHOOK_URL = cfg.HISTORY_WEBHOOK_URL;
+        STOCK_WEBAPP_URL = cfg.STOCK_WEBAPP_URL || "";
         console.log("Loaded config:", cfg);
       }
 
@@ -797,7 +799,7 @@
           const hasPremadeStock = item.stock !== null && item.stock > 0;
 
           if (isLimited) {
-            // Limited items: always premade only, and only shown if stock>0 (already filtered)
+            // Limited items: premade only, and only shown if stock>0 (filtered earlier)
             const opt = document.createElement("option");
             opt.value = "Premade";
             opt.textContent = "Premade only";
@@ -833,9 +835,21 @@
           qtyInput.type = "number";
           qtyInput.min = "1";
           qtyInput.value = "1";
-          if (isLimited && item.stock) {
-            qtyInput.max = String(item.stock);
-          }
+
+          // Clamp quantity field by stock whenever premade is involved
+          const applyQtyMax = () => {
+            const chosenColor = isLimited ? "Premade" : (colorSelect.value || "");
+            if (item.stock && (isLimited || chosenColor === "Premade")) {
+              qtyInput.max = String(item.stock);
+              if (parseInt(qtyInput.value || "1", 10) > item.stock) {
+                qtyInput.value = String(item.stock);
+              }
+            } else {
+              qtyInput.removeAttribute("max");
+            }
+          };
+          applyQtyMax();
+          colorSelect.addEventListener("change", applyQtyMax);
 
           const btn = document.createElement("button");
           btn.className = "btn btn-primary btn-full";
@@ -852,7 +866,7 @@
           }
 
           btn.addEventListener("click", () => {
-            const qty = Math.max(1, parseInt(qtyInput.value || "1", 10));
+            let qty = Math.max(1, parseInt(qtyInput.value || "1", 10));
             const chosenColor = isLimited ? "Premade" : (colorSelect.value || "Premade");
 
             let maxQty = null;
@@ -863,6 +877,11 @@
             // Any item ordered as "Premade" should also respect stock if defined
             else if (!isLimited && chosenColor === "Premade" && item.stock) {
               maxQty = item.stock;
+            }
+
+            if (maxQty !== null && qty > maxQty) {
+              qty = maxQty;
+              qtyInput.value = String(maxQty);
             }
 
             addItemToCart({
@@ -959,6 +978,27 @@
         }
       }
 
+      // Apps Script stock updater
+      async function sendStockUpdateToAppsScript(stockItems) {
+        if (!STOCK_WEBAPP_URL || stockItems.length === 0) return;
+        try {
+          const res = await fetch(STOCK_WEBAPP_URL, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ items: stockItems }),
+          });
+          if (!res.ok) {
+            const txt = await res.text().catch(() => "");
+            console.error("[STOCK WEBAPP ERROR]", res.status, txt);
+          } else {
+            const data = await res.json().catch(() => ({}));
+            console.log("[STOCK WEBAPP RESULT]", data);
+          }
+        } catch (err) {
+          console.error("[STOCK WEBAPP ERROR]", err);
+        }
+      }
+
       // SUBMIT
       submitOrderBtn.addEventListener("click", async () => {
         submitError.style.display = "none";
@@ -1025,12 +1065,18 @@
 
         const customItem = cart.find((i) => i.type === "custom" && i.file);
 
+        // Build list of items whose stock should be decremented (premade with stock cap)
+        const stockItems = cart
+          .filter((i) => i.type === "premade" && i.maxQty != null && i.color === "Premade")
+          .map((i) => ({ name: i.name, qty: i.qty }));
+
         submitOrderBtn.disabled = true;
         submitOrderBtn.textContent = "Submitting...";
 
         try {
           await sendOrderWebhook(summaryText, customItem && customItem.file);
           await sendHistoryWebhook(summaryText, customItem && customItem.file);
+          await sendStockUpdateToAppsScript(stockItems);
 
           alert("Order submitted");
           cart = [];

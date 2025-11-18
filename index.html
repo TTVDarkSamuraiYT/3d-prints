@@ -644,13 +644,21 @@
         });
       }
 
+      // NEW: more robust color parsing
       function buildColors(colorRows) {
+        console.log("Raw color rows:", colorRows);
+        if (!colorRows.length) return [];
+        const sampleKeys = Object.keys(colorRows[0]);
+
+        const colorKey =
+          sampleKeys.find((k) => k.toLowerCase().includes("color")) || sampleKeys[0];
+        const statusKey =
+          sampleKeys.find((k) => k.toLowerCase().includes("status")) || sampleKeys[1];
+
         return colorRows
           .map((row) => {
-            const name =
-              (row["colors"] || row["Colors"] || row["Color"] || "").toString().trim();
-            const status =
-              (row["Status"] || row["status"] || row["STATUS"] || "").toString().trim();
+            const name = (row[colorKey] ?? "").toString().trim();
+            const status = (row[statusKey] ?? "").toString().trim();
             if (!name) return null;
             return {
               name,

@@ -210,7 +210,7 @@
     <section class="section">
       <div class="section-header">
         <h2>Premade prints</h2>
-        <small id="liveInventoryLabel">Live inventory from sheet</small>
+        <small id="liveInventoryLabel">Live inventory</small>
       </div>
       <div id="inventoryGrid" class="inventory-grid">
         <!-- cards inserted by JS -->
@@ -558,7 +558,6 @@
       }
 
       function addItemToCart(item) {
-        // merge identical entries
         const existing = cart.find(
           (i) =>
             i.type === item.type &&
@@ -590,28 +589,24 @@
 
       function isValidPhone(phone) {
         const digits = phone.replace(/\D/g, "");
-        if (digits.length < 10 || digits.length > 11) return false;
+        if (digits.length !== 10) return false;
         if (/^0+$/.test(digits)) return false;
         if (digits.endsWith("0000")) return false;
         return true;
       }
 
       function formatPhoneForDisplay(phone) {
-        const digits = phone.replace(/\D/g, "");
-        if (digits.length === 10) {
-          return `(${digits.slice(0,3)})-${digits.slice(3,7)}-${digits.slice(7)}`;
-        } else if (digits.length === 11) {
-          return `+${digits[0]} (${digits.slice(1,4)})-${digits.slice(4,8)}-${digits.slice(8)}`;
-        }
-        return phone;
+        const digits = phone.replace(/\D/g, "").slice(-10);
+        if (digits.length !== 10) return phone;
+        return `(${digits.slice(0,3)})-${digits.slice(3,6)}-${digits.slice(6)}`;
       }
 
       function formatPhoneLive(value) {
-        const digits = value.replace(/\D/g, "").slice(0, 11);
+        const digits = value.replace(/\D/g, "").slice(0, 10);
         if (digits.length === 0) return "";
         if (digits.length <= 3) return `(${digits}`;
-        if (digits.length <= 7) return `(${digits.slice(0,3)})-${digits.slice(3)}`;
-        return `(${digits.slice(0,3)})-${digits.slice(3,7)}-${digits.slice(7)}`;
+        if (digits.length <= 6) return `(${digits.slice(0,3)})-${digits.slice(3)}`;
+        return `(${digits.slice(0,3)})-${digits.slice(3,6)}-${digits.slice(6)}`;
       }
 
       function validateContact() {
@@ -626,12 +621,16 @@
         }
 
         const looksEmail = value.includes("@");
-        const looksPhone = /[0-9]/.test(value);
+        const hasLetters = /[a-zA-Z]/.test(value);
 
-        if (looksEmail && isValidEmail(value)) {
-          return true;
+        if (looksEmail || hasLetters) {
+          if (isValidEmail(value)) return true;
+          contactError.textContent = "Please enter a realistic email address.";
+          contactError.style.display = "block";
+          return false;
         }
-        if (!looksEmail && looksPhone && isValidPhone(value)) {
+
+        if (isValidPhone(value)) {
           contactInfoInput.value = formatPhoneForDisplay(value);
           return true;
         }
@@ -641,10 +640,10 @@
         return false;
       }
 
-      // live formatting while typing (only if it's not an email)
+      // live formatting while typing (only if it's all digits / formatting)
       contactInfoInput.addEventListener("input", () => {
         const v = contactInfoInput.value;
-        if (v.includes("@")) return; // email in progress
+        if (/[a-zA-Z@]/.test(v)) return; // likely email, don't touch
         const formatted = formatPhoneLive(v);
         contactInfoInput.value = formatted;
       });
@@ -718,6 +717,9 @@
               const stock = stockStr ? parseInt(stockStr, 10) || 0 : null;
               const status = statusRaw.toLowerCase();
 
+              // hide OffShelf items from live inventory
+              if (status === "offshelf") return null;
+
               return { name, price, stock, status, notes, statusRaw };
             })
             .filter(Boolean);
@@ -732,11 +734,12 @@
 
       function statusBadge(statusStr) {
         const s = statusStr.toLowerCase();
-        if (s.includes("available") && !s.includes("temporarily")) return { class: "badge badge-green", text: statusStr };
-        if (s.includes("temporarily")) return { class: "badge badge-yellow", text: statusStr };
         if (s.includes("limited")) return { class: "badge badge-pink", text: statusStr };
-        if (s.includes("unavailable")) return { class: "badge badge-red", text: statusStr };
-        if (s.includes("resupplied") || s.includes("resupplying")) return { class: "badge badge-yellow", text: statusStr };
+        if (s.includes("temporarily")) return { class: "badge badge-yellow", text: statusStr };
+        if (s.includes("offshelf")) return { class: "badge badge-yellow", text: statusStr };
+        if (s.includes("unavailable") || s.includes("sold out"))
+          return { class: "badge badge-red", text: statusStr };
+        if (s.includes("available")) return { class: "badge badge-green", text: statusStr };
         return { class: "badge badge-yellow", text: statusStr || "status" };
       }
 
@@ -881,13 +884,12 @@
           unitPrice: price,
           qty: 1,
           maxQty: null,
-          file, // keep reference for upload
+          file,
           notes: customNotes.value.trim(),
           size: customSizeSelect.value,
           detail: customDetailSelect.value,
         });
 
-        // clear custom form (but not color/detail settings)
         customFileInput.value = "";
         customNotes.value = "";
         customError.style.display = "none";
@@ -913,21 +915,18 @@
         submitError.style.display = "none";
         submitError.textContent = "";
 
-        // 1) Cart must not be empty
         if (cart.length === 0) {
           submitError.textContent = "Your cart is empty. Add at least one item before submitting.";
           submitError.style.display = "block";
           return;
         }
 
-        // 2) Validate contact
         if (!validateContact()) {
           submitError.textContent = "Please fix contact info before submitting.";
           submitError.style.display = "block";
           return;
         }
 
-        // 3) Shipping info required if shipping
         if (shippingMethodSelect.value === "shipping") {
           if (!shippingInfoInput.value.trim()) {
             submitError.textContent = "Please provide shipping info for shipping orders.";
@@ -944,7 +943,6 @@
         const orderNumber = orderCounter.toString().padStart(3, "0");
         const nowIso = new Date().toISOString();
 
-        // Build text summary (same for both webhooks)
         const lines = [];
         lines.push(`New 3D Print Order #${orderNumber}`);
         lines.push("");
@@ -980,7 +978,6 @@
         lines.push(`Created at: ${nowIso}`);
         const summaryText = lines.join("\n");
 
-        // Build JSON metadata
         const payload = {
           order_id: orderNumber,
           created_at: nowIso,
@@ -1008,7 +1005,6 @@
           })),
         };
 
-        // Prepare two FormData payloads (cannot reuse the same instance twice)
         function buildFormData() {
           const fd = new FormData();
           fd.append("content", "```" + summaryText + "```");

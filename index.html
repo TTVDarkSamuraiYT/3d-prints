@@ -129,11 +129,6 @@
       cursor: not-allowed;
       box-shadow: none;
     }
-    .btn-ghost {
-      background: #020617;
-      color: var(--muted);
-      border: 1px solid var(--border);
-    }
     .btn-danger {
       background: rgba(239,68,68,.12);
       color: #fecaca;
@@ -212,9 +207,7 @@
         <h2>Premade prints</h2>
         <small id="liveInventoryLabel">Live inventory</small>
       </div>
-      <div id="inventoryGrid" class="inventory-grid">
-        <!-- cards inserted by JS -->
-      </div>
+      <div id="inventoryGrid" class="inventory-grid"></div>
       <div id="inventoryError" class="error-text" style="display:none;margin-top:.5rem;">
         Sorry, looks like there's an issue with the inventory system.
       </div>
@@ -640,12 +633,11 @@
         return false;
       }
 
-      // live formatting while typing (only if it's all digits / formatting)
+      // live formatting while typing (only if it's digits/format chars)
       contactInfoInput.addEventListener("input", () => {
         const v = contactInfoInput.value;
-        if (/[a-zA-Z@]/.test(v)) return; // likely email, don't touch
-        const formatted = formatPhoneLive(v);
-        contactInfoInput.value = formatted;
+        if (/[a-zA-Z@]/.test(v)) return; // looks like email, leave it alone
+        contactInfoInput.value = formatPhoneLive(v);
       });
 
       contactInfoInput.addEventListener("blur", validateContact);
@@ -687,12 +679,14 @@
 
           // Colors: include all except "Premade" in custom-color select
           colorOptions = colorRows
-            .filter((row) => row.colors && row.Status && row.Status.toLowerCase() !== "unavailable")
+            .filter((row) => row.colors && row.Status)
             .map((row) => ({
               name: String(row.colors).trim(),
               status: String(row.Status).trim().toLowerCase(),
             }));
 
+          // rebuild custom colors, excluding "Premade"
+          const previousCustom = customColorSelect.value;
           customColorSelect.innerHTML = "";
           colorOptions
             .filter((c) => c.name.toLowerCase() !== "premade")
@@ -702,6 +696,10 @@
               opt.textContent = c.name;
               customColorSelect.appendChild(opt);
             });
+          if (previousCustom) {
+            const match = [...customColorSelect.options].find(o => o.value === previousCustom);
+            if (match) customColorSelect.value = previousCustom;
+          }
 
           // Inventory items
           inventoryItems = invRows
@@ -715,12 +713,12 @@
               if (!name || !priceStr) return null; // skip blanks
               const price = parseFloat(priceStr) || 0;
               const stock = stockStr ? parseInt(stockStr, 10) || 0 : null;
-              const status = statusRaw.toLowerCase();
+              const statusKey = statusRaw.toLowerCase().replace(/\s+/g, "");
 
               // hide OffShelf items from live inventory
-              if (status === "offshelf") return null;
+              if (statusKey === "offshelf") return null;
 
-              return { name, price, stock, status, notes, statusRaw };
+              return { name, price, stock, statusKey, statusRaw, notes };
             })
             .filter(Boolean);
 
@@ -733,13 +731,13 @@
       }
 
       function statusBadge(statusStr) {
-        const s = statusStr.toLowerCase();
-        if (s.includes("limited")) return { class: "badge badge-pink", text: statusStr };
-        if (s.includes("temporarily")) return { class: "badge badge-yellow", text: statusStr };
-        if (s.includes("offshelf")) return { class: "badge badge-yellow", text: statusStr };
-        if (s.includes("unavailable") || s.includes("sold out"))
+        const key = statusStr.toLowerCase().replace(/\s+/g, "");
+        if (key.includes("limited")) return { class: "badge badge-pink", text: statusStr };
+        if (key.includes("temporarily")) return { class: "badge badge-yellow", text: statusStr };
+        if (key.includes("soldout") || key.includes("unavailable"))
           return { class: "badge badge-red", text: statusStr };
-        if (s.includes("available")) return { class: "badge badge-green", text: statusStr };
+        if (key.includes("available")) return { class: "badge badge-green", text: statusStr };
+        if (key.includes("offshelf")) return { class: "badge badge-yellow", text: statusStr };
         return { class: "badge badge-yellow", text: statusStr || "status" };
       }
 
@@ -750,9 +748,10 @@
           liveInventoryLabel.style.color = "#f97316";
           return;
         }
+        inventoryError.style.display = "none";
         liveInventoryLabel.style.color = "#9ca3af";
 
-        inventoryItems.forEach((item, idx) => {
+        inventoryItems.forEach((item) => {
           const card = document.createElement("div");
           card.className = "card";
 
@@ -760,7 +759,7 @@
           header.className = "card-header";
           const h3 = document.createElement("h3");
           h3.textContent = item.name;
-          const badgeInfo = statusBadge(item.statusRaw || item.status);
+          const badgeInfo = statusBadge(item.statusRaw);
           const badge = document.createElement("span");
           badge.className = badgeInfo.class;
           badge.textContent = badgeInfo.text;
@@ -778,7 +777,7 @@
           colorLabel.textContent = "Color";
 
           const colorSelect = document.createElement("select");
-          const isLimited = (item.statusRaw || item.status).toLowerCase().includes("limited");
+          const isLimited = item.statusKey.includes("limited");
 
           if (isLimited) {
             // Limited items: force "Premade only"
@@ -818,11 +817,10 @@
           btn.className = "btn btn-primary btn-full";
           btn.textContent = "Add to cart";
 
-          const statusLower = (item.statusRaw || item.status).toLowerCase();
           const unavailable =
-            statusLower.includes("temporarily unavailable") ||
-            statusLower.includes("unavailable") ||
-            statusLower.includes("sold out");
+            item.statusKey.includes("temporarilyunavailable") ||
+            item.statusKey.includes("soldout") ||
+            item.statusKey.includes("unavailable");
 
           if (unavailable) {
             btn.disabled = true;
@@ -905,12 +903,40 @@
       });
       shippingSpeedSelect.addEventListener("change", updateSummary);
 
-      // ===== SUBMIT =====
-      async function sendToWebhook(url, formData) {
-        const res = await fetch(url, { method: "POST", body: formData });
-        if (!res.ok) throw new Error(`Webhook error: ${res.status}`);
+      // ===== WEBHOOK SENDERS =====
+      async function sendOrderWebhook(summaryText, customFile) {
+        const fd = new FormData();
+        fd.append("content", "```" + summaryText + "```");
+        if (customFile) {
+          fd.append("file", customFile, customFile.name);
+        }
+        const res = await fetch(ORDER_WEBHOOK_URL, {
+          method: "POST",
+          body: fd,
+        });
+        if (!res.ok) {
+          console.error("Order webhook status:", res.status, await res.text());
+          throw new Error("Order webhook failed");
+        }
       }
 
+      async function sendHistoryWebhook(summaryText) {
+        const body = {
+          content: "```" + summaryText + "```",
+          allowed_mentions: { parse: [] },
+        };
+        const res = await fetch(HISTORY_WEBHOOK_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+        if (!res.ok) {
+          console.error("History webhook status:", res.status, await res.text());
+          throw new Error("History webhook failed");
+        }
+      }
+
+      // ===== SUBMIT =====
       submitOrderBtn.addEventListener("click", async () => {
         submitError.style.display = "none";
         submitError.textContent = "";
@@ -978,51 +1004,14 @@
         lines.push(`Created at: ${nowIso}`);
         const summaryText = lines.join("\n");
 
-        const payload = {
-          order_id: orderNumber,
-          created_at: nowIso,
-          customer_name: customerName,
-          contact,
-          shipping_info:
-            shippingMethodSelect.value === "shipping" ? shippingInfoInput.value.trim() : "Pickup",
-          shipping_method: shippingMethodSelect.value,
-          shipping_speed: shippingSpeedSelect.value,
-          items_subtotal: itemsSubtotal,
-          shipping_estimate: shipEst,
-          expedite_fee: expediteFee,
-          grand_total_estimate: grand,
-          notes: extraNotes,
-          items: cart.map((item) => ({
-            type: item.type,
-            name: item.name,
-            color: item.color,
-            qty: item.qty,
-            unit_price: item.unitPrice,
-            est_total: item.unitPrice * item.qty,
-            size: item.size || null,
-            detail: item.detail || null,
-            custom_notes: item.notes || null,
-          })),
-        };
-
-        function buildFormData() {
-          const fd = new FormData();
-          fd.append("content", "```" + summaryText + "```");
-          fd.append("payload_json", JSON.stringify({ content: null }));
-          const customItem = cart.find((i) => i.type === "custom" && i.file);
-          if (customItem && customItem.file) {
-            fd.append("file", customItem.file, customItem.file.name);
-          }
-          fd.append("order_meta", JSON.stringify(payload));
-          return fd;
-        }
+        const customItem = cart.find((i) => i.type === "custom" && i.file);
 
         submitOrderBtn.disabled = true;
         submitOrderBtn.textContent = "Submitting...";
 
         try {
-          await sendToWebhook(ORDER_WEBHOOK_URL, buildFormData());
-          await sendToWebhook(HISTORY_WEBHOOK_URL, buildFormData());
+          await sendOrderWebhook(summaryText, customItem && customItem.file);
+          await sendHistoryWebhook(summaryText);
 
           alert("Order submitted");
           cart = [];
@@ -1048,10 +1037,13 @@
         }
       });
 
-      // ===== INIT =====
+      // ===== INIT & AUTO-REFRESH =====
       await loadInventoryAndColors();
       renderCart();
       updateSummary();
+
+      // refresh inventory/colors every 30 seconds
+      setInterval(loadInventoryAndColors, 30000);
     })();
   </script>
 </body>

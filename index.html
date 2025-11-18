@@ -491,7 +491,17 @@
 
           const name = document.createElement("div");
           name.className = "cart-item-name";
-          name.textContent = `${item.name} (${item.type === "custom" ? "Custom" : "Premade"} / ${item.color})`;
+          let labelText;
+          if (item.type === "custom") {
+            labelText = `${item.name} (Custom / ${item.color})`;
+          } else {
+            if (item.color === "Premade" || item.color === "Premade only") {
+              labelText = `${item.name} (Premade)`;
+            } else {
+              labelText = `${item.name} (${item.color})`;
+            }
+          }
+          name.textContent = labelText;
 
           const qtyCell = document.createElement("div");
           const qtyControls = document.createElement("div");
@@ -644,12 +654,11 @@
         });
       }
 
-      // NEW: more robust color parsing
+      // Robust color parsing – and skip header-like rows
       function buildColors(colorRows) {
         console.log("Raw color rows:", colorRows);
         if (!colorRows.length) return [];
         const sampleKeys = Object.keys(colorRows[0]);
-
         const colorKey =
           sampleKeys.find((k) => k.toLowerCase().includes("color")) || sampleKeys[0];
         const statusKey =
@@ -660,6 +669,9 @@
             const name = (row[colorKey] ?? "").toString().trim();
             const status = (row[statusKey] ?? "").toString().trim();
             if (!name) return null;
+            // ignore header-ish rows like "colors" or "color"
+            const lowerName = name.toLowerCase();
+            if (lowerName === "colors" || lowerName === "color") return null;
             return {
               name,
               statusKey: status.toLowerCase().replace(/\s+/g, ""),

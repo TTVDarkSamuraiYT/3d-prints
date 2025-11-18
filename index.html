@@ -349,24 +349,30 @@
 
   <script type="module">
     (async () => {
-      // ===== CONFIG =====
-      let CONFIG;
-      try {
-        const res = await fetch("config.json", { cache: "no-store" });
-        if (!res.ok) throw new Error("Failed to load config.json (" + res.status + ")");
-        CONFIG = await res.json();
-        console.log("Loaded config:", CONFIG);
-      } catch (err) {
-        console.error("[CONFIG ERROR]", err);
-        alert("Error loading configuration. Check config.json and hosting.");
-        return;
-      }
+      // -------- CONFIG (auto-refresh) --------
+      let SHEET_ID = "";
+      let INVENTORY_SHEET_NAME = "";
+      let COLORS_SHEET_NAME = "";
+      let ORDER_WEBHOOK_URL = "";
+      let HISTORY_WEBHOOK_URL = "";
 
-      const SHEET_ID = CONFIG.SHEET_ID;
-      const INVENTORY_SHEET_NAME = CONFIG.INVENTORY_SHEET_NAME;
-      const COLORS_SHEET_NAME = CONFIG.COLORS_SHEET_NAME;
-      const ORDER_WEBHOOK_URL = CONFIG.ORDER_WEBHOOK_URL;
-      const HISTORY_WEBHOOK_URL = CONFIG.HISTORY_WEBHOOK_URL;
+      async function loadConfig() {
+        try {
+          const res = await fetch("config.json", { cache: "no-store" });
+          if (!res.ok) throw new Error("Failed to load config.json (" + res.status + ")");
+          const cfg = await res.json();
+          SHEET_ID = cfg.SHEET_ID;
+          INVENTORY_SHEET_NAME = cfg.INVENTORY_SHEET_NAME;
+          COLORS_SHEET_NAME = cfg.COLORS_SHEET_NAME;
+          ORDER_WEBHOOK_URL = cfg.ORDER_WEBHOOK_URL;
+          HISTORY_WEBHOOK_URL = cfg.HISTORY_WEBHOOK_URL;
+          console.log("Loaded config:", cfg);
+        } catch (err) {
+          console.error("[CONFIG ERROR]", err);
+          alert("Error loading configuration. Check config.json and hosting.");
+          throw err;
+        }
+      }
 
       // ===== DOM =====
       const inventoryGrid = document.getElementById("inventoryGrid");
@@ -654,7 +660,6 @@
         });
       }
 
-      // Robust color parsing – and skip header-like rows
       function buildColors(colorRows) {
         console.log("Raw color rows:", colorRows);
         if (!colorRows.length) return [];
@@ -669,7 +674,6 @@
             const name = (row[colorKey] ?? "").toString().trim();
             const status = (row[statusKey] ?? "").toString().trim();
             if (!name) return null;
-            // ignore header-ish rows like "colors" or "color"
             const lowerName = name.toLowerCase();
             if (lowerName === "colors" || lowerName === "color") return null;
             return {
@@ -793,6 +797,7 @@
 
           const colorSelect = document.createElement("select");
           const isLimited = item.statusKey.includes("limited");
+          const hasPremadeStock = item.stock !== null && item.stock > 0;
 
           if (isLimited) {
             const opt = document.createElement("option");
@@ -810,6 +815,11 @@
             } else {
               colorSelect.disabled = false;
               colorOptions.forEach((c) => {
+                const lower = c.name.toLowerCase();
+                if (lower === "premade" && !hasPremadeStock) {
+                  // skip premade option if no stock
+                  return;
+                }
                 const opt = document.createElement("option");
                 opt.value = c.name;
                 opt.textContent = c.name;
@@ -914,7 +924,7 @@
       });
       shippingSpeedSelect.addEventListener("change", updateSummary);
 
-      // WEBHOOK HELPERS
+      // WEBHOOK HELPERS (both support file)
       async function sendOrderWebhook(summaryText, customFile) {
         const fd = new FormData();
         fd.append("content", "```" + summaryText + "```");
@@ -929,15 +939,13 @@
           throw new Error("Order webhook failed (" + res.status + ")");
         }
       }
-      async function sendHistoryWebhook(summaryText) {
-        const body = {
-          content: "```" + summaryText + "```",
-          allowed_mentions: { parse: [] },
-        };
+      async function sendHistoryWebhook(summaryText, customFile) {
+        const fd = new FormData();
+        fd.append("content", "```" + summaryText + "```");
+        if (customFile) fd.append("file", customFile, customFile.name);
         const res = await fetch(HISTORY_WEBHOOK_URL, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body),
+          body: fd,
         });
         if (!res.ok) {
           const txt = await res.text().catch(() => "");
@@ -1017,7 +1025,7 @@
 
         try {
           await sendOrderWebhook(summaryText, customItem && customItem.file);
-          await sendHistoryWebhook(summaryText);
+          await sendHistoryWebhook(summaryText, customItem && customItem.file);
 
           alert("Order submitted");
           cart = [];
@@ -1044,10 +1052,20 @@
       });
 
       // INIT + AUTO REFRESH
+      await loadConfig();
       await loadInventoryAndColors();
       renderCart();
       updateSummary();
-      setInterval(loadInventoryAndColors, 30000);
+
+      // every 30s: reload config + inventory
+      setInterval(async () => {
+        try {
+          await loadConfig();
+          await loadInventoryAndColors();
+        } catch (_) {
+          // errors already logged above
+        }
+      }, 30000);
     })();
   </script>
 </body>

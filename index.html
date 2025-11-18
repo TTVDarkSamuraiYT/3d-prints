@@ -10,7 +10,6 @@
       --bg-alt: #0b1020;
       --card: #111827;
       --accent: #22c55e;
-      --accent-soft: rgba(34, 197, 94, 0.16);
       --accent-danger: #ef4444;
       --border: #1f2937;
       --text: #e5e7eb;
@@ -40,7 +39,6 @@
     .flex { display: flex; }
     .flex-col { display: flex; flex-direction: column; }
     .gap-4 { gap: 1rem; }
-    .gap-2 { gap: .5rem; }
     .section {
       margin-top: 1.5rem;
       padding: 1.25rem;
@@ -82,7 +80,6 @@
       border-radius: 999px;
       font-size: 0.7rem;
       font-weight: 600;
-      text-transform: lowercase;
     }
     .badge-green { background: var(--badge-green); color: var(--badge-green-text); }
     .badge-yellow { background: var(--badge-yellow); color: var(--badge-yellow-text); }
@@ -135,7 +132,7 @@
       border: 1px solid rgba(239,68,68,.4);
     }
     .cart-list {
-      max-height: 240px;
+      max-height: 260px;
       overflow-y: auto;
       border-radius: 10px;
       border: 1px solid var(--border);
@@ -338,7 +335,7 @@
           <textarea id="extraNotes" placeholder="Preferences, deadlines, etc."></textarea>
         </div>
 
-        <div class="card" style="flex:1;">
+        <div class="card" style="flex:1%;">
           <h3>Order summary</h3>
           <pre id="orderSummary" style="white-space:pre-wrap;font-size:.8rem;color:var(--muted);margin-top:.5rem;"></pre>
           <div id="submitError" class="error-text" style="display:none;"></div>
@@ -355,12 +352,13 @@
       // ===== CONFIG =====
       let CONFIG;
       try {
-        const res = await fetch("config.json");
-        if (!res.ok) throw new Error("Failed to load config.json");
+        const res = await fetch("config.json", { cache: "no-store" });
+        if (!res.ok) throw new Error("Failed to load config.json (" + res.status + ")");
         CONFIG = await res.json();
+        console.log("Loaded config:", CONFIG);
       } catch (err) {
-        console.error(err);
-        alert("Error loading configuration. Check config.json.");
+        console.error("[CONFIG ERROR]", err);
+        alert("Error loading configuration. Check config.json and hosting.");
         return;
       }
 
@@ -408,22 +406,18 @@
       let cart = [];
       let orderCounter = Number(localStorage.getItem("orderCounter") || "1");
 
-      // ===== HELPERS =====
       const fmtMoney = (n) => "$" + n.toFixed(2);
 
       function computeCustomPrice() {
         let base = 10;
         const size = customSizeSelect.value;
         const detail = customDetailSelect.value;
-
         if (size === "small") base = 7;
         else if (size === "medium") base = 12;
         else if (size === "large") base = 20;
         else if (size === "xl") base = 30;
-
         if (detail === "high") base *= 1.25;
         else if (detail === "ultra") base *= 1.6;
-
         customPriceEstimate.textContent = fmtMoney(base);
         return base;
       }
@@ -431,6 +425,55 @@
       function updateCartBadge() {
         const totalQty = cart.reduce((sum, item) => sum + item.qty, 0);
         cartBadge.textContent = totalQty + (totalQty === 1 ? " item" : " items");
+      }
+
+      function recalcTotals() {
+        const itemsSubtotal = cart.reduce((sum, item) => sum + item.unitPrice * item.qty, 0);
+        itemsSubtotalEl.textContent = fmtMoney(itemsSubtotal);
+
+        let shipEst = 0;
+        if (shippingMethodSelect.value === "shipping" && itemsSubtotal > 0) {
+          if (itemsSubtotal < 20) shipEst = 6.5;
+          else if (itemsSubtotal < 50) shipEst = 8.5;
+          else shipEst = 10.5;
+        }
+        shippingEstimateEl.textContent = fmtMoney(shipEst);
+
+        let expediteFee = 0;
+        if (shippingMethodSelect.value === "shipping") {
+          const speed = shippingSpeedSelect.value;
+          if (speed === "fast") expediteFee = 4;
+          else if (speed === "nextday") expediteFee = 10;
+        }
+        expediteFeeEl.textContent = fmtMoney(expediteFee);
+
+        const grand = itemsSubtotal + shipEst + expediteFee;
+        grandTotalEl.textContent = fmtMoney(grand);
+        return { itemsSubtotal, shipEst, expediteFee, grand };
+      }
+
+      function updateSummary() {
+        const { itemsSubtotal, shipEst, expediteFee, grand } = recalcTotals();
+        if (cart.length === 0) {
+          orderSummaryPre.textContent = "Cart is empty.";
+          return;
+        }
+        const lines = [];
+        const orderNumber = orderCounter.toString().padStart(3, "0");
+        lines.push(`Order draft #${orderNumber}`);
+        lines.push("");
+        lines.push("Items:");
+        cart.forEach((item) => {
+          lines.push(
+            `- ${item.qty} x ${item.name} (${item.type === "custom" ? "Custom" : "Premade"} / ${item.color}) @ ${fmtMoney(item.unitPrice)}`
+          );
+        });
+        lines.push("");
+        lines.push(`Items subtotal: ${fmtMoney(itemsSubtotal)}`);
+        lines.push(`Shipping estimate: ${fmtMoney(shipEst)} (${shippingMethodSelect.value})`);
+        lines.push(`Expedite fee: ${fmtMoney(expediteFee)}`);
+        lines.push(`Estimated order value: ${fmtMoney(grand)}`);
+        orderSummaryPre.textContent = lines.join("\n");
       }
 
       function renderCart() {
@@ -442,7 +485,6 @@
           updateSummary();
           return;
         }
-
         cart.forEach((item, idx) => {
           const row = document.createElement("div");
           row.className = "cart-item";
@@ -454,6 +496,7 @@
           const qtyCell = document.createElement("div");
           const qtyControls = document.createElement("div");
           qtyControls.className = "cart-qty-controls";
+
           const minusBtn = document.createElement("button");
           minusBtn.textContent = "-";
           minusBtn.onclick = () => {
@@ -492,62 +535,9 @@
           row.append(name, qtyCell, priceCell, removeCell);
           cartList.appendChild(row);
         });
-
         updateCartBadge();
         recalcTotals();
         updateSummary();
-      }
-
-      function recalcTotals() {
-        const itemsSubtotal = cart.reduce((sum, item) => sum + item.unitPrice * item.qty, 0);
-        itemsSubtotalEl.textContent = fmtMoney(itemsSubtotal);
-
-        let shipEst = 0;
-        if (shippingMethodSelect.value === "shipping" && itemsSubtotal > 0) {
-          if (itemsSubtotal < 20) shipEst = 6.5;
-          else if (itemsSubtotal < 50) shipEst = 8.5;
-          else shipEst = 10.5;
-        }
-
-        shippingEstimateEl.textContent = fmtMoney(shipEst);
-
-        let expediteFee = 0;
-        if (shippingMethodSelect.value === "shipping") {
-          const speed = shippingSpeedSelect.value;
-          if (speed === "fast") expediteFee = 4;
-          else if (speed === "nextday") expediteFee = 10;
-        }
-        expediteFeeEl.textContent = fmtMoney(expediteFee);
-
-        const grand = itemsSubtotal + shipEst + expediteFee;
-        grandTotalEl.textContent = fmtMoney(grand);
-        return { itemsSubtotal, shipEst, expediteFee, grand };
-      }
-
-      function updateSummary() {
-        const { itemsSubtotal, shipEst, expediteFee, grand } = recalcTotals();
-
-        if (cart.length === 0) {
-          orderSummaryPre.textContent = "Cart is empty.";
-          return;
-        }
-
-        const lines = [];
-        const orderNumber = orderCounter.toString().padStart(3, "0");
-        lines.push(`Order draft #${orderNumber}`);
-        lines.push("");
-        lines.push("Items:");
-        cart.forEach((item) => {
-          lines.push(
-            `- ${item.qty} x ${item.name} (${item.type === "custom" ? "Custom" : "Premade"} / ${item.color}) @ ${fmtMoney(item.unitPrice)}`
-          );
-        });
-        lines.push("");
-        lines.push(`Items subtotal: ${fmtMoney(itemsSubtotal)}`);
-        lines.push(`Shipping estimate: ${fmtMoney(shipEst)} (${shippingMethodSelect.value})`);
-        lines.push(`Expedite fee: ${fmtMoney(expediteFee)}`);
-        lines.push(`Estimated order value: ${fmtMoney(grand)}`);
-        orderSummaryPre.textContent = lines.join("\n");
       }
 
       function addItemToCart(item) {
@@ -571,7 +561,7 @@
         renderCart();
       }
 
-      // ===== CONTACT VALIDATION & LIVE FORMATTING =====
+      // CONTACT / PHONE
       function isValidEmail(email) {
         const re = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
         if (!re.test(email)) return false;
@@ -579,7 +569,6 @@
         if (lower.includes("spam") || lower.includes("test") || lower.startsWith("a@")) return false;
         return true;
       }
-
       function isValidPhone(phone) {
         const digits = phone.replace(/\D/g, "");
         if (digits.length !== 10) return false;
@@ -587,13 +576,11 @@
         if (digits.endsWith("0000")) return false;
         return true;
       }
-
       function formatPhoneForDisplay(phone) {
         const digits = phone.replace(/\D/g, "").slice(-10);
         if (digits.length !== 10) return phone;
         return `(${digits.slice(0,3)})-${digits.slice(3,6)}-${digits.slice(6)}`;
       }
-
       function formatPhoneLive(value) {
         const digits = value.replace(/\D/g, "").slice(0, 10);
         if (digits.length === 0) return "";
@@ -601,61 +588,50 @@
         if (digits.length <= 6) return `(${digits.slice(0,3)})-${digits.slice(3)}`;
         return `(${digits.slice(0,3)})-${digits.slice(3,6)}-${digits.slice(6)}`;
       }
-
       function validateContact() {
         const value = contactInfoInput.value.trim();
         contactError.style.display = "none";
         contactError.textContent = "";
-
         if (!value) {
           contactError.textContent = "Contact is required (phone or email).";
           contactError.style.display = "block";
           return false;
         }
-
         const looksEmail = value.includes("@");
         const hasLetters = /[a-zA-Z]/.test(value);
-
         if (looksEmail || hasLetters) {
           if (isValidEmail(value)) return true;
           contactError.textContent = "Please enter a realistic email address.";
           contactError.style.display = "block";
           return false;
         }
-
         if (isValidPhone(value)) {
           contactInfoInput.value = formatPhoneForDisplay(value);
           return true;
         }
-
         contactError.textContent = "Please enter a realistic phone number or email.";
         contactError.style.display = "block";
         return false;
       }
-
-      // live formatting while typing (only if it's digits/format chars)
       contactInfoInput.addEventListener("input", () => {
         const v = contactInfoInput.value;
-        if (/[a-zA-Z@]/.test(v)) return; // looks like email, leave it alone
+        if (/[a-zA-Z@]/.test(v)) return; // email, don't touch
         contactInfoInput.value = formatPhoneLive(v);
       });
-
       contactInfoInput.addEventListener("blur", validateContact);
 
-      // ===== SHEETS FETCH =====
+      // SHEETS
       async function fetchSheet(sheetName) {
         const url =
           `https://docs.google.com/spreadsheets/d/${encodeURIComponent(
             SHEET_ID
           )}/gviz/tq?sheet=${encodeURIComponent(sheetName)}&tqx=out:json`;
-
-        const res = await fetch(url);
-        if (!res.ok) throw new Error("Failed to fetch sheet " + sheetName);
+        const res = await fetch(url, { cache: "no-store" });
+        if (!res.ok) throw new Error("Failed to fetch sheet " + sheetName + " (" + res.status + ")");
         const text = await res.text();
         const jsonStr = text.substring(text.indexOf("{"), text.lastIndexOf("}") + 1);
         return JSON.parse(jsonStr);
       }
-
       function sheetToRows(gvizJson) {
         const cols = gvizJson.table.cols.map((c) => c.label);
         return gvizJson.table.rows.map((r) => {
@@ -668,6 +644,23 @@
         });
       }
 
+      function buildColors(colorRows) {
+        // Try to be tolerant about column names (colors / Colors / Color)
+        return colorRows
+          .map((row) => {
+            const name =
+              (row["colors"] || row["Colors"] || row["Color"] || "").toString().trim();
+            const status =
+              (row["Status"] || row["status"] || row["STATUS"] || "").toString().trim();
+            if (!name) return null;
+            return {
+              name,
+              statusKey: status.toLowerCase().replace(/\s+/g, ""),
+            };
+          })
+          .filter(Boolean);
+      }
+
       async function loadInventoryAndColors() {
         try {
           const [invJson, colorJson] = await Promise.all([
@@ -677,31 +670,37 @@
           const invRows = sheetToRows(invJson);
           const colorRows = sheetToRows(colorJson);
 
-          // Colors: include all except "Premade" in custom-color select
-          colorOptions = colorRows
-            .filter((row) => row.colors && row.Status)
-            .map((row) => ({
-              name: String(row.colors).trim(),
-              status: String(row.Status).trim().toLowerCase(),
-            }));
+          colorOptions = buildColors(colorRows);
+          console.log("Colors from sheet:", colorOptions);
 
-          // rebuild custom colors, excluding "Premade"
-          const previousCustom = customColorSelect.value;
+          // Custom colors (no "Premade")
+          const prevCustom = customColorSelect.value;
           customColorSelect.innerHTML = "";
-          colorOptions
-            .filter((c) => c.name.toLowerCase() !== "premade")
-            .forEach((c) => {
+          const usableColors = colorOptions.filter(
+            (c) => c.name.toLowerCase() !== "premade"
+          );
+          if (usableColors.length === 0) {
+            const opt = document.createElement("option");
+            opt.value = "";
+            opt.textContent = "No colors configured";
+            customColorSelect.appendChild(opt);
+            customColorSelect.disabled = true;
+          } else {
+            customColorSelect.disabled = false;
+            usableColors.forEach((c) => {
               const opt = document.createElement("option");
               opt.value = c.name;
               opt.textContent = c.name;
               customColorSelect.appendChild(opt);
             });
-          if (previousCustom) {
-            const match = [...customColorSelect.options].find(o => o.value === previousCustom);
-            if (match) customColorSelect.value = previousCustom;
+            if (prevCustom) {
+              const found = [...customColorSelect.options].find(
+                (o) => o.value === prevCustom
+              );
+              if (found) customColorSelect.value = prevCustom;
+            }
           }
 
-          // Inventory items
           inventoryItems = invRows
             .map((row) => {
               const name = String(row["Item name"] || "").trim();
@@ -709,22 +708,19 @@
               const stockStr = String(row["Stock"] || "").trim();
               const statusRaw = String(row["Status"] || "").trim();
               const notes = String(row["Notes"] || "").trim();
-
-              if (!name || !priceStr) return null; // skip blanks
+              if (!name || !priceStr) return null;
               const price = parseFloat(priceStr) || 0;
               const stock = stockStr ? parseInt(stockStr, 10) || 0 : null;
               const statusKey = statusRaw.toLowerCase().replace(/\s+/g, "");
-
-              // hide OffShelf items from live inventory
-              if (statusKey === "offshelf") return null;
-
+              if (statusKey === "offshelf") return null; // hidden
               return { name, price, stock, statusKey, statusRaw, notes };
             })
             .filter(Boolean);
 
+          console.log("Inventory from sheet:", inventoryItems);
           renderInventory();
         } catch (err) {
-          console.error(err);
+          console.error("[INVENTORY ERROR]", err);
           inventoryError.style.display = "block";
           liveInventoryLabel.style.color = "#f97316";
         }
@@ -780,19 +776,20 @@
           const isLimited = item.statusKey.includes("limited");
 
           if (isLimited) {
-            // Limited items: force "Premade only"
             const opt = document.createElement("option");
             opt.value = "Premade";
             opt.textContent = "Premade only";
             colorSelect.appendChild(opt);
+            colorSelect.disabled = false;
           } else {
             if (colorOptions.length === 0) {
               const opt = document.createElement("option");
               opt.value = "";
-              opt.textContent = "No colors available";
+              opt.textContent = "No colors configured";
               colorSelect.appendChild(opt);
               colorSelect.disabled = true;
             } else {
+              colorSelect.disabled = false;
               colorOptions.forEach((c) => {
                 const opt = document.createElement("option");
                 opt.value = c.name;
@@ -833,7 +830,6 @@
             if (isLimited && item.stock) {
               maxQty = item.stock;
             }
-
             const chosenColor = isLimited ? "Premade" : (colorSelect.value || "Premade");
             addItemToCart({
               type: "premade",
@@ -850,7 +846,7 @@
         });
       }
 
-      // ===== CUSTOM PRICE / EVENTS =====
+      // CUSTOM / SHIPPING EVENTS
       customSizeSelect.addEventListener("change", () => {
         computeCustomPrice();
         updateSummary();
@@ -864,17 +860,14 @@
       addCustomToCartBtn.addEventListener("click", () => {
         customError.style.display = "none";
         customError.textContent = "";
-
         const file = customFileInput.files[0];
         if (!file) {
           customError.textContent = "Please attach a file for custom prints.";
           customError.style.display = "block";
           return;
         }
-
         const price = computeCustomPrice();
-        const color = customColorSelect.value || "MultiColor";
-
+        const color = customColorSelect.disabled ? "MultiColor" : (customColorSelect.value || "MultiColor");
         addItemToCart({
           type: "custom",
           name: file.name,
@@ -887,12 +880,12 @@
           size: customSizeSelect.value,
           detail: customDetailSelect.value,
         });
-
         customFileInput.value = "";
         customNotes.value = "";
         customError.style.display = "none";
       });
 
+      const shippingExtra = document.getElementById("shippingExtra");
       shippingMethodSelect.addEventListener("change", () => {
         if (shippingMethodSelect.value === "shipping") {
           shippingExtra.style.display = "block";
@@ -903,23 +896,21 @@
       });
       shippingSpeedSelect.addEventListener("change", updateSummary);
 
-      // ===== WEBHOOK SENDERS =====
+      // WEBHOOK HELPERS
       async function sendOrderWebhook(summaryText, customFile) {
         const fd = new FormData();
         fd.append("content", "```" + summaryText + "```");
-        if (customFile) {
-          fd.append("file", customFile, customFile.name);
-        }
+        if (customFile) fd.append("file", customFile, customFile.name);
         const res = await fetch(ORDER_WEBHOOK_URL, {
           method: "POST",
           body: fd,
         });
         if (!res.ok) {
-          console.error("Order webhook status:", res.status, await res.text());
-          throw new Error("Order webhook failed");
+          const txt = await res.text().catch(() => "");
+          console.error("[ORDER WEBHOOK ERROR]", res.status, txt);
+          throw new Error("Order webhook failed (" + res.status + ")");
         }
       }
-
       async function sendHistoryWebhook(summaryText) {
         const body = {
           content: "```" + summaryText + "```",
@@ -931,12 +922,13 @@
           body: JSON.stringify(body),
         });
         if (!res.ok) {
-          console.error("History webhook status:", res.status, await res.text());
-          throw new Error("History webhook failed");
+          const txt = await res.text().catch(() => "");
+          console.error("[HISTORY WEBHOOK ERROR]", res.status, txt);
+          throw new Error("History webhook failed (" + res.status + ")");
         }
       }
 
-      // ===== SUBMIT =====
+      // SUBMIT
       submitOrderBtn.addEventListener("click", async () => {
         submitError.style.display = "none";
         submitError.textContent = "";
@@ -946,19 +938,15 @@
           submitError.style.display = "block";
           return;
         }
-
         if (!validateContact()) {
           submitError.textContent = "Please fix contact info before submitting.";
           submitError.style.display = "block";
           return;
         }
-
-        if (shippingMethodSelect.value === "shipping") {
-          if (!shippingInfoInput.value.trim()) {
-            submitError.textContent = "Please provide shipping info for shipping orders.";
-            submitError.style.display = "block";
-            return;
-          }
+        if (shippingMethodSelect.value === "shipping" && !shippingInfoInput.value.trim()) {
+          submitError.textContent = "Please provide shipping info for shipping orders.";
+          submitError.style.display = "block";
+          return;
         }
 
         const contact = contactInfoInput.value.trim();
@@ -1027,7 +1015,7 @@
           orderCounter += 1;
           localStorage.setItem("orderCounter", String(orderCounter));
         } catch (err) {
-          console.error(err);
+          console.error("[SUBMIT ERROR]", err);
           submitError.textContent =
             "Sorry, there was an error submitting your order. Please try again.";
           submitError.style.display = "block";
@@ -1037,12 +1025,10 @@
         }
       });
 
-      // ===== INIT & AUTO-REFRESH =====
+      // INIT + AUTO REFRESH
       await loadInventoryAndColors();
       renderCart();
       updateSummary();
-
-      // refresh inventory/colors every 30 seconds
       setInterval(loadInventoryAndColors, 30000);
     })();
   </script>

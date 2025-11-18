@@ -645,7 +645,6 @@
       }
 
       function buildColors(colorRows) {
-        // Try to be tolerant about column names (colors / Colors / Color)
         return colorRows
           .map((row) => {
             const name =
@@ -885,7 +884,6 @@
         customError.style.display = "none";
       });
 
-      const shippingExtra = document.getElementById("shippingExtra");
       shippingMethodSelect.addEventListener("change", () => {
         if (shippingMethodSelect.value === "shipping") {
           shippingExtra.style.display = "block";

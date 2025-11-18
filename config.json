@@ -1,8 +1,7 @@
 {
-  "discordWebhookUrl": "https://discord.com/api/webhooks/1438824526942175429/CZT4o7kLEhnwxHGoT_YHb8vfTr33n-GO3lHL5A-fGDyAicyJ_BbMTeY04_JXTPIZWiFu",
-  "sheetId": "11-9VxCZfMXiFpmEy2LUsmHtHlF8sIu_FuAX8oz-zQyE",
-  "inventorySheetName": "Inventory",
-  "colorsSheetName": "colors"
+  "SHEET_ID": "11-9VxCZfMXiFpmEy2LUsmHtHlF8sIu_FuAX8oz-zQyE",
+  "INVENTORY_SHEET_NAME": "Inventory",
+  "COLORS_SHEET_NAME": "colors",
+  "ORDER_WEBHOOK_URL": "https://discord.com/api/webhooks/1438824526942175429/CZT4o7kLEhnwxHGoT_YHbMTeY04_JXTPIZWiFu",
+  "HISTORY_WEBHOOK_URL": "https://discord.com/api/webhooks/1440268357390827573/mJRoPfyGX6xEcfFWUCNg41s1VtlAPJdn_kiMJnh9Uf66EZkZe4wWQLFz_WPlslTOh8pC"
 }
-
-

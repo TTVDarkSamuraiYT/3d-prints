@@ -980,23 +980,21 @@
 
       // Apps Script stock updater
       async function sendStockUpdateToAppsScript(stockItems) {
-        if (!STOCK_WEBAPP_URL || stockItems.length === 0) return;
+        if (!STOCK_WEBAPP_URL || !Array.isArray(stockItems) || stockItems.length === 0) {
+          return;
+        }
+
         try {
-          const res = await fetch(STOCK_WEBAPP_URL, {
+          // Fire-and-forget, no CORS preflight, we don't try to read the response
+          await fetch(STOCK_WEBAPP_URL, {
             method: "POST",
-            // IMPORTANT: no custom headers so the browser doesn't do a CORS preflight
+            mode: "no-cors",            // <-- IMPORTANT
             body: JSON.stringify({ items: stockItems }),
           });
-          
-          if (!res.ok) {
-            const txt = await res.text().catch(() => "");
-            console.error("[STOCK WEBAPP ERROR]", res.status, txt);
-          } else {
-            const data = await res.json().catch(() => ({}));
-            console.log("[STOCK WEBAPP RESULT]", data);
-          }
+
+          console.log("[STOCK WEBAPP] Stock update sent", stockItems);
         } catch (err) {
-          console.error("[STOCK WEBAPP ERROR]", err);
+          console.error("[STOCK WEBAPP ERROR] Failed to send stock update", err);
         }
       }
 

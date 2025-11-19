@@ -984,9 +984,10 @@
         try {
           const res = await fetch(STOCK_WEBAPP_URL, {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            // IMPORTANT: no custom headers so the browser doesn't do a CORS preflight
             body: JSON.stringify({ items: stockItems }),
           });
+          
           if (!res.ok) {
             const txt = await res.text().catch(() => "");
             console.error("[STOCK WEBAPP ERROR]", res.status, txt);
@@ -998,6 +999,7 @@
           console.error("[STOCK WEBAPP ERROR]", err);
         }
       }
+
 
       // SUBMIT
       submitOrderBtn.addEventListener("click", async () => {

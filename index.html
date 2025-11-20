@@ -639,29 +639,6 @@
               </label>
             </div>
 
-            <div id="card-extra" class="payment-extra hidden">
-              <label>
-                Name on card
-                <input
-                  type="text"
-                  id="card-name"
-                  placeholder="Name printed on the card"
-                />
-              </label>
-              <label style="margin-top: 6px">
-                Email or phone for Square link
-                <input
-                  type="text"
-                  id="card-contact"
-                  placeholder="Where to send your Square checkout link"
-                />
-              </label>
-              <div class="helper-text" style="margin-top: 4px">
-                You'll receive a secure Square invoice. Please only enter your
-                full card details on Square's payment page, not here.
-              </div>
-            </div>
-
             <div id="cashapp-extra" class="cashapp-extra hidden">
               <label>
                 Cash App name / note
@@ -1447,6 +1424,22 @@
           contactInput.value = contact;
         }
 
+        const nameText = nameInput.value.trim();
+
+        const payment = getSelectedPayment();
+        if (!payment) {
+          showSubmitMessage("Please choose a payment method.", true);
+          return;
+        }
+
+        if (payment.value === "card" && !nameText) {
+          showSubmitMessage(
+            "Name is required for card payments (for the Square invoice).",
+            true
+          );
+          return;
+        }
+
         if (shippingChoice === "standard") {
           const shippingText = shippingInfoInput.value.trim();
           if (!shippingText) {
@@ -1458,42 +1451,8 @@
           }
         }
 
-        const payment = getSelectedPayment();
-        if (!payment) {
-          showSubmitMessage("Please choose a payment method.", true);
-          return;
-        }
-
-        const cardNameInput = document.getElementById("card-name");
-        const cardContactInput = document.getElementById("card-contact");
         const cashappRefInput = document.getElementById("cashapp-reference");
-
-        let cardName = cardNameInput.value.trim();
-        let cardContact = cardContactInput.value.trim();
         let cashappRef = cashappRefInput.value.trim();
-
-        if (payment.value === "card") {
-          if (!cardName || !cardContact) {
-            showSubmitMessage(
-              "Please enter the card name and contact for the Square link.",
-              true
-            );
-            return;
-          }
-          const cardContactValid =
-            isValidEmail(cardContact) || isValidPhone(cardContact);
-          if (!cardContactValid) {
-            showSubmitMessage(
-              "Card payment contact must be a real-looking email or phone.",
-              true
-            );
-            return;
-          }
-          if (isValidPhone(cardContact)) {
-            cardContact = formatPhonePretty(cardContact);
-            cardContactInput.value = cardContact;
-          }
-        }
 
         if (payment.value === "cashapp") {
           if (!cashappRef) {
@@ -1543,7 +1502,7 @@
         lines.push(`Expedite fee: ${formatCurrency(expediteFee)}`);
         lines.push(`**Total estimate: ${formatCurrency(grandTotal)}**`);
         lines.push("");
-        const nameText = nameInput.value.trim();
+
         const shipText = shippingInfoInput.value.trim();
         const notesText = notesInput.value.trim();
 
@@ -1558,7 +1517,7 @@
 
         if (payment.value === "card") {
           lines.push(
-            `**Payment:** Card via Square (manual) — Name: ${cardName}; Contact for Square link: ${cardContact}`
+            `**Payment:** Card via Square (manual) — Name: ${nameText}; Contact for Square link: ${contact}`
           );
         } else if (payment.value === "cash") {
           lines.push("**Payment:** Cash (local pickup)");
@@ -1588,15 +1547,12 @@
           shippingInfoInput.value = "";
           notesInput.value = "";
           cashappRefInput.value = "";
-          cardNameInput.value = "";
-          cardContactInput.value = "";
           document
             .querySelectorAll('input[name="payment-method"]')
             .forEach((r) => (r.checked = false));
           document
             .getElementById("cashapp-extra")
             .classList.add("hidden");
-          document.getElementById("card-extra").classList.add("hidden");
         } catch (err) {
           console.error("Submit error", err);
           showSubmitMessage(
@@ -1620,9 +1576,6 @@
         );
         const cashappExtra = document.getElementById("cashapp-extra");
         const cashappRefInput = document.getElementById("cashapp-reference");
-        const cardExtra = document.getElementById("card-extra");
-        const cardNameInput = document.getElementById("card-name");
-        const cardContactInput = document.getElementById("card-contact");
 
         paymentRadios.forEach((radio) => {
           radio.addEventListener("change", () => {
@@ -1630,19 +1583,9 @@
 
             if (radio.value === "cashapp") {
               cashappExtra.classList.remove("hidden");
-              cardExtra.classList.add("hidden");
-              cardNameInput.value = "";
-              cardContactInput.value = "";
-            } else if (radio.value === "card") {
-              cardExtra.classList.remove("hidden");
-              cashappExtra.classList.add("hidden");
-              cashappRefInput.value = "";
             } else {
               cashappExtra.classList.add("hidden");
-              cardExtra.classList.add("hidden");
               cashappRefInput.value = "";
-              cardNameInput.value = "";
-              cardContactInput.value = "";
             }
           });
         });

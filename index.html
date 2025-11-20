@@ -56,6 +56,12 @@
         color: var(--muted);
       }
 
+      .small-header {
+        margin-top: 4px;
+        max-width: 650px;
+        font-size: 0.85rem;
+      }
+
       .grid {
         display: grid;
         grid-template-columns: minmax(0, 2fr) minmax(0, 1.5fr);
@@ -323,10 +329,6 @@
         margin-top: 4px;
       }
 
-      .pill-select-group select {
-        border-radius: 999px;
-      }
-
       .error-text {
         color: var(--danger);
         font-size: 0.85rem;
@@ -365,11 +367,13 @@
         margin-bottom: 0.1rem;
       }
 
-      .cashapp-extra {
+      .cashapp-extra,
+      .payment-extra {
         margin-top: 0.75rem;
       }
 
-      .cashapp-extra.hidden {
+      .cashapp-extra.hidden,
+      .payment-extra.hidden {
         display: none;
       }
 
@@ -405,6 +409,11 @@
       <header>
         <h1>Silvio's 3D Prints</h1>
         <p>Choose a premade design or upload your own custom model.</p>
+        <p class="helper-text small-header">
+          This is a tiny one-person mini business, so the site and payment flow
+          might feel a bit simpler than a big store. Thanks for your patience
+          while I make everything better over time!
+        </p>
       </header>
 
       <div class="grid">
@@ -463,7 +472,6 @@
               <label for="custom-color">Color</label>
               <select id="custom-color">
                 <option value="">Select color</option>
-                <!-- filled from colors sheet (excluding "Premade") -->
               </select>
             </div>
 
@@ -566,7 +574,7 @@
                 placeholder="Phone or email"
               />
               <div class="helper-text">
-                Phone: formats like 774-123-4567 • Email: must look like a
+                Phone: formats like 774-123-4567 • Email: needs to look like a
                 real address.
               </div>
             </div>
@@ -592,7 +600,8 @@
             <h2>Payment</h2>
             <p class="helper-text">
               Choose how you'd like to pay. This site does not store card
-              details.
+              details. Payments may be processed in about 24 hours after you
+              place your order.
             </p>
 
             <div class="payment-options">
@@ -601,8 +610,8 @@
                 <div class="payment-label">
                   <strong>Card via Square (manual)</strong>
                   <div class="helper-text">
-                    You'll receive a Square checkout link or pay with card in
-                    person.
+                    You'll get a secure Square checkout link or pay with card in
+                    person. Card numbers are never typed into this website.
                   </div>
                 </div>
               </label>
@@ -628,6 +637,29 @@
                   </div>
                 </div>
               </label>
+            </div>
+
+            <div id="card-extra" class="payment-extra hidden">
+              <label>
+                Name on card
+                <input
+                  type="text"
+                  id="card-name"
+                  placeholder="Name printed on the card"
+                />
+              </label>
+              <label style="margin-top: 6px">
+                Email or phone for Square link
+                <input
+                  type="text"
+                  id="card-contact"
+                  placeholder="Where to send your Square checkout link"
+                />
+              </label>
+              <div class="helper-text" style="margin-top: 4px">
+                You'll receive a secure Square invoice. Please only enter your
+                full card details on Square's payment page, not here.
+              </div>
             </div>
 
             <div id="cashapp-extra" class="cashapp-extra hidden">
@@ -708,8 +740,9 @@
       }
 
       function parseSheetJSON(text) {
-        // Strip leading "/*O_o*/" etc from gviz
-        const json = JSON.parse(text.substring(text.indexOf("{"), text.lastIndexOf("}") + 1));
+        const json = JSON.parse(
+          text.substring(text.indexOf("{"), text.lastIndexOf("}") + 1)
+        );
         return json.table.rows;
       }
 
@@ -809,19 +842,17 @@
               const notes = c[4]?.v ? String(c[4].v).trim() : "";
 
               if (!name || priceRaw === null || priceRaw === "") {
-                return null; // ignore incomplete rows
+                return null;
               }
 
               const price = Number(priceRaw) || 0;
               const stock = safeNumber(stockRaw);
               const statusNorm = normalizeStatus(statusRaw);
 
-              // OffShelf items are hidden
               if (statusNorm === "offshelf") return null;
 
               const isLimited = statusNorm === "limited";
               if (isLimited && (stock === null || stock <= 0)) {
-                // limited with no usable stock - hide
                 return null;
               }
 
@@ -860,7 +891,6 @@
       // ---------- BUILD UI ----------
 
       function getBaseColorsForPremade() {
-        // All colors except "Premade", and not totally unavailable
         return colorsData.filter((c) => {
           const nameNorm = c.name.trim().toLowerCase();
           if (nameNorm === "premade") return false;
@@ -871,7 +901,6 @@
       }
 
       function getBaseColorsForCustom() {
-        // Same as premade, but also exclude any clearly unavailable
         return colorsData.filter((c) => {
           const nameNorm = c.name.trim().toLowerCase();
           if (nameNorm === "premade") return false;
@@ -916,7 +945,6 @@
           const badge = document.createElement("span");
           badge.className = "badge";
 
-          const statusNorm = item.statusNorm;
           if (item.availability === "available") {
             badge.classList.add("badge-available");
             badge.textContent = "Available";
@@ -1025,7 +1053,6 @@
             btn.disabled = true;
             btn.textContent = "Unavailable";
           } else if (item.availability !== "available" && item.isLimited) {
-            // limited but status says otherwise
             btn.disabled = true;
             btn.textContent = "Unavailable";
           }
@@ -1045,13 +1072,16 @@
               }
             }
 
-            addToCart({
-              name: item.name,
-              mode: "Premade",
-              color,
-              price: item.price,
-              maxStock: item.isLimited ? item.stock : null,
-            }, qtyVal);
+            addToCart(
+              {
+                name: item.name,
+                mode: "Premade",
+                color,
+                price: item.price,
+                maxStock: item.isLimited ? item.stock : null,
+              },
+              qtyVal
+            );
           });
 
           btnRow.appendChild(btn);
@@ -1062,9 +1092,10 @@
           listEl.appendChild(card);
         });
 
-        // Update custom color select
+        // custom colors
         const customColorSelect = document.getElementById("custom-color");
-        customColorSelect.innerHTML = "<option value=\"\">Select color</option>";
+        customColorSelect.innerHTML =
+          '<option value="">Select color</option>';
         getBaseColorsForCustom().forEach((c) => {
           const o = document.createElement("option");
           o.value = c.name;
@@ -1073,12 +1104,11 @@
         });
       }
 
-      // ---------- CART LOGIC ----------
+      // ---------- CART ----------
 
       function addToCart(itemBase, qty) {
         qty = Math.max(1, Number(qty) || 1);
 
-        // enforce stock for limited/premade with stock
         if (itemBase.maxStock != null) {
           const existingQty = cart
             .filter(
@@ -1231,7 +1261,6 @@
 
       function getShippingEstimate(itemsSubtotal, shippingChoice) {
         if (shippingChoice === "pickup") return 0;
-        // simple estimate model
         if (itemsSubtotal <= 10) return 6.0;
         if (itemsSubtotal <= 40) return 9.0;
         return 14.0;
@@ -1281,7 +1310,6 @@
         if (!trimmed.includes("@") || !trimmed.includes(".")) return false;
         if (trimmed.length < 6) return false;
         if (trimmed.startsWith("@")) return false;
-        // basic "real-looking" email
         const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         return re.test(trimmed.toLowerCase());
       }
@@ -1295,7 +1323,7 @@
       }
 
       function formatPhonePretty(value) {
-        const digits = value.replace(/\D/g, "").slice(-10); // last 10
+        const digits = value.replace(/\D/g, "").slice(-10);
         if (digits.length !== 10) return value;
         const area = digits.slice(0, 3);
         const mid = digits.slice(3, 6);
@@ -1343,9 +1371,7 @@
       // ---------- ORDER SUBMISSION ----------
 
       async function sendOrderWebhook(content) {
-        const payload = {
-          content,
-        };
+        const payload = { content };
 
         async function send(url) {
           if (!url) return;
@@ -1438,9 +1464,49 @@
           return;
         }
 
+        const cardNameInput = document.getElementById("card-name");
+        const cardContactInput = document.getElementById("card-contact");
+        const cashappRefInput = document.getElementById("cashapp-reference");
+
+        let cardName = cardNameInput.value.trim();
+        let cardContact = cardContactInput.value.trim();
+        let cashappRef = cashappRefInput.value.trim();
+
+        if (payment.value === "card") {
+          if (!cardName || !cardContact) {
+            showSubmitMessage(
+              "Please enter the card name and contact for the Square link.",
+              true
+            );
+            return;
+          }
+          const cardContactValid =
+            isValidEmail(cardContact) || isValidPhone(cardContact);
+          if (!cardContactValid) {
+            showSubmitMessage(
+              "Card payment contact must be a real-looking email or phone.",
+              true
+            );
+            return;
+          }
+          if (isValidPhone(cardContact)) {
+            cardContact = formatPhonePretty(cardContact);
+            cardContactInput.value = cardContact;
+          }
+        }
+
+        if (payment.value === "cashapp") {
+          if (!cashappRef) {
+            showSubmitMessage(
+              "Please enter your Cash App name or a payment note.",
+              true
+            );
+            return;
+          }
+        }
+
         const orderId = nextOrderNumber();
 
-        // Totals
         let itemsSubtotal = 0;
         cart.forEach((item) => {
           itemsSubtotal += item.unitPrice * item.quantity;
@@ -1452,7 +1518,6 @@
         const expediteFee = getExpediteFee(itemsSubtotal, expediteChoice);
         const grandTotal = itemsSubtotal + shippingEstimate + expediteFee;
 
-        // Stock updates (for limited premade items)
         const stockItems = cart
           .filter((item) => item.mode === "Premade" && item.maxStock != null)
           .map((item) => ({
@@ -1490,7 +1555,20 @@
           lines.push(`**Shipping:** ${shipText}`);
         }
         if (notesText) lines.push(`**Notes:** ${notesText}`);
-        lines.push(`**Payment:** ${payment.text}`);
+
+        if (payment.value === "card") {
+          lines.push(
+            `**Payment:** Card via Square (manual) — Name: ${cardName}; Contact for Square link: ${cardContact}`
+          );
+        } else if (payment.value === "cash") {
+          lines.push("**Payment:** Cash (local pickup)");
+        } else if (payment.value === "cashapp") {
+          lines.push(
+            `**Payment:** Cash App to ${CASHAPP_TAG} — reference: ${cashappRef}`
+          );
+        } else {
+          lines.push(`**Payment:** ${payment.text}`);
+        }
 
         const summary = lines.join("\n");
 
@@ -1503,20 +1581,22 @@
 
           showSubmitMessage("Order submitted.", false);
 
-          // Clear cart and some fields
           cart = [];
           renderCart();
-          // keep contact info so they don't have to retype if they do another order
+
           nameInput.value = "";
           shippingInfoInput.value = "";
           notesInput.value = "";
-          const cashappRef = document.getElementById("cashapp-reference");
-          cashappRef.value = "";
-          const cashappExtra = document.getElementById("cashapp-extra");
-          cashappExtra.classList.add("hidden");
+          cashappRefInput.value = "";
+          cardNameInput.value = "";
+          cardContactInput.value = "";
           document
             .querySelectorAll('input[name="payment-method"]')
             .forEach((r) => (r.checked = false));
+          document
+            .getElementById("cashapp-extra")
+            .classList.add("hidden");
+          document.getElementById("card-extra").classList.add("hidden");
         } catch (err) {
           console.error("Submit error", err);
           showSubmitMessage(
@@ -1535,20 +1615,34 @@
         await loadColors();
         await loadInventory();
 
-        // Payment radios show/hide CashApp extra field
         const paymentRadios = document.querySelectorAll(
           'input[name="payment-method"]'
         );
         const cashappExtra = document.getElementById("cashapp-extra");
         const cashappRefInput = document.getElementById("cashapp-reference");
+        const cardExtra = document.getElementById("card-extra");
+        const cardNameInput = document.getElementById("card-name");
+        const cardContactInput = document.getElementById("card-contact");
 
         paymentRadios.forEach((radio) => {
           radio.addEventListener("change", () => {
-            if (radio.checked && radio.value === "cashapp") {
+            if (!radio.checked) return;
+
+            if (radio.value === "cashapp") {
               cashappExtra.classList.remove("hidden");
-            } else if (radio.checked) {
+              cardExtra.classList.add("hidden");
+              cardNameInput.value = "";
+              cardContactInput.value = "";
+            } else if (radio.value === "card") {
+              cardExtra.classList.remove("hidden");
               cashappExtra.classList.add("hidden");
               cashappRefInput.value = "";
+            } else {
+              cashappExtra.classList.add("hidden");
+              cardExtra.classList.add("hidden");
+              cashappRefInput.value = "";
+              cardNameInput.value = "";
+              cardContactInput.value = "";
             }
           });
         });
@@ -1571,19 +1665,24 @@
 
             const file = fileInput.files[0];
             if (!file) {
-              showSubmitMessage("Please upload a file for custom prints.", true);
+              showSubmitMessage(
+                "Please upload a file for custom prints.",
+                true
+              );
               return;
             }
 
             const color = colorSelect.value;
             if (!color) {
-              showSubmitMessage("Please choose a color for the custom print.", true);
+              showSubmitMessage(
+                "Please choose a color for the custom print.",
+                true
+              );
               return;
             }
 
             let qty = Math.max(1, Number(qtyInput.value) || 1);
 
-            // Simple estimate logic
             let basePrice = 5;
             const size = sizeSelect.value;
             const detail = detailSelect.value;
@@ -1596,7 +1695,6 @@
 
             const estPrice = basePrice;
 
-            // add to cart
             addToCart(
               {
                 name: file.name,
@@ -1619,7 +1717,6 @@
             handleSubmitOrder();
           });
 
-        // Periodic refresh of config + inventory every 30 seconds
         setInterval(() => {
           loadConfig();
           loadColors();

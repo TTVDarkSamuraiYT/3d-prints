@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <title>Silvio's 3D Prints</title>
+    <title>Silvio's 3D Prints – Tekniq Solutions</title>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
 
     <style>
@@ -367,13 +367,11 @@
         margin-bottom: 0.1rem;
       }
 
-      .cashapp-extra,
-      .payment-extra {
+      .cashapp-extra {
         margin-top: 0.75rem;
       }
 
-      .cashapp-extra.hidden,
-      .payment-extra.hidden {
+      .cashapp-extra.hidden {
         display: none;
       }
 
@@ -599,9 +597,10 @@
           <section class="card" style="margin-top: 12px" id="payment-section">
             <h2>Payment</h2>
             <p class="helper-text">
-              Choose how you'd like to pay. This site does not store card
-              details. Payments may be processed in about 24 hours after you
-              place your order.
+              This site doesn’t store card details. Cash App payments are
+              usually noticed a bit faster so your order may start sooner. Any
+              online payment is typically noticed and processed within 24 hours
+              or less.
             </p>
 
             <div class="payment-options">
@@ -610,8 +609,9 @@
                 <div class="payment-label">
                   <strong>Card via Square (manual)</strong>
                   <div class="helper-text">
-                    You'll get a secure Square checkout link or pay with card in
-                    person. Card numbers are never typed into this website.
+                    I’ll send you a secure Square checkout link or take your
+                    card in person. Card numbers are never typed into this
+                    website.
                   </div>
                 </div>
               </label>
@@ -631,9 +631,10 @@
                 <div class="payment-label">
                   <strong>Cash App</strong>
                   <div class="helper-text">
-                    Send payment to <code id="cashapp-tag-display">$CashApp</code>.
-                    Enter your Cash App name or note so I can match the
-                    payment.
+                    Send payment to
+                    <code id="cashapp-tag-display">$CashApp</code>. Cash App
+                    payments are usually seen the quickest, so your order might
+                    start a bit faster.
                   </div>
                 </div>
               </label>
@@ -658,6 +659,15 @@
               Proceed to checkout
             </button>
 
+            <button
+              type="button"
+              id="open-tracking-btn"
+              class="btn btn-ghost"
+              style="margin-top: 8px; width: 100%"
+            >
+              Track an existing order
+            </button>
+
             <div id="submit-message" class="helper-text" style="margin-top: 6px">
             </div>
           </section>
@@ -670,6 +680,7 @@
       let SHEET_ID = "";
       let INVENTORY_SHEET_NAME = "";
       let COLORS_SHEET_NAME = "";
+      let ORDERS_SHEET_NAME = "";
       let ORDER_WEBHOOK_URL = "";
       let HISTORY_WEBHOOK_URL = "";
       let STOCK_WEBAPP_URL = "";
@@ -740,6 +751,7 @@
           SHEET_ID = cfg.SHEET_ID;
           INVENTORY_SHEET_NAME = cfg.INVENTORY_SHEET_NAME;
           COLORS_SHEET_NAME = cfg.COLORS_SHEET_NAME;
+          ORDERS_SHEET_NAME = cfg.ORDERS_SHEET_NAME || "Orders";
           ORDER_WEBHOOK_URL = cfg.ORDER_WEBHOOK_URL;
           HISTORY_WEBHOOK_URL = cfg.HISTORY_WEBHOOK_URL;
           STOCK_WEBAPP_URL = cfg.STOCK_WEBAPP_URL || "";
@@ -1388,6 +1400,23 @@
         }
       }
 
+      async function sendOrderToSheets(orderRecord) {
+        if (!STOCK_WEBAPP_URL) return;
+        try {
+          await fetch(STOCK_WEBAPP_URL, {
+            method: "POST",
+            mode: "no-cors",
+            body: JSON.stringify({
+              order: orderRecord,
+              ordersSheetName: ORDERS_SHEET_NAME,
+            }),
+          });
+          console.log("[STOCK WEBAPP] Order logged to sheet");
+        } catch (err) {
+          console.error("[STOCK WEBAPP ERROR] Failed to log order", err);
+        }
+      }
+
       async function handleSubmitOrder() {
         if (!cart.length) {
           showSubmitMessage("Your cart is empty.", true);
@@ -1531,12 +1560,35 @@
 
         const summary = lines.join("\n");
 
+        // Build order record for sheet
+        const orderRecord = {
+          orderId,
+          createdAt: new Date().toISOString(),
+          name: nameText || "",
+          contact,
+          shippingInfo:
+            shippingChoice === "pickup"
+              ? "Local pickup"
+              : shipText || "",
+          status: payment.value === "cash" ? "processing" : "paid",
+          paymentMethod: payment.text,
+          itemsJson: JSON.stringify(cart),
+          itemsSubtotal,
+          shippingEstimate,
+          expediteFee,
+          totalEstimate: grandTotal,
+          notes: notesText || "",
+        };
+
         showSubmitMessage("Submitting order…", false);
         document.getElementById("submit-order-btn").disabled = true;
 
         try {
-          await sendOrderWebhook(summary);
-          await sendStockUpdateToAppsScript(stockItems);
+          await Promise.all([
+            sendOrderWebhook(summary),
+            sendStockUpdateToAppsScript(stockItems),
+            sendOrderToSheets(orderRecord),
+          ]);
 
           showSubmitMessage("Order submitted.", false);
 
@@ -1658,6 +1710,12 @@
           .addEventListener("click", (e) => {
             e.preventDefault();
             handleSubmitOrder();
+          });
+
+        document
+          .getElementById("open-tracking-btn")
+          .addEventListener("click", () => {
+            window.location.href = "/tracking/";
           });
 
         setInterval(() => {

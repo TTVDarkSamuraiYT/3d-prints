@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Order Tracking – Tekniq Solutions</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+      :root {
+        --bg: #050816;
+        --card: #0d1022;
+        --card-soft: #151a32;
+        --accent: #35d07f;
+        --accent-soft: rgba(53, 208, 127, 0.15);
+        --text: #f5f7ff;
+        --muted: #95a0c6;
+        --border-soft: rgba(255, 255, 255, 0.08);
+        --danger: #ff4b5c;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+          sans-serif;
+        background: radial-gradient(circle at top, #182848 0, #050816 45%, #000 100%);
+        color: var(--text);
+        min-height: 100vh;
+      }
+
+      .page {
+        max-width: 900px;
+        margin: 0 auto;
+        padding: 24px 16px 48px;
+      }
+
+      h1 {
+        margin: 0 0 6px;
+        font-size: 1.7rem;
+      }
+
+      p {
+        margin: 0;
+      }
+
+      .helper-text {
+        font-size: 0.85rem;
+        color: var(--muted);
+      }
+
+      .card {
+        margin-top: 18px;
+        border-radius: 18px;
+        padding: 16px 18px 18px;
+        background: radial-gradient(circle at top left, #202b4a 0, #0b1020 40%);
+        border: 1px solid var(--border-soft);
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.45);
+      }
+
+      label {
+        display: block;
+        font-size: 0.85rem;
+        margin-bottom: 4px;
+        color: var(--muted);
+      }
+
+      input[type="text"] {
+        width: 100%;
+        border-radius: 999px;
+        border: 1px solid rgba(255, 255, 255, 0.18);
+        background: #0b1020;
+        color: var(--text);
+        padding: 8px 12px;
+        font-size: 0.9rem;
+        outline: none;
+      }
+
+      input[type="text"]:focus {
+        border-color: var(--accent);
+        box-shadow: 0 0 0 1px var(--accent-soft);
+      }
+
+      .btn {
+        border-radius: 999px;
+        border: none;
+        padding: 9px 16px;
+        font-size: 0.9rem;
+        font-weight: 600;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .btn-primary {
+        background: linear-gradient(135deg, var(--accent), #24b66a);
+        color: #020308;
+      }
+
+      .btn-ghost {
+        background: transparent;
+        color: var(--muted);
+      }
+
+      .error-text {
+        color: var(--danger);
+        font-size: 0.85rem;
+        margin-top: 6px;
+      }
+
+      .results {
+        margin-top: 12px;
+      }
+
+      .result-card {
+        border-radius: 14px;
+        padding: 10px 12px;
+        background: rgba(5, 9, 25, 0.8);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        margin-bottom: 8px;
+      }
+
+      .status-pill {
+        display: inline-flex;
+        padding: 2px 8px;
+        border-radius: 999px;
+        font-size: 0.78rem;
+        font-weight: 600;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+      }
+
+      .status-paid {
+        background: rgba(39, 174, 96, 0.2);
+        color: #2ecc71;
+      }
+
+      .status-processing {
+        background: rgba(241, 196, 15, 0.2);
+        color: #f1c40f;
+      }
+
+      .status-shipped {
+        background: rgba(52, 152, 219, 0.2);
+        color: #74b9ff;
+      }
+
+      .summary {
+        margin-top: 4px;
+        font-size: 0.9rem;
+      }
+
+      .summary small {
+        color: var(--muted);
+      }
+
+      .top-links {
+        margin-top: 10px;
+      }
+
+      .top-links a {
+        color: var(--accent);
+        text-decoration: none;
+        font-size: 0.85rem;
+        margin-right: 10px;
+      }
+
+      .top-links a:hover {
+        text-decoration: underline;
+      }
+
+      @media (max-width: 600px) {
+        .two-col {
+          grid-template-columns: minmax(0, 1fr);
+        }
+      }
+
+      .two-col {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        gap: 8px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="page">
+      <h1>Order tracking</h1>
+      <p class="helper-text">
+        Enter your order number <strong>or</strong> the same name / email /
+        phone you used when ordering. No orders are shown until you search.
+      </p>
+      <div class="top-links">
+        <a href="/">← Back to Tekniq Solutions</a>
+        <a href="/prints/">Go to 3D print shop</a>
+      </div>
+
+      <section class="card">
+        <div class="two-col">
+          <div>
+            <label for="search-order-id">Order number</label>
+            <input
+              type="text"
+              id="search-order-id"
+              placeholder="Example: 20251118-003"
+            />
+          </div>
+          <div>
+            <label for="search-name-contact">Name or contact</label>
+            <input
+              type="text"
+              id="search-name-contact"
+              placeholder="Name, email, or phone"
+            />
+          </div>
+        </div>
+
+        <button id="search-btn" class="btn btn-primary" style="margin-top: 10px">
+          Search
+        </button>
+
+        <div id="search-message" class="helper-text" style="margin-top: 6px">
+          Nothing is shown until you press search. Only rows that match your
+          search are displayed.
+        </div>
+
+        <div id="results" class="results"></div>
+      </section>
+    </div>
+
+    <script>
+      let SHEET_ID = "";
+      let ORDERS_SHEET_NAME = "";
+
+      let ordersCache = null;
+
+      function parseSheetJSON(text) {
+        const json = JSON.parse(
+          text.substring(text.indexOf("{"), text.lastIndexOf("}") + 1)
+        );
+        return json.table.rows;
+      }
+
+      async function loadConfig() {
+        const res = await fetch("../config.json", { cache: "no-cache" });
+        if (!res.ok) throw new Error("config fetch failed");
+        const cfg = await res.json();
+        SHEET_ID = cfg.SHEET_ID;
+        ORDERS_SHEET_NAME = cfg.ORDERS_SHEET_NAME || "Orders";
+      }
+
+      async function loadOrders() {
+        if (ordersCache) return ordersCache;
+        if (!SHEET_ID || !ORDERS_SHEET_NAME) return [];
+
+        const url =
+          "https://docs.google.com/spreadsheets/d/" +
+          encodeURIComponent(SHEET_ID) +
+          "/gviz/tq?tqx=out:json&sheet=" +
+          encodeURIComponent(ORDERS_SHEET_NAME);
+
+        const res = await fetch(url);
+        if (!res.ok) throw new Error("orders fetch failed");
+        const text = await res.text();
+        const rows = parseSheetJSON(text);
+
+        const mapped = rows
+          .map((r) => {
+            const c = r.c || [];
+            const orderId = c[0]?.v ? String(c[0].v).trim() : "";
+            const createdAt = c[1]?.v ? String(c[1].v).trim() : "";
+            const name = c[2]?.v ? String(c[2].v).trim() : "";
+            const contact = c[3]?.v ? String(c[3].v).trim() : "";
+            const shippingInfo = c[4]?.v ? String(c[4].v).trim() : "";
+            const status = c[5]?.v ? String(c[5].v).trim() : "";
+            const payment = c[6]?.v ? String(c[6].v).trim() : "";
+            const totalEst = c[11]?.v || c[8]?.v || 0;
+            const notes = c[12]?.v ? String(c[12].v).trim() : "";
+
+            if (!orderId) return null;
+            return {
+              orderId,
+              createdAt,
+              name,
+              contact,
+              shippingInfo,
+              status,
+              payment,
+              totalEst: Number(totalEst) || 0,
+              notes,
+            };
+          })
+          .filter(Boolean);
+
+        ordersCache = mapped;
+        return mapped;
+      }
+
+      function statusClass(status) {
+        const s = (status || "").toString().toLowerCase();
+        if (s === "paid") return "status-paid";
+        if (s === "shipped") return "status-shipped";
+        return "status-processing";
+      }
+
+      function formatCurrency(amount) {
+        return `$${amount.toFixed(2)}`;
+      }
+
+      function renderResults(list) {
+        const container = document.getElementById("results");
+        container.innerHTML = "";
+
+        if (!list.length) {
+          container.innerHTML =
+            '<div class="helper-text" style="margin-top:6px">No orders found for that search.</div>';
+          return;
+        }
+
+        list.forEach((o) => {
+          const card = document.createElement("div");
+          card.className = "result-card";
+
+          const top = document.createElement("div");
+          top.style.display = "flex";
+          top.style.justifyContent = "space-between";
+          top.style.alignItems = "center";
+
+          const left = document.createElement("div");
+          left.innerHTML = `<strong>Order #${o.orderId}</strong><br/><small>${o.createdAt}</small>`;
+
+          const pill = document.createElement("span");
+          pill.className = "status-pill " + statusClass(o.status);
+          pill.textContent = o.status || "processing";
+
+          top.appendChild(left);
+          top.appendChild(pill);
+          card.appendChild(top);
+
+          const summary = document.createElement("div");
+          summary.className = "summary";
+          summary.innerHTML =
+            `<div><small>Name:</small> ${o.name || "N/A"}</div>` +
+            `<div><small>Contact:</small> ${o.contact || "N/A"}</div>` +
+            `<div><small>Payment:</small> ${o.payment || "N/A"}</div>` +
+            `<div><small>Shipping:</small> ${o.shippingInfo || "N/A"}</div>` +
+            `<div><small>Total estimate:</small> ${formatCurrency(
+              o.totalEst
+            )}</div>`;
+
+          if (o.notes) {
+            summary.innerHTML += `<div><small>Notes:</small> ${o.notes}</div>`;
+          }
+
+          card.appendChild(summary);
+          container.appendChild(card);
+        });
+      }
+
+      async function handleSearch() {
+        const msgEl = document.getElementById("search-message");
+        const orderIdVal = document
+          .getElementById("search-order-id")
+          .value.trim();
+        const nameContactVal = document
+          .getElementById("search-name-contact")
+          .value.trim();
+
+        if (!orderIdVal && !nameContactVal) {
+          msgEl.textContent =
+            "Please enter an order number, name, or contact before searching.";
+          msgEl.className = "error-text";
+          document.getElementById("results").innerHTML = "";
+          return;
+        }
+
+        msgEl.textContent = "Searching…";
+        msgEl.className = "helper-text";
+
+        try {
+          const orders = await loadOrders();
+
+          const qId = orderIdVal.toLowerCase();
+          const qNC = nameContactVal.toLowerCase();
+
+          const filtered = orders.filter((o) => {
+            if (qId) {
+              return o.orderId.toLowerCase() === qId;
+            }
+            if (qNC) {
+              return (
+                o.name.toLowerCase().includes(qNC) ||
+                o.contact.toLowerCase().includes(qNC)
+              );
+            }
+            return false;
+          });
+
+          renderResults(filtered);
+          msgEl.textContent =
+            filtered.length === 0
+              ? "No orders found for that search."
+              : "Showing matching orders.";
+          msgEl.className = "helper-text";
+        } catch (err) {
+          console.error(err);
+          msgEl.textContent =
+            "There was a problem looking up orders. Please try again later.";
+          msgEl.className = "error-text";
+        }
+      }
+
+      async function init() {
+        await loadConfig();
+        document
+          .getElementById("search-btn")
+          .addEventListener("click", handleSearch);
+      }
+
+      window.addEventListener("DOMContentLoaded", init);
+    </script>
+  </body>
+</html>

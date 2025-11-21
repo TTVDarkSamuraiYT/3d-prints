@@ -1,1 +1,1673 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Silvio's 3D Prints</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
 
+    <style>
+      :root {
+        --bg: #050816;
+        --bg-soft: #0b1020;
+        --card: #0d1022;
+        --card-soft: #151a32;
+        --accent: #35d07f;
+        --accent-soft: rgba(53, 208, 127, 0.15);
+        --accent-strong: #24b66a;
+        --danger: #ff4b5c;
+        --danger-soft: rgba(255, 75, 92, 0.12);
+        --text: #f5f7ff;
+        --muted: #95a0c6;
+        --border-soft: rgba(255, 255, 255, 0.08);
+        --input-bg: #0b1020;
+        --input-border: rgba(255, 255, 255, 0.14);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+          sans-serif;
+        background: radial-gradient(circle at top, #182848 0, #050816 45%, #000 100%);
+        color: var(--text);
+        min-height: 100vh;
+      }
+
+      .page {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 24px 16px 48px;
+      }
+
+      header {
+        margin-bottom: 24px;
+      }
+
+      header h1 {
+        font-size: 2rem;
+        margin: 0 0 4px;
+      }
+
+      header p {
+        margin: 0;
+        color: var(--muted);
+      }
+
+      .small-header {
+        margin-top: 4px;
+        max-width: 650px;
+        font-size: 0.85rem;
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: minmax(0, 2fr) minmax(0, 1.5fr);
+        gap: 16px;
+      }
+
+      @media (max-width: 900px) {
+        .grid {
+          grid-template-columns: minmax(0, 1fr);
+        }
+      }
+
+      .card {
+        background: radial-gradient(circle at top left, #202b4a 0, #0b1020 40%);
+        border-radius: 18px;
+        padding: 16px 18px 18px;
+        border: 1px solid var(--border-soft);
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.45);
+      }
+
+      h2 {
+        margin: 0 0 8px;
+        font-size: 1.2rem;
+      }
+
+      .section-title {
+        margin: 12px 0 8px;
+        font-size: 1.1rem;
+      }
+
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        padding: 3px 10px;
+        border-radius: 999px;
+        font-size: 0.7rem;
+        font-weight: 600;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+      }
+
+      .badge-available {
+        background: rgba(39, 174, 96, 0.2);
+        color: #2ecc71;
+      }
+
+      .badge-temp {
+        background: rgba(241, 196, 15, 0.2);
+        color: #f1c40f;
+      }
+
+      .badge-limited {
+        background: rgba(155, 89, 182, 0.2);
+        color: #e67eff;
+      }
+
+      .badge-unavailable {
+        background: rgba(231, 76, 60, 0.2);
+        color: #ff7675;
+      }
+
+      .badge-chip {
+        background: rgba(255, 255, 255, 0.06);
+        color: var(--muted);
+      }
+
+      .premade-list {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+        gap: 12px;
+      }
+
+      .premade-card {
+        background: linear-gradient(135deg, #10152a, #090d1b);
+        border-radius: 16px;
+        padding: 12px 14px 14px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        display: grid;
+        grid-template-columns: minmax(0, 1.4fr) minmax(0, 1.8fr);
+        gap: 8px 16px;
+      }
+
+      @media (max-width: 700px) {
+        .premade-card {
+          grid-template-columns: minmax(0, 1fr);
+        }
+      }
+
+      .premade-main h3 {
+        margin: 0 0 4px;
+      }
+
+      .premade-price {
+        font-weight: 600;
+        margin-top: 2px;
+      }
+
+      .premade-note {
+        font-size: 0.8rem;
+        color: var(--muted);
+        margin-top: 4px;
+      }
+
+      label {
+        display: block;
+        font-size: 0.85rem;
+        margin-bottom: 4px;
+        color: var(--muted);
+      }
+
+      select,
+      input[type="text"],
+      input[type="number"],
+      input[type="file"],
+      textarea {
+        width: 100%;
+        border-radius: 999px;
+        border: 1px solid var(--input-border);
+        background: var(--input-bg);
+        color: var(--text);
+        padding: 8px 12px;
+        font-size: 0.9rem;
+        outline: none;
+      }
+
+      textarea {
+        border-radius: 12px;
+        resize: vertical;
+        min-height: 60px;
+      }
+
+      select:focus,
+      input:focus,
+      textarea:focus {
+        border-color: var(--accent);
+        box-shadow: 0 0 0 1px rgba(53, 208, 127, 0.5);
+      }
+
+      .field-row {
+        margin-bottom: 10px;
+      }
+
+      .btn {
+        border-radius: 999px;
+        border: none;
+        padding: 9px 16px;
+        font-size: 0.9rem;
+        font-weight: 600;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .btn-primary {
+        background: linear-gradient(135deg, var(--accent), var(--accent-strong));
+        color: #020308;
+      }
+
+      .btn-primary:disabled {
+        opacity: 0.4;
+        cursor: default;
+      }
+
+      .btn-danger {
+        background: var(--danger-soft);
+        color: var(--danger);
+      }
+
+      .btn-ghost {
+        background: transparent;
+        color: var(--muted);
+      }
+
+      .btn-circle {
+        width: 26px;
+        height: 26px;
+        border-radius: 999px;
+        border: 1px solid rgba(255, 255, 255, 0.25);
+        background: transparent;
+        color: var(--text);
+        font-size: 0.8rem;
+        font-weight: 600;
+        padding: 0;
+      }
+
+      .helper-text {
+        font-size: 0.8rem;
+        color: var(--muted);
+      }
+
+      .cart-card-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 8px;
+      }
+
+      .cart-count {
+        font-size: 0.8rem;
+        padding: 3px 10px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.06);
+        color: var(--muted);
+      }
+
+      .cart-items {
+        margin-top: 4px;
+        max-height: 260px;
+        overflow-y: auto;
+      }
+
+      .cart-item {
+        display: grid;
+        grid-template-columns: minmax(0, 1.8fr) minmax(0, 1.1fr);
+        gap: 4px 8px;
+        padding: 6px 8px;
+        border-radius: 10px;
+        background: rgba(10, 16, 35, 0.8);
+        margin-bottom: 6px;
+      }
+
+      .cart-item-title {
+        font-size: 0.85rem;
+        font-weight: 500;
+      }
+
+      .cart-item-sub {
+        font-size: 0.78rem;
+        color: var(--muted);
+      }
+
+      .cart-item-right {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 6px;
+      }
+
+      .cart-item-price {
+        font-size: 0.9rem;
+        font-weight: 600;
+      }
+
+      .summary-row {
+        display: flex;
+        justify-content: space-between;
+        margin-top: 4px;
+        font-size: 0.85rem;
+      }
+
+      .summary-row.total {
+        margin-top: 6px;
+        font-weight: 600;
+      }
+
+      .summary-row.total span:last-child {
+        font-size: 1rem;
+      }
+
+      .pill-select-group {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        margin-top: 4px;
+      }
+
+      .error-text {
+        color: var(--danger);
+        font-size: 0.85rem;
+        margin-top: 6px;
+      }
+
+      .success-text {
+        color: var(--accent);
+        font-size: 0.85rem;
+        margin-top: 6px;
+      }
+
+      .payment-options {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+        margin-top: 0.75rem;
+      }
+
+      .payment-option {
+        display: flex;
+        gap: 0.75rem;
+        padding: 0.5rem 0.75rem;
+        border-radius: 0.75rem;
+        background: rgba(255, 255, 255, 0.02);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        cursor: pointer;
+      }
+
+      .payment-option input[type="radio"] {
+        margin-top: 0.35rem;
+      }
+
+      .payment-label strong {
+        display: block;
+        margin-bottom: 0.1rem;
+      }
+
+      .cashapp-extra,
+      .payment-extra {
+        margin-top: 0.75rem;
+      }
+
+      .cashapp-extra.hidden,
+      .payment-extra.hidden {
+        display: none;
+      }
+
+      code {
+        font-family: "SF Mono", ui-monospace, Menlo, Monaco, Consolas,
+          "Liberation Mono", "Courier New", monospace;
+        font-size: 0.82rem;
+        padding: 2px 5px;
+        border-radius: 4px;
+        background: rgba(0, 0, 0, 0.4);
+      }
+
+      .two-col {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        gap: 8px;
+      }
+
+      @media (max-width: 600px) {
+        .two-col {
+          grid-template-columns: minmax(0, 1fr);
+        }
+      }
+
+      .live-inventory-note {
+        font-size: 0.8rem;
+        color: #c4d1ff;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="page">
+      <header>
+        <h1>Silvio's 3D Prints</h1>
+        <p>Choose a premade design or upload your own custom model.</p>
+        <p class="helper-text small-header">
+          This is a tiny one-person mini business, so the site and payment flow
+          might feel a bit simpler than a big store. Thanks for your patience
+          while I make everything better over time!
+        </p>
+      </header>
+
+      <div class="grid">
+        <!-- LEFT: Premade + Custom -->
+        <div>
+          <section class="card">
+            <div
+              style="
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                gap: 8px;
+              "
+            >
+              <h2>Premade prints</h2>
+              <span class="live-inventory-note">Live inventory</span>
+            </div>
+            <div id="premade-list" class="premade-list"></div>
+            <div id="inventory-error" class="error-text" style="display: none">
+              Sorry, there was an issue loading the inventory system.
+            </div>
+          </section>
+
+          <section class="card" style="margin-top: 12px">
+            <h2>Custom print</h2>
+            <p class="helper-text">
+              Upload your own <strong>.stl</strong> or <strong>.3mf</strong>,
+              choose size &amp; detail level for an estimate.
+            </p>
+
+            <div class="field-row">
+              <label for="custom-file">Upload file</label>
+              <input type="file" id="custom-file" accept=".stl,.3mf" />
+            </div>
+
+            <div class="two-col">
+              <div class="field-row">
+                <label for="custom-size">Approximate size</label>
+                <select id="custom-size">
+                  <option value="small">Small (&lt; 10 cm)</option>
+                  <option value="medium" selected>Medium (10–20 cm)</option>
+                  <option value="large">Large (&gt; 20 cm)</option>
+                </select>
+              </div>
+              <div class="field-row">
+                <label for="custom-detail">Detail level</label>
+                <select id="custom-detail">
+                  <option value="standard" selected>Standard</option>
+                  <option value="high">High</option>
+                  <option value="ultra">Ultra</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="field-row">
+              <label for="custom-color">Color</label>
+              <select id="custom-color">
+                <option value="">Select color</option>
+              </select>
+            </div>
+
+            <div class="field-row">
+              <label for="custom-qty">Quantity</label>
+              <input
+                type="number"
+                id="custom-qty"
+                min="1"
+                step="1"
+                value="1"
+              />
+            </div>
+
+            <div class="field-row">
+              <span class="helper-text" id="custom-estimate-text">
+                Estimated price will appear in the cart.
+              </span>
+            </div>
+
+            <button id="add-custom-btn" class="btn btn-primary">
+              Add custom print to cart
+            </button>
+          </section>
+        </div>
+
+        <!-- RIGHT: Cart + Info + Payment -->
+        <div>
+          <section class="card" id="cart-card">
+            <div class="cart-card-header">
+              <h2>Cart</h2>
+              <span class="cart-count" id="cart-count">0 items</span>
+            </div>
+
+            <div id="cart-items" class="cart-items"></div>
+
+            <div id="empty-cart-note" class="helper-text">
+              Your cart is empty. Add a premade print or custom print to begin.
+            </div>
+
+            <div id="cart-summary" style="margin-top: 8px; display: none">
+              <div class="summary-row">
+                <span>Items subtotal</span>
+                <span id="items-subtotal">$0.00</span>
+              </div>
+
+              <div class="summary-row">
+                <span>Shipping estimate</span>
+                <span id="shipping-estimate">$0.00</span>
+              </div>
+
+              <div class="summary-row">
+                <span>Expedite fee</span>
+                <span id="expedite-fee">$0.00</span>
+              </div>
+
+              <div class="summary-row total">
+                <span>Total estimate</span>
+                <span id="grand-total">$0.00</span>
+              </div>
+
+              <div class="pill-select-group" style="margin-top: 10px">
+                <label for="shipping-choice">Shipping / pickup</label>
+                <select id="shipping-choice">
+                  <option value="pickup" selected>
+                    Local pickup (no shipping fee)
+                  </option>
+                  <option value="standard">Standard shipping (estimate)</option>
+                </select>
+
+                <label for="expedite-choice" style="margin-top: 4px">
+                  Expedite option
+                </label>
+                <select id="expedite-choice">
+                  <option value="none" selected>No expedite</option>
+                  <option value="priority">Priority (quicker queue)</option>
+                  <option value="rush">Rush order (printed first)</option>
+                </select>
+              </div>
+            </div>
+          </section>
+
+          <section class="card" style="margin-top: 12px" id="info-section">
+            <h2>Info</h2>
+
+            <div class="field-row">
+              <label for="customer-name">Name (optional)</label>
+              <input
+                type="text"
+                id="customer-name"
+                placeholder="Name (helps when messaging you)"
+              />
+            </div>
+
+            <div class="field-row">
+              <label for="customer-contact">Contact (required)</label>
+              <input
+                type="text"
+                id="customer-contact"
+                placeholder="Phone or email"
+              />
+              <div class="helper-text">
+                Phone: formats like 774-123-4567 • Email: needs to look like a
+                real address.
+              </div>
+            </div>
+
+            <div class="field-row">
+              <label for="shipping-info">Shipping info</label>
+              <textarea
+                id="shipping-info"
+                placeholder="Only needed if you choose shipping. Example: Name, full address, ZIP."
+              ></textarea>
+            </div>
+
+            <div class="field-row">
+              <label for="extra-notes">Extra notes (optional)</label>
+              <textarea
+                id="extra-notes"
+                placeholder="Anything specific about the print, deadlines, or preferences."
+              ></textarea>
+            </div>
+          </section>
+
+          <section class="card" style="margin-top: 12px" id="payment-section">
+            <h2>Payment</h2>
+            <p class="helper-text">
+              Choose how you'd like to pay. This site does not store card
+              details. Payments may be processed in about 24 hours after you
+              place your order.
+            </p>
+
+            <div class="payment-options">
+              <label class="payment-option">
+                <input type="radio" name="payment-method" value="card" />
+                <div class="payment-label">
+                  <strong>Card via Square (manual)</strong>
+                  <div class="helper-text">
+                    You'll get a secure Square checkout link or pay with card in
+                    person. Card numbers are never typed into this website.
+                  </div>
+                </div>
+              </label>
+
+              <label class="payment-option">
+                <input type="radio" name="payment-method" value="cash" />
+                <div class="payment-label">
+                  <strong>Cash (local pickup)</strong>
+                  <div class="helper-text">
+                    Pay with cash when you pick up your order.
+                  </div>
+                </div>
+              </label>
+
+              <label class="payment-option">
+                <input type="radio" name="payment-method" value="cashapp" />
+                <div class="payment-label">
+                  <strong>Cash App</strong>
+                  <div class="helper-text">
+                    Send payment to <code id="cashapp-tag-display">$CashApp</code>.
+                    Enter your Cash App name or note so I can match the
+                    payment.
+                  </div>
+                </div>
+              </label>
+            </div>
+
+            <div id="cashapp-extra" class="cashapp-extra hidden">
+              <label>
+                Cash App name / note
+                <input
+                  type="text"
+                  id="cashapp-reference"
+                  placeholder="@username or payment note"
+                />
+              </label>
+            </div>
+
+            <button
+              id="submit-order-btn"
+              class="btn btn-primary"
+              style="margin-top: 12px; width: 100%"
+            >
+              Proceed to checkout
+            </button>
+
+            <div id="submit-message" class="helper-text" style="margin-top: 6px">
+            </div>
+          </section>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      // ---------- GLOBALS ----------
+      let SHEET_ID = "";
+      let INVENTORY_SHEET_NAME = "";
+      let COLORS_SHEET_NAME = "";
+      let ORDER_WEBHOOK_URL = "";
+      let HISTORY_WEBHOOK_URL = "";
+      let STOCK_WEBAPP_URL = "";
+      let CASHAPP_TAG = "";
+
+      let colorsData = [];
+      let inventoryData = [];
+      let cart = [];
+
+      // Order counter per day
+      function getTodayKey() {
+        const d = new Date();
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, "0");
+        const day = String(d.getDate()).padStart(2, "0");
+        return `${y}${m}${day}`;
+      }
+
+      function nextOrderNumber() {
+        const todayKey = getTodayKey();
+        const stored = JSON.parse(
+          localStorage.getItem("order_counter_state") || "{}"
+        );
+        let counter = 0;
+        if (stored.date === todayKey) {
+          counter = stored.counter || 0;
+        }
+        counter += 1;
+        localStorage.setItem(
+          "order_counter_state",
+          JSON.stringify({ date: todayKey, counter })
+        );
+        return `${todayKey}-${String(counter).padStart(3, "0")}`;
+      }
+
+      // ---------- HELPERS ----------
+
+      function formatCurrency(amount) {
+        return `$${amount.toFixed(2)}`;
+      }
+
+      function normalizeStatus(str) {
+        if (!str) return "";
+        return String(str).trim().toLowerCase();
+      }
+
+      function parseSheetJSON(text) {
+        const json = JSON.parse(
+          text.substring(text.indexOf("{"), text.lastIndexOf("}") + 1)
+        );
+        return json.table.rows;
+      }
+
+      function safeNumber(v) {
+        if (v == null || v === "") return null;
+        const n = Number(v);
+        return Number.isFinite(n) ? n : null;
+      }
+
+      // ---------- CONFIG / SHEET LOADING ----------
+
+      async function loadConfig() {
+        try {
+          const res = await fetch("config.json", { cache: "no-cache" });
+          if (!res.ok) throw new Error("config fetch failed");
+          const cfg = await res.json();
+
+          SHEET_ID = cfg.SHEET_ID;
+          INVENTORY_SHEET_NAME = cfg.INVENTORY_SHEET_NAME;
+          COLORS_SHEET_NAME = cfg.COLORS_SHEET_NAME;
+          ORDER_WEBHOOK_URL = cfg.ORDER_WEBHOOK_URL;
+          HISTORY_WEBHOOK_URL = cfg.HISTORY_WEBHOOK_URL;
+          STOCK_WEBAPP_URL = cfg.STOCK_WEBAPP_URL || "";
+          CASHAPP_TAG = cfg.CASHAPP_TAG || "$CashApp";
+
+          const cashTagEl = document.getElementById("cashapp-tag-display");
+          if (cashTagEl) cashTagEl.textContent = CASHAPP_TAG;
+
+          console.log("Config loaded.");
+        } catch (err) {
+          console.error("Error loading config.json", err);
+        }
+      }
+
+      async function loadColors() {
+        if (!SHEET_ID || !COLORS_SHEET_NAME) return;
+        try {
+          const url =
+            "https://docs.google.com/spreadsheets/d/" +
+            encodeURIComponent(SHEET_ID) +
+            "/gviz/tq?tqx=out:json&sheet=" +
+            encodeURIComponent(COLORS_SHEET_NAME);
+
+          const res = await fetch(url);
+          if (!res.ok) throw new Error("colors fetch failed");
+          const text = await res.text();
+          const rows = parseSheetJSON(text);
+
+          const mapped = rows
+            .map((r) => {
+              const c = r.c || [];
+              const name = c[0]?.v ? String(c[0].v).trim() : "";
+              const status = c[1]?.v ? String(c[1].v).trim() : "";
+              if (!name) return null;
+              const normStatus = normalizeStatus(status);
+              return {
+                name,
+                status,
+                normStatus,
+              };
+            })
+            .filter(Boolean);
+
+          colorsData = mapped;
+
+          console.log("Colors from sheet:", colorsData);
+        } catch (err) {
+          console.error("Error loading colors sheet", err);
+          colorsData = [];
+        }
+      }
+
+      async function loadInventory() {
+        const inventoryError = document.getElementById("inventory-error");
+        if (!SHEET_ID || !INVENTORY_SHEET_NAME) return;
+        try {
+          inventoryError.style.display = "none";
+
+          const url =
+            "https://docs.google.com/spreadsheets/d/" +
+            encodeURIComponent(SHEET_ID) +
+            "/gviz/tq?tqx=out:json&sheet=" +
+            encodeURIComponent(INVENTORY_SHEET_NAME);
+
+          const res = await fetch(url);
+          if (!res.ok) throw new Error("inventory fetch failed");
+          const text = await res.text();
+          const rows = parseSheetJSON(text);
+
+          const mapped = rows
+            .map((r) => {
+              const c = r.c || [];
+              const name = c[0]?.v ? String(c[0].v).trim() : "";
+              const priceRaw = c[1]?.v;
+              const stockRaw = c[2]?.v;
+              const statusRaw = c[3]?.v ? String(c[3].v).trim() : "";
+              const notes = c[4]?.v ? String(c[4].v).trim() : "";
+
+              if (!name || priceRaw === null || priceRaw === "") {
+                return null;
+              }
+
+              const price = Number(priceRaw) || 0;
+              const stock = safeNumber(stockRaw);
+              const statusNorm = normalizeStatus(statusRaw);
+
+              if (statusNorm === "offshelf") return null;
+
+              const isLimited = statusNorm === "limited";
+              if (isLimited && (stock === null || stock <= 0)) {
+                return null;
+              }
+
+              let availability = "available";
+              if (statusNorm === "temporarily unavailable") {
+                availability = "temp";
+              } else if (statusNorm === "sold out") {
+                availability = "unavailable";
+              } else if (isLimited) {
+                availability = "limited";
+              }
+
+              return {
+                name,
+                price,
+                stock,
+                status: statusRaw,
+                statusNorm,
+                notes,
+                availability,
+                isLimited,
+              };
+            })
+            .filter(Boolean);
+
+          inventoryData = mapped;
+          console.log("Inventory from sheet:", inventoryData);
+
+          renderPremadeCards();
+        } catch (err) {
+          console.error("Error loading inventory sheet", err);
+          inventoryError.style.display = "block";
+        }
+      }
+
+      // ---------- BUILD UI ----------
+
+      function getBaseColorsForPremade() {
+        return colorsData.filter((c) => {
+          const nameNorm = c.name.trim().toLowerCase();
+          if (nameNorm === "premade") return false;
+          const s = c.normStatus;
+          if (s === "offshelf") return false;
+          return true;
+        });
+      }
+
+      function getBaseColorsForCustom() {
+        return colorsData.filter((c) => {
+          const nameNorm = c.name.trim().toLowerCase();
+          if (nameNorm === "premade") return false;
+          const s = c.normStatus;
+          if (s === "offshelf" || s === "sold out" || s === "unavailable")
+            return false;
+          return true;
+        });
+      }
+
+      function renderPremadeCards() {
+        const listEl = document.getElementById("premade-list");
+        listEl.innerHTML = "";
+
+        const baseColors = getBaseColorsForPremade();
+
+        if (!inventoryData.length) {
+          listEl.innerHTML =
+            '<div class="helper-text">No premade items are configured yet.</div>';
+          return;
+        }
+
+        inventoryData.forEach((item, index) => {
+          const card = document.createElement("div");
+          card.className = "premade-card";
+
+          const left = document.createElement("div");
+          left.className = "premade-main";
+
+          const title = document.createElement("h3");
+          title.textContent = item.name;
+          left.appendChild(title);
+
+          const priceEl = document.createElement("div");
+          priceEl.className = "premade-price";
+          priceEl.textContent = formatCurrency(item.price);
+          left.appendChild(priceEl);
+
+          const statusWrap = document.createElement("div");
+          statusWrap.style.marginTop = "4px";
+
+          const badge = document.createElement("span");
+          badge.className = "badge";
+
+          if (item.availability === "available") {
+            badge.classList.add("badge-available");
+            badge.textContent = "Available";
+          } else if (item.availability === "temp") {
+            badge.classList.add("badge-temp");
+            badge.textContent = "Temporarily unavailable";
+          } else if (item.availability === "limited") {
+            badge.classList.add("badge-limited");
+            if (item.stock != null) {
+              badge.textContent = `Limited (${item.stock} in stock)`;
+            } else {
+              badge.textContent = "Limited";
+            }
+          } else {
+            badge.classList.add("badge-unavailable");
+            badge.textContent = "Unavailable";
+          }
+
+          statusWrap.appendChild(badge);
+          left.appendChild(statusWrap);
+
+          if (item.notes) {
+            const note = document.createElement("div");
+            note.className = "premade-note";
+            note.textContent = item.notes;
+            left.appendChild(note);
+          }
+
+          const right = document.createElement("div");
+
+          const colorRow = document.createElement("div");
+          colorRow.className = "field-row";
+          const colorLabel = document.createElement("label");
+          colorLabel.textContent = "Color";
+          colorRow.appendChild(colorLabel);
+
+          let colorSelect;
+
+          if (item.isLimited) {
+            colorSelect = document.createElement("select");
+            colorSelect.disabled = true;
+            const opt = document.createElement("option");
+            opt.value = "Premade";
+            opt.textContent = "Premade only";
+            colorSelect.appendChild(opt);
+          } else {
+            colorSelect = document.createElement("select");
+            const placeholder = document.createElement("option");
+            placeholder.value = "";
+            placeholder.textContent = "Select color";
+            colorSelect.appendChild(placeholder);
+
+            baseColors.forEach((c) => {
+              const o = document.createElement("option");
+              o.value = c.name;
+              const norm = c.normStatus;
+              let label = c.name;
+
+              if (norm === "temporarily unavailable") {
+                label += " (temp unavailable)";
+              } else if (norm === "being resupplied") {
+                label += " (being resupplied)";
+              }
+
+              o.textContent = label;
+
+              if (
+                norm === "sold out" ||
+                norm === "unavailable" ||
+                norm === "temporarily unavailable"
+              ) {
+                o.disabled = true;
+              }
+
+              colorSelect.appendChild(o);
+            });
+          }
+
+          colorSelect.id = `premade-color-${index}`;
+          colorRow.appendChild(colorSelect);
+          right.appendChild(colorRow);
+
+          const qtyRow = document.createElement("div");
+          qtyRow.className = "field-row";
+          const qtyLabel = document.createElement("label");
+          qtyLabel.textContent = "Quantity";
+          qtyRow.appendChild(qtyLabel);
+
+          const qtyInput = document.createElement("input");
+          qtyInput.type = "number";
+          qtyInput.min = "1";
+          qtyInput.step = "1";
+          qtyInput.value = "1";
+          qtyInput.id = `premade-qty-${index}`;
+
+          qtyRow.appendChild(qtyInput);
+          right.appendChild(qtyRow);
+
+          const btnRow = document.createElement("div");
+          const btn = document.createElement("button");
+          btn.textContent = "Add to cart";
+          btn.className = "btn btn-primary";
+          btn.style.width = "100%";
+
+          if (item.availability !== "available" && !item.isLimited) {
+            btn.disabled = true;
+            btn.textContent = "Unavailable";
+          } else if (item.availability !== "available" && item.isLimited) {
+            btn.disabled = true;
+            btn.textContent = "Unavailable";
+          }
+
+          btn.addEventListener("click", () => {
+            const qtyVal = Math.max(1, Number(qtyInput.value) || 1);
+
+            let color = "Premade";
+            if (!item.isLimited) {
+              color = colorSelect.value || "";
+              if (!color) {
+                showSubmitMessage(
+                  "Please choose a color for that item.",
+                  true
+                );
+                return;
+              }
+            }
+
+            addToCart(
+              {
+                name: item.name,
+                mode: "Premade",
+                color,
+                price: item.price,
+                maxStock: item.isLimited ? item.stock : null,
+              },
+              qtyVal
+            );
+          });
+
+          btnRow.appendChild(btn);
+          right.appendChild(btnRow);
+
+          card.appendChild(left);
+          card.appendChild(right);
+          listEl.appendChild(card);
+        });
+
+        // custom colors
+        const customColorSelect = document.getElementById("custom-color");
+        customColorSelect.innerHTML =
+          '<option value="">Select color</option>';
+        getBaseColorsForCustom().forEach((c) => {
+          const o = document.createElement("option");
+          o.value = c.name;
+          o.textContent = c.name;
+          customColorSelect.appendChild(o);
+        });
+      }
+
+      // ---------- CART ----------
+
+      function addToCart(itemBase, qty) {
+        qty = Math.max(1, Number(qty) || 1);
+
+        if (itemBase.maxStock != null) {
+          const existingQty = cart
+            .filter(
+              (c) =>
+                c.name === itemBase.name &&
+                c.mode === itemBase.mode &&
+                c.color === itemBase.color
+            )
+            .reduce((sum, c) => sum + c.quantity, 0);
+          const remaining = itemBase.maxStock - existingQty;
+          if (remaining <= 0) {
+            showSubmitMessage(
+              `Sorry, "${itemBase.name}" is sold out for premade stock.`,
+              true
+            );
+            return;
+          }
+          if (qty > remaining) {
+            qty = remaining;
+          }
+        }
+
+        const existing = cart.find(
+          (c) =>
+            c.name === itemBase.name &&
+            c.mode === itemBase.mode &&
+            c.color === itemBase.color
+        );
+
+        if (existing) {
+          let newQty = existing.quantity + qty;
+          if (itemBase.maxStock != null && newQty > itemBase.maxStock) {
+            newQty = itemBase.maxStock;
+          }
+          existing.quantity = newQty;
+        } else {
+          cart.push({
+            name: itemBase.name,
+            mode: itemBase.mode,
+            color: itemBase.color,
+            unitPrice: itemBase.price,
+            quantity: qty,
+            maxStock: itemBase.maxStock,
+          });
+        }
+
+        renderCart();
+        showSubmitMessage("", false);
+      }
+
+      function renderCart() {
+        const itemsEl = document.getElementById("cart-items");
+        const countEl = document.getElementById("cart-count");
+        const emptyNote = document.getElementById("empty-cart-note");
+        const summaryEl = document.getElementById("cart-summary");
+
+        itemsEl.innerHTML = "";
+
+        if (!cart.length) {
+          countEl.textContent = "0 items";
+          emptyNote.style.display = "block";
+          summaryEl.style.display = "none";
+          updateTotals();
+          return;
+        }
+
+        emptyNote.style.display = "none";
+        summaryEl.style.display = "block";
+
+        let totalItems = 0;
+
+        cart.forEach((item, idx) => {
+          totalItems += item.quantity;
+
+          const row = document.createElement("div");
+          row.className = "cart-item";
+
+          const left = document.createElement("div");
+          const title = document.createElement("div");
+          title.className = "cart-item-title";
+          title.textContent = item.name;
+
+          const sub = document.createElement("div");
+          sub.className = "cart-item-sub";
+          sub.textContent = `${item.mode || "Premade"} / ${
+            item.color || "N/A"
+          }`;
+
+          left.appendChild(title);
+          left.appendChild(sub);
+
+          const right = document.createElement("div");
+          right.className = "cart-item-right";
+
+          const minusBtn = document.createElement("button");
+          minusBtn.className = "btn-circle";
+          minusBtn.textContent = "–";
+          minusBtn.addEventListener("click", () => {
+            if (item.quantity > 1) {
+              item.quantity -= 1;
+            }
+            renderCart();
+          });
+
+          const qty = document.createElement("span");
+          qty.textContent = item.quantity;
+
+          const plusBtn = document.createElement("button");
+          plusBtn.className = "btn-circle";
+          plusBtn.textContent = "+";
+          plusBtn.addEventListener("click", () => {
+            let newQty = item.quantity + 1;
+            if (item.maxStock != null && newQty > item.maxStock) {
+              newQty = item.maxStock;
+            }
+            item.quantity = newQty;
+            renderCart();
+          });
+
+          const price = document.createElement("div");
+          price.className = "cart-item-price";
+          const subtotal = item.unitPrice * item.quantity;
+          price.textContent = formatCurrency(subtotal);
+
+          const removeBtn = document.createElement("button");
+          removeBtn.className = "btn btn-danger";
+          removeBtn.textContent = "Remove";
+          removeBtn.addEventListener("click", () => {
+            cart.splice(idx, 1);
+            renderCart();
+          });
+
+          right.appendChild(minusBtn);
+          right.appendChild(qty);
+          right.appendChild(plusBtn);
+          right.appendChild(price);
+          right.appendChild(removeBtn);
+
+          row.appendChild(left);
+          row.appendChild(right);
+
+          itemsEl.appendChild(row);
+        });
+
+        countEl.textContent =
+          totalItems === 1 ? "1 item" : `${totalItems} items`;
+
+        updateTotals();
+      }
+
+      function getShippingEstimate(itemsSubtotal, shippingChoice) {
+        if (shippingChoice === "pickup") return 0;
+        if (itemsSubtotal <= 10) return 6.0;
+        if (itemsSubtotal <= 40) return 9.0;
+        return 14.0;
+      }
+
+      function getExpediteFee(itemsSubtotal, expediteChoice) {
+        if (expediteChoice === "priority") {
+          return Math.max(5, itemsSubtotal * 0.1);
+        }
+        if (expediteChoice === "rush") {
+          return Math.max(10, itemsSubtotal * 0.18);
+        }
+        return 0;
+      }
+
+      function updateTotals() {
+        const itemsSubtotalEl = document.getElementById("items-subtotal");
+        const shippingEl = document.getElementById("shipping-estimate");
+        const expediteEl = document.getElementById("expedite-fee");
+        const grandEl = document.getElementById("grand-total");
+
+        const shippingChoice = document.getElementById("shipping-choice").value;
+        const expediteChoice = document.getElementById("expedite-choice").value;
+
+        let itemsSubtotal = 0;
+        cart.forEach((item) => {
+          itemsSubtotal += item.unitPrice * item.quantity;
+        });
+
+        const shippingEstimate = getShippingEstimate(
+          itemsSubtotal,
+          shippingChoice
+        );
+        const expediteFee = getExpediteFee(itemsSubtotal, expediteChoice);
+        const grandTotal = itemsSubtotal + shippingEstimate + expediteFee;
+
+        itemsSubtotalEl.textContent = formatCurrency(itemsSubtotal);
+        shippingEl.textContent = formatCurrency(shippingEstimate);
+        expediteEl.textContent = formatCurrency(expediteFee);
+        grandEl.textContent = formatCurrency(grandTotal);
+      }
+
+      // ---------- CONTACT + PAYMENT VALIDATION ----------
+
+      function isValidEmail(value) {
+        const trimmed = value.trim();
+        if (!trimmed.includes("@") || !trimmed.includes(".")) return false;
+        if (trimmed.length < 6) return false;
+        if (trimmed.startsWith("@")) return false;
+        const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        return re.test(trimmed.toLowerCase());
+      }
+
+      function isValidPhone(value) {
+        const digits = value.replace(/\D/g, "");
+        if (digits.length < 10 || digits.length > 11) return false;
+        const forbidden = ["0000000000", "1111111111", "1234567890"];
+        if (forbidden.includes(digits.slice(-10))) return false;
+        return true;
+      }
+
+      function formatPhonePretty(value) {
+        const digits = value.replace(/\D/g, "").slice(-10);
+        if (digits.length !== 10) return value;
+        const area = digits.slice(0, 3);
+        const mid = digits.slice(3, 6);
+        const last = digits.slice(6);
+        return `(${area})-${mid}-${last}`;
+      }
+
+      function getSelectedPayment() {
+        const selected = document.querySelector(
+          'input[name="payment-method"]:checked'
+        );
+        if (!selected) return null;
+
+        let text;
+        if (selected.value === "card") {
+          text = "Card via Square (manual)";
+        } else if (selected.value === "cash") {
+          text = "Cash (local pickup)";
+        } else if (selected.value === "cashapp") {
+          const ref = document
+            .getElementById("cashapp-reference")
+            .value.trim();
+          text =
+            "Cash App to " +
+            CASHAPP_TAG +
+            (ref ? ` (ref: ${ref})` : "");
+        } else {
+          text = selected.value;
+        }
+
+        return { value: selected.value, text };
+      }
+
+      function showSubmitMessage(msg, isError) {
+        const el = document.getElementById("submit-message");
+        if (!msg) {
+          el.textContent = "";
+          el.className = "helper-text";
+          return;
+        }
+        el.textContent = msg;
+        el.className = isError ? "error-text" : "success-text";
+      }
+
+      // ---------- ORDER SUBMISSION ----------
+
+      async function sendOrderWebhook(content) {
+        const payload = { content };
+
+        async function send(url) {
+          if (!url) return;
+          try {
+            const res = await fetch(url, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(payload),
+            });
+            if (!res.ok) {
+              console.error("Webhook failed", url, await res.text());
+            }
+          } catch (err) {
+            console.error("Webhook error", url, err);
+          }
+        }
+
+        await Promise.all([
+          send(ORDER_WEBHOOK_URL),
+          send(HISTORY_WEBHOOK_URL),
+        ]);
+      }
+
+      async function sendStockUpdateToAppsScript(stockItems) {
+        if (!STOCK_WEBAPP_URL || !Array.isArray(stockItems) || !stockItems.length) {
+          return;
+        }
+        try {
+          await fetch(STOCK_WEBAPP_URL, {
+            method: "POST",
+            mode: "no-cors",
+            body: JSON.stringify({ items: stockItems }),
+          });
+          console.log("[STOCK WEBAPP] Stock update sent", stockItems);
+        } catch (err) {
+          console.error("[STOCK WEBAPP ERROR] Failed to send stock update", err);
+        }
+      }
+
+      async function handleSubmitOrder() {
+        if (!cart.length) {
+          showSubmitMessage("Your cart is empty.", true);
+          return;
+        }
+
+        const nameInput = document.getElementById("customer-name");
+        const contactInput = document.getElementById("customer-contact");
+        const shippingInfoInput = document.getElementById("shipping-info");
+        const notesInput = document.getElementById("extra-notes");
+
+        const shippingChoice = document.getElementById("shipping-choice").value;
+        const expediteChoice = document.getElementById("expedite-choice").value;
+
+        let contact = contactInput.value.trim();
+        if (!contact) {
+          showSubmitMessage("Contact info is required (phone or email).", true);
+          return;
+        }
+
+        let isEmail = isValidEmail(contact);
+        let isPhone = isValidPhone(contact);
+
+        if (!isEmail && !isPhone) {
+          showSubmitMessage(
+            "Contact must be a real-looking email or phone number.",
+            true
+          );
+          return;
+        }
+
+        if (isPhone) {
+          contact = formatPhonePretty(contact);
+          contactInput.value = contact;
+        }
+
+        const nameText = nameInput.value.trim();
+
+        const payment = getSelectedPayment();
+        if (!payment) {
+          showSubmitMessage("Please choose a payment method.", true);
+          return;
+        }
+
+        if (payment.value === "card" && !nameText) {
+          showSubmitMessage(
+            "Name is required for card payments (for the Square invoice).",
+            true
+          );
+          return;
+        }
+
+        if (shippingChoice === "standard") {
+          const shippingText = shippingInfoInput.value.trim();
+          if (!shippingText) {
+            showSubmitMessage(
+              "Please provide shipping info for shipping orders.",
+              true
+            );
+            return;
+          }
+        }
+
+        const cashappRefInput = document.getElementById("cashapp-reference");
+        let cashappRef = cashappRefInput.value.trim();
+
+        if (payment.value === "cashapp") {
+          if (!cashappRef) {
+            showSubmitMessage(
+              "Please enter your Cash App name or a payment note.",
+              true
+            );
+            return;
+          }
+        }
+
+        const orderId = nextOrderNumber();
+
+        let itemsSubtotal = 0;
+        cart.forEach((item) => {
+          itemsSubtotal += item.unitPrice * item.quantity;
+        });
+        const shippingEstimate = getShippingEstimate(
+          itemsSubtotal,
+          shippingChoice
+        );
+        const expediteFee = getExpediteFee(itemsSubtotal, expediteChoice);
+        const grandTotal = itemsSubtotal + shippingEstimate + expediteFee;
+
+        const stockItems = cart
+          .filter((item) => item.mode === "Premade" && item.maxStock != null)
+          .map((item) => ({
+            name: item.name,
+            qty: item.quantity,
+          }));
+
+        const lines = [];
+        lines.push(`**New order #${orderId}**`);
+        lines.push("");
+        lines.push("**Items:**");
+        cart.forEach((item) => {
+          const subtotal = item.unitPrice * item.quantity;
+          lines.push(
+            `• ${item.name} (${item.mode} / ${item.color || "N/A"}) x${
+              item.quantity
+            } — ${formatCurrency(subtotal)}`
+          );
+        });
+        lines.push("");
+        lines.push(`Items subtotal: ${formatCurrency(itemsSubtotal)}`);
+        lines.push(`Shipping estimate: ${formatCurrency(shippingEstimate)}`);
+        lines.push(`Expedite fee: ${formatCurrency(expediteFee)}`);
+        lines.push(`**Total estimate: ${formatCurrency(grandTotal)}**`);
+        lines.push("");
+
+        const shipText = shippingInfoInput.value.trim();
+        const notesText = notesInput.value.trim();
+
+        lines.push(`**Contact:** ${contact}`);
+        if (nameText) lines.push(`**Name:** ${nameText}`);
+        if (shippingChoice === "pickup") {
+          lines.push("**Shipping:** Local pickup");
+        } else if (shipText) {
+          lines.push(`**Shipping:** ${shipText}`);
+        }
+        if (notesText) lines.push(`**Notes:** ${notesText}`);
+
+        if (payment.value === "card") {
+          lines.push(
+            `**Payment:** Card via Square (manual) — Name: ${nameText}; Contact for Square link: ${contact}`
+          );
+        } else if (payment.value === "cash") {
+          lines.push("**Payment:** Cash (local pickup)");
+        } else if (payment.value === "cashapp") {
+          lines.push(
+            `**Payment:** Cash App to ${CASHAPP_TAG} — reference: ${cashappRef}`
+          );
+        } else {
+          lines.push(`**Payment:** ${payment.text}`);
+        }
+
+        const summary = lines.join("\n");
+
+        showSubmitMessage("Submitting order…", false);
+        document.getElementById("submit-order-btn").disabled = true;
+
+        try {
+          await sendOrderWebhook(summary);
+          await sendStockUpdateToAppsScript(stockItems);
+
+          showSubmitMessage("Order submitted.", false);
+
+          cart = [];
+          renderCart();
+
+          nameInput.value = "";
+          shippingInfoInput.value = "";
+          notesInput.value = "";
+          cashappRefInput.value = "";
+          document
+            .querySelectorAll('input[name="payment-method"]')
+            .forEach((r) => (r.checked = false));
+          document
+            .getElementById("cashapp-extra")
+            .classList.add("hidden");
+        } catch (err) {
+          console.error("Submit error", err);
+          showSubmitMessage(
+            "Sorry, there was an error submitting your order.",
+            true
+          );
+        } finally {
+          document.getElementById("submit-order-btn").disabled = false;
+        }
+      }
+
+      // ---------- INIT ----------
+
+      async function init() {
+        await loadConfig();
+        await loadColors();
+        await loadInventory();
+
+        const paymentRadios = document.querySelectorAll(
+          'input[name="payment-method"]'
+        );
+        const cashappExtra = document.getElementById("cashapp-extra");
+        const cashappRefInput = document.getElementById("cashapp-reference");
+
+        paymentRadios.forEach((radio) => {
+          radio.addEventListener("change", () => {
+            if (!radio.checked) return;
+
+            if (radio.value === "cashapp") {
+              cashappExtra.classList.remove("hidden");
+            } else {
+              cashappExtra.classList.add("hidden");
+              cashappRefInput.value = "";
+            }
+          });
+        });
+
+        document
+          .getElementById("shipping-choice")
+          .addEventListener("change", updateTotals);
+        document
+          .getElementById("expedite-choice")
+          .addEventListener("change", updateTotals);
+
+        document
+          .getElementById("add-custom-btn")
+          .addEventListener("click", () => {
+            const fileInput = document.getElementById("custom-file");
+            const sizeSelect = document.getElementById("custom-size");
+            const detailSelect = document.getElementById("custom-detail");
+            const colorSelect = document.getElementById("custom-color");
+            const qtyInput = document.getElementById("custom-qty");
+
+            const file = fileInput.files[0];
+            if (!file) {
+              showSubmitMessage(
+                "Please upload a file for custom prints.",
+                true
+              );
+              return;
+            }
+
+            const color = colorSelect.value;
+            if (!color) {
+              showSubmitMessage(
+                "Please choose a color for the custom print.",
+                true
+              );
+              return;
+            }
+
+            let qty = Math.max(1, Number(qtyInput.value) || 1);
+
+            let basePrice = 5;
+            const size = sizeSelect.value;
+            const detail = detailSelect.value;
+
+            if (size === "medium") basePrice += 3;
+            if (size === "large") basePrice += 7;
+
+            if (detail === "high") basePrice += 2;
+            if (detail === "ultra") basePrice += 5;
+
+            const estPrice = basePrice;
+
+            addToCart(
+              {
+                name: file.name,
+                mode: "Custom",
+                color,
+                price: estPrice,
+                maxStock: null,
+              },
+              qty
+            );
+
+            document.getElementById("custom-estimate-text").textContent =
+              "Custom print estimate added to cart.";
+          });
+
+        document
+          .getElementById("submit-order-btn")
+          .addEventListener("click", (e) => {
+            e.preventDefault();
+            handleSubmitOrder();
+          });
+
+        setInterval(() => {
+          loadConfig();
+          loadColors();
+          loadInventory();
+        }, 30000);
+      }
+
+      window.addEventListener("DOMContentLoaded", init);
+    </script>
+  </body>
+</html>

@@ -2,18 +2,16 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <title>Order Tracking – Tekniq Solutions</title>
+    <title>Order tracking – Tekniq Solutions</title>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <style>
       :root {
         --bg: #050816;
         --card: #0d1022;
-        --card-soft: #151a32;
+        --border-soft: rgba(255, 255, 255, 0.08);
         --accent: #35d07f;
-        --accent-soft: rgba(53, 208, 127, 0.15);
         --text: #f5f7ff;
         --muted: #95a0c6;
-        --border-soft: rgba(255, 255, 255, 0.08);
         --danger: #ff4b5c;
       }
 
@@ -36,25 +34,36 @@
         padding: 24px 16px 48px;
       }
 
+      .top-bar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 12px;
+      }
+
+      .top-bar a {
+        color: var(--muted);
+        text-decoration: none;
+        font-size: 0.9rem;
+      }
+
+      .top-bar a:hover {
+        text-decoration: underline;
+      }
+
       h1 {
-        margin: 0 0 6px;
-        font-size: 1.7rem;
+        font-size: 1.8rem;
+        margin: 0 0 4px;
       }
 
       p {
         margin: 0;
       }
 
-      .helper-text {
-        font-size: 0.85rem;
-        color: var(--muted);
-      }
-
       .card {
-        margin-top: 18px;
+        background: radial-gradient(circle at top left, #202b4a 0, #0b1020 40%);
         border-radius: 18px;
         padding: 16px 18px 18px;
-        background: radial-gradient(circle at top left, #202b4a 0, #0b1020 40%);
         border: 1px solid var(--border-soft);
         box-shadow: 0 20px 40px rgba(0, 0, 0, 0.45);
       }
@@ -69,7 +78,7 @@
       input[type="text"] {
         width: 100%;
         border-radius: 999px;
-        border: 1px solid rgba(255, 255, 255, 0.18);
+        border: 1px solid rgba(255, 255, 255, 0.14);
         background: #0b1020;
         color: var(--text);
         padding: 8px 12px;
@@ -79,7 +88,7 @@
 
       input[type="text"]:focus {
         border-color: var(--accent);
-        box-shadow: 0 0 0 1px var(--accent-soft);
+        box-shadow: 0 0 0 1px rgba(53, 208, 127, 0.5);
       }
 
       .btn {
@@ -99,8 +108,8 @@
         color: #020308;
       }
 
-      .btn-ghost {
-        background: transparent;
+      .helper-text {
+        font-size: 0.8rem;
         color: var(--muted);
       }
 
@@ -111,118 +120,109 @@
       }
 
       .results {
-        margin-top: 12px;
+        margin-top: 16px;
       }
 
-      .result-card {
-        border-radius: 14px;
+      .result-item {
+        border-radius: 12px;
         padding: 10px 12px;
-        background: rgba(5, 9, 25, 0.8);
-        border: 1px solid rgba(255, 255, 255, 0.08);
-        margin-bottom: 8px;
+        background: rgba(0, 0, 0, 0.25);
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        margin-bottom: 10px;
+      }
+
+      .result-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        gap: 8px;
       }
 
       .status-pill {
-        display: inline-flex;
         padding: 2px 8px;
         border-radius: 999px;
-        font-size: 0.78rem;
-        font-weight: 600;
-        letter-spacing: 0.05em;
+        font-size: 0.75rem;
         text-transform: uppercase;
+        letter-spacing: 0.04em;
       }
 
       .status-paid {
-        background: rgba(39, 174, 96, 0.2);
-        color: #2ecc71;
+        background: rgba(52, 152, 219, 0.25);
+        color: #74b9ff;
       }
 
       .status-processing {
-        background: rgba(241, 196, 15, 0.2);
+        background: rgba(241, 196, 15, 0.25);
         color: #f1c40f;
       }
 
       .status-shipped {
-        background: rgba(52, 152, 219, 0.2);
-        color: #74b9ff;
+        background: rgba(39, 174, 96, 0.25);
+        color: #2ecc71;
       }
 
-      .summary {
-        margin-top: 4px;
-        font-size: 0.9rem;
+      .status-other {
+        background: rgba(149, 165, 166, 0.25);
+        color: #ecf0f1;
       }
 
-      .summary small {
+      .muted {
         color: var(--muted);
-      }
-
-      .top-links {
-        margin-top: 10px;
-      }
-
-      .top-links a {
-        color: var(--accent);
-        text-decoration: none;
         font-size: 0.85rem;
-        margin-right: 10px;
-      }
-
-      .top-links a:hover {
-        text-decoration: underline;
-      }
-
-      @media (max-width: 600px) {
-        .two-col {
-          grid-template-columns: minmax(0, 1fr);
-        }
-      }
-
-      .two-col {
-        display: grid;
-        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-        gap: 8px;
       }
     </style>
   </head>
   <body>
     <div class="page">
-      <h1>Order tracking</h1>
-      <p class="helper-text">
-        Enter your order number <strong>or</strong> the same name / email /
-        phone you used when ordering. No orders are shown until you search.
-      </p>
-      <div class="top-links">
-        <a href="/">← Back to Tekniq Solutions</a>
-        <a href="/prints/">Go to 3D print shop</a>
+      <div class="top-bar">
+        <a href="/">Home</a>
+        <a href="/prints/">Back to shop</a>
       </div>
 
+      <header style="margin-bottom:16px;">
+        <h1>Order tracking</h1>
+        <p class="helper-text">
+          Look up the status of your order. You can search by order number, or
+          by the same name / phone / email you used when ordering.
+        </p>
+      </header>
+
       <section class="card">
-        <div class="two-col">
+        <div style="display:grid;grid-template-columns:minmax(0,1fr);gap:10px;">
           <div>
             <label for="search-order-id">Order number</label>
             <input
               type="text"
               id="search-order-id"
-              placeholder="Example: 20251118-003"
+              placeholder="Example: 20251118-001"
             />
           </div>
           <div>
-            <label for="search-name-contact">Name or contact</label>
+            <label for="search-contact">
+              Name or contact (phone / email)
+            </label>
             <input
               type="text"
-              id="search-name-contact"
-              placeholder="Name, email, or phone"
+              id="search-contact"
+              placeholder="Same info you used when ordering"
             />
+            <div class="helper-text">
+              Phone formats like 774-123-4567. Email needs to look like a real
+              address.
+            </div>
           </div>
         </div>
 
-        <button id="search-btn" class="btn btn-primary" style="margin-top: 10px">
+        <button
+          id="search-btn"
+          class="btn btn-primary"
+          style="margin-top:12px;"
+        >
           Search
         </button>
 
-        <div id="search-message" class="helper-text" style="margin-top: 6px">
-          Nothing is shown until you press search. Only rows that match your
-          search are displayed.
+        <div id="search-message" class="helper-text" style="margin-top:8px;">
+          No results yet. Enter something above and press Search.
         </div>
 
         <div id="results" class="results"></div>
@@ -231,9 +231,13 @@
 
     <script>
       let SHEET_ID = "";
-      let ORDERS_SHEET_NAME = "";
+      let ORDERS_SHEET_NAME = "Orders";
+      let ordersData = [];
 
-      let ordersCache = null;
+      function normalizeStatus(str) {
+        if (!str) return "";
+        return String(str).trim().toLowerCase();
+      }
 
       function parseSheetJSON(text) {
         const json = JSON.parse(
@@ -242,180 +246,242 @@
         return json.table.rows;
       }
 
+      function isValidEmail(value) {
+        const trimmed = value.trim();
+        if (!trimmed.includes("@") || !trimmed.includes(".")) return false;
+        if (trimmed.length < 6) return false;
+        if (trimmed.startsWith("@")) return false;
+        const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        return re.test(trimmed.toLowerCase());
+      }
+
+      function normalizePhoneDigits(value) {
+        return value.replace(/\D/g, "").slice(-10); // last 10 digits
+      }
+
       async function loadConfig() {
-        const res = await fetch("../config.json", { cache: "no-cache" });
-        if (!res.ok) throw new Error("config fetch failed");
-        const cfg = await res.json();
-        SHEET_ID = cfg.SHEET_ID;
-        ORDERS_SHEET_NAME = cfg.ORDERS_SHEET_NAME || "Orders";
+        try {
+          const res = await fetch("/config.json", { cache: "no-cache" });
+          if (!res.ok) throw new Error("config fetch failed");
+          const cfg = await res.json();
+          SHEET_ID = cfg.SHEET_ID;
+          ORDERS_SHEET_NAME = cfg.ORDERS_SHEET_NAME || "Orders";
+          console.log("Tracking config loaded.");
+        } catch (err) {
+          console.error("Error loading config.json", err);
+        }
       }
 
       async function loadOrders() {
-        if (ordersCache) return ordersCache;
-        if (!SHEET_ID || !ORDERS_SHEET_NAME) return [];
+        if (!SHEET_ID || !ORDERS_SHEET_NAME) return;
+        try {
+          const url =
+            "https://docs.google.com/spreadsheets/d/" +
+            encodeURIComponent(SHEET_ID) +
+            "/gviz/tq?tqx=out:json&sheet=" +
+            encodeURIComponent(ORDERS_SHEET_NAME);
 
-        const url =
-          "https://docs.google.com/spreadsheets/d/" +
-          encodeURIComponent(SHEET_ID) +
-          "/gviz/tq?tqx=out:json&sheet=" +
-          encodeURIComponent(ORDERS_SHEET_NAME);
+          const res = await fetch(url);
+          if (!res.ok) throw new Error("orders fetch failed");
+          const text = await res.text();
+          const rows = parseSheetJSON(text);
 
-        const res = await fetch(url);
-        if (!res.ok) throw new Error("orders fetch failed");
-        const text = await res.text();
-        const rows = parseSheetJSON(text);
+          // Expected columns:
+          // 0: Order ID
+          // 1: Created at
+          // 2: Name
+          // 3: Contact
+          // 4: Shipping info
+          // 5: External tracking
+          // 6: Status
+          // 7: Payment method
+          // 8: Items JSON
+          // 9: Items subtotal
+          // 10: Shipping estimate
+          // 11: Expedite fee
+          // 12: Total estimate
+          // 13: Notes
+          ordersData = rows
+            .map((r) => {
+              const c = r.c || [];
+              const orderId = c[0]?.v ? String(c[0].v).trim() : "";
+              if (!orderId) return null;
+              return {
+                orderId,
+                createdAt: c[1]?.v ? String(c[1].v).trim() : "",
+                name: c[2]?.v ? String(c[2].v).trim() : "",
+                contact: c[3]?.v ? String(c[3].v).trim() : "",
+                shippingInfo: c[4]?.v ? String(c[4].v).trim() : "",
+                externalTracking: c[5]?.v ? String(c[5].v).trim() : "",
+                status: c[6]?.v ? String(c[6].v).trim() : "",
+                paymentMethod: c[7]?.v ? String(c[7].v).trim() : "",
+                itemsSubtotal: c[9]?.v ?? "",
+                totalEstimate: c[12]?.v ?? "",
+                notes: c[13]?.v ? String(c[13].v).trim() : "",
+              };
+            })
+            .filter(Boolean);
 
-        const mapped = rows
-          .map((r) => {
-            const c = r.c || [];
-            const orderId = c[0]?.v ? String(c[0].v).trim() : "";
-            const createdAt = c[1]?.v ? String(c[1].v).trim() : "";
-            const name = c[2]?.v ? String(c[2].v).trim() : "";
-            const contact = c[3]?.v ? String(c[3].v).trim() : "";
-            const shippingInfo = c[4]?.v ? String(c[4].v).trim() : "";
-            const status = c[5]?.v ? String(c[5].v).trim() : "";
-            const payment = c[6]?.v ? String(c[6].v).trim() : "";
-            const totalEst = c[11]?.v || c[8]?.v || 0;
-            const notes = c[12]?.v ? String(c[12].v).trim() : "";
-
-            if (!orderId) return null;
-            return {
-              orderId,
-              createdAt,
-              name,
-              contact,
-              shippingInfo,
-              status,
-              payment,
-              totalEst: Number(totalEst) || 0,
-              notes,
-            };
-          })
-          .filter(Boolean);
-
-        ordersCache = mapped;
-        return mapped;
+          console.log("Loaded orders:", ordersData.length);
+        } catch (err) {
+          console.error("Error loading orders sheet", err);
+          const msg = document.getElementById("search-message");
+          msg.textContent =
+            "There was a problem loading orders. Please try again later.";
+          msg.className = "error-text";
+        }
       }
 
-      function statusClass(status) {
-        const s = (status || "").toString().toLowerCase();
-        if (s === "paid") return "status-paid";
-        if (s === "shipped") return "status-shipped";
-        return "status-processing";
-      }
+      function renderResults(matches) {
+        const resultsEl = document.getElementById("results");
+        const msgEl = document.getElementById("search-message");
+        resultsEl.innerHTML = "";
 
-      function formatCurrency(amount) {
-        return `$${amount.toFixed(2)}`;
-      }
-
-      function renderResults(list) {
-        const container = document.getElementById("results");
-        container.innerHTML = "";
-
-        if (!list.length) {
-          container.innerHTML =
-            '<div class="helper-text" style="margin-top:6px">No orders found for that search.</div>';
+        if (!matches.length) {
+          msgEl.textContent = "No orders matched that search.";
+          msgEl.className = "helper-text";
           return;
         }
 
-        list.forEach((o) => {
-          const card = document.createElement("div");
-          card.className = "result-card";
+        msgEl.textContent = `Showing ${matches.length} order${
+          matches.length === 1 ? "" : "s"
+        }.`;
+        msgEl.className = "helper-text";
 
-          const top = document.createElement("div");
-          top.style.display = "flex";
-          top.style.justifyContent = "space-between";
-          top.style.alignItems = "center";
+        matches.forEach((o) => {
+          const wrap = document.createElement("div");
+          wrap.className = "result-item";
+
+          const header = document.createElement("div");
+          header.className = "result-header";
 
           const left = document.createElement("div");
-          left.innerHTML = `<strong>Order #${o.orderId}</strong><br/><small>${o.createdAt}</small>`;
+          left.innerHTML = `<strong>Order #${o.orderId}</strong><div class="muted">${o.name || "No name on file"}</div>`;
 
           const pill = document.createElement("span");
-          pill.className = "status-pill " + statusClass(o.status);
-          pill.textContent = o.status || "processing";
+          const statusNorm = normalizeStatus(o.status);
+          pill.className = "status-pill ";
+          if (statusNorm === "paid") pill.className += "status-paid";
+          else if (statusNorm === "processing")
+            pill.className += "status-processing";
+          else if (statusNorm === "shipped")
+            pill.className += "status-shipped";
+          else pill.className += "status-other";
+          pill.textContent = o.status || "Unknown";
 
-          top.appendChild(left);
-          top.appendChild(pill);
-          card.appendChild(top);
+          header.appendChild(left);
+          header.appendChild(pill);
+          wrap.appendChild(header);
 
-          const summary = document.createElement("div");
-          summary.className = "summary";
-          summary.innerHTML =
-            `<div><small>Name:</small> ${o.name || "N/A"}</div>` +
-            `<div><small>Contact:</small> ${o.contact || "N/A"}</div>` +
-            `<div><small>Payment:</small> ${o.payment || "N/A"}</div>` +
-            `<div><small>Shipping:</small> ${o.shippingInfo || "N/A"}</div>` +
-            `<div><small>Total estimate:</small> ${formatCurrency(
-              o.totalEst
-            )}</div>`;
+          const body = document.createElement("div");
+          body.style.marginTop = "6px";
 
-          if (o.notes) {
-            summary.innerHTML += `<div><small>Notes:</small> ${o.notes}</div>`;
+          const contactLine = document.createElement("div");
+          contactLine.className = "muted";
+          contactLine.textContent = `Contact: ${o.contact || "n/a"}`;
+
+          const shipLine = document.createElement("div");
+          shipLine.className = "muted";
+          shipLine.textContent =
+            "Shipping: " + (o.shippingInfo || "not provided");
+
+          const trackLine = document.createElement("div");
+          trackLine.className = "muted";
+          if (o.externalTracking) {
+            trackLine.innerHTML =
+              'External tracking: <a style="color:#74b9ff;" target="_blank" rel="noopener" href="' +
+              o.externalTracking +
+              '">link</a>';
+          } else {
+            trackLine.textContent =
+              "External tracking: not set yet";
           }
 
-          card.appendChild(summary);
-          container.appendChild(card);
+          const totalLine = document.createElement("div");
+          totalLine.className = "muted";
+          if (o.totalEstimate) {
+            totalLine.textContent =
+              "Total estimate: $" + Number(o.totalEstimate).toFixed(2);
+          }
+
+          const noteLine = document.createElement("div");
+          noteLine.className = "muted";
+          if (o.notes) {
+            noteLine.textContent = "Notes: " + o.notes;
+          }
+
+          body.appendChild(contactLine);
+          body.appendChild(shipLine);
+          body.appendChild(trackLine);
+          body.appendChild(totalLine);
+          if (o.notes) body.appendChild(noteLine);
+
+          wrap.appendChild(body);
+          resultsEl.appendChild(wrap);
         });
       }
 
-      async function handleSearch() {
-        const msgEl = document.getElementById("search-message");
-        const orderIdVal = document
-          .getElementById("search-order-id")
-          .value.trim();
-        const nameContactVal = document
-          .getElementById("search-name-contact")
+      function handleSearch() {
+        const idVal = document.getElementById("search-order-id").value.trim();
+        const contactVal = document
+          .getElementById("search-contact")
           .value.trim();
 
-        if (!orderIdVal && !nameContactVal) {
-          msgEl.textContent =
-            "Please enter an order number, name, or contact before searching.";
-          msgEl.className = "error-text";
-          document.getElementById("results").innerHTML = "";
+        if (!idVal && !contactVal) {
+          const msg = document.getElementById("search-message");
+          msg.textContent =
+            "Enter an order number or some contact info first.";
+          msg.className = "error-text";
           return;
         }
 
-        msgEl.textContent = "Searching…";
-        msgEl.className = "helper-text";
+        let matches = ordersData;
 
-        try {
-          const orders = await loadOrders();
+        if (idVal) {
+          const idLower = idVal.toLowerCase();
+          matches = matches.filter((o) =>
+            o.orderId.toLowerCase().includes(idLower)
+          );
+        }
 
-          const qId = orderIdVal.toLowerCase();
-          const qNC = nameContactVal.toLowerCase();
+        if (contactVal) {
+          const queryLower = contactVal.toLowerCase();
+          const queryDigits = normalizePhoneDigits(contactVal);
+          const looksLikeEmail = isValidEmail(contactVal);
 
-          const filtered = orders.filter((o) => {
-            if (qId) {
-              return o.orderId.toLowerCase() === qId;
+          matches = matches.filter((o) => {
+            const nameL = (o.name || "").toLowerCase();
+            const contactL = (o.contact || "").toLowerCase();
+            const contactDigits = normalizePhoneDigits(o.contact || "");
+
+            if (nameL.includes(queryLower)) return true;
+            if (contactL.includes(queryLower)) return true;
+
+            if (looksLikeEmail) {
+              // already checked includes above
+              return false;
             }
-            if (qNC) {
-              return (
-                o.name.toLowerCase().includes(qNC) ||
-                o.contact.toLowerCase().includes(qNC)
-              );
+
+            if (queryDigits && contactDigits && contactDigits.endsWith(queryDigits)) {
+              return true;
             }
             return false;
           });
-
-          renderResults(filtered);
-          msgEl.textContent =
-            filtered.length === 0
-              ? "No orders found for that search."
-              : "Showing matching orders.";
-          msgEl.className = "helper-text";
-        } catch (err) {
-          console.error(err);
-          msgEl.textContent =
-            "There was a problem looking up orders. Please try again later.";
-          msgEl.className = "error-text";
         }
+
+        renderResults(matches);
       }
 
       async function init() {
         await loadConfig();
+        await loadOrders();
+
         document
           .getElementById("search-btn")
-          .addEventListener("click", handleSearch);
+          .addEventListener("click", (e) => {
+            e.preventDefault();
+            handleSearch();
+          });
       }
 
       window.addEventListener("DOMContentLoaded", init);

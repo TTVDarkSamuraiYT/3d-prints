@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <title>Silvio's 3D Prints – Tekniq Solutions</title>
+    <title>Tekniq Solutions – Silvio's 3D Prints</title>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
 
     <style>
@@ -118,6 +118,12 @@
         color: #ff7675;
       }
 
+      .premade-note {
+        font-size: 0.8rem;
+        color: var(--muted);
+        margin-top: 4px;
+      }
+
       .premade-list {
         display: grid;
         grid-template-columns: minmax(0, 1fr);
@@ -147,12 +153,6 @@
       .premade-price {
         font-weight: 600;
         margin-top: 2px;
-      }
-
-      .premade-note {
-        font-size: 0.8rem;
-        color: var(--muted);
-        margin-top: 4px;
       }
 
       label {
@@ -312,13 +312,6 @@
         font-size: 1rem;
       }
 
-      .pill-select-group {
-        display: flex;
-        flex-direction: column;
-        gap: 4px;
-        margin-top: 4px;
-      }
-
       .error-text {
         color: var(--danger);
         font-size: 0.85rem;
@@ -391,38 +384,34 @@
         color: #c4d1ff;
       }
 
-      .nav-row {
+      .top-bar {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        margin-bottom: 6px;
-        gap: 8px;
+        margin-bottom: 12px;
       }
 
-      .nav-row a {
+      .top-bar a {
         color: var(--muted);
-        font-size: 0.85rem;
         text-decoration: none;
+        font-size: 0.9rem;
       }
 
-      .nav-row a:hover {
+      .top-bar a:hover {
         text-decoration: underline;
       }
     </style>
   </head>
   <body>
     <div class="page">
-      <header>
-        <div class="nav-row">
-          <div>
-            <h1>Tekniq Solutions – 3D Printing Shop</h1>
-            <p>Silvio's 3D Prints • Choose a premade design or upload your own custom model.</p>
-          </div>
-          <div>
-            <a href="/">Home</a>
-          </div>
-        </div>
+      <div class="top-bar">
+        <div></div>
+        <a href="/">Home</a>
+      </div>
 
+      <header>
+        <h1>Tekniq Solutions – Silvio's 3D Print Shop</h1>
+        <p>Choose a premade design or upload your own custom model.</p>
         <p class="helper-text small-header">
           This is a tiny one-person mini business, so the site and payment flow
           might feel a bit simpler than a big store. Thanks for your patience
@@ -434,25 +423,18 @@
         <!-- LEFT: Premade + Custom -->
         <div>
           <section class="card">
-            <div
-              style="
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-                gap: 8px;
-              "
-            >
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
               <h2>Premade prints</h2>
               <span class="live-inventory-note">Live inventory</span>
             </div>
-            <p class="helper-text" style="margin-bottom: 8px;">
-              Premade prints are pre-printed at a small discount. Colors are usually
-              random unless you request a specific color in your order notes. If I
-              have premades in that color, I’ll let you know what colors are available
-              so you can pick.
+            <p class="helper-text" style="margin-bottom:8px;">
+              Premade parts are pre-printed and get a <strong>15% discount</strong>.
+              Colors are usually random from what I have on hand. If you request
+              a specific color in your notes, I’ll try my best to match it or
+              let you know what premade colors are available.
             </p>
             <div id="premade-list" class="premade-list"></div>
-            <div id="inventory-error" class="error-text" style="display: none">
+            <div id="inventory-error" class="error-text" style="display:none;">
               Sorry, there was an issue loading the inventory system.
             </div>
           </section>
@@ -497,13 +479,7 @@
 
             <div class="field-row">
               <label for="custom-qty">Quantity</label>
-              <input
-                type="number"
-                id="custom-qty"
-                min="1"
-                step="1"
-                value="1"
-              />
+              <input type="number" id="custom-qty" min="1" step="1" value="1" />
             </div>
 
             <div class="field-row">
@@ -553,7 +529,7 @@
                 <span id="grand-total">$0.00</span>
               </div>
 
-              <div class="pill-select-group" style="margin-top: 10px">
+              <div style="margin-top:10px;">
                 <label for="shipping-choice">Shipping / pickup</label>
                 <select id="shipping-choice">
                   <option value="pickup" selected>
@@ -562,7 +538,7 @@
                   <option value="standard">Standard shipping (estimate)</option>
                 </select>
 
-                <label for="expedite-choice" style="margin-top: 4px">
+                <label for="expedite-choice" style="margin-top:8px;display:block;">
                   Expedite option
                 </label>
                 <select id="expedite-choice">
@@ -698,7 +674,7 @@
     </div>
 
     <script>
-      // ---------- GLOBALS ----------
+      // -------- GLOBALS --------
       let SHEET_ID = "";
       let INVENTORY_SHEET_NAME = "";
       let COLORS_SHEET_NAME = "";
@@ -712,7 +688,8 @@
       let inventoryData = [];
       let cart = [];
 
-      // Order counter per day
+      const PREMADE_DISCOUNT = 0.85; // 15% off
+
       function getTodayKey() {
         const d = new Date();
         const y = d.getFullYear();
@@ -738,8 +715,6 @@
         return `${todayKey}-${String(counter).padStart(3, "0")}`;
       }
 
-      // ---------- HELPERS ----------
-
       function formatCurrency(amount) {
         return `$${amount.toFixed(2)}`;
       }
@@ -762,11 +737,12 @@
         return Number.isFinite(n) ? n : null;
       }
 
-      // ---------- CONFIG / SHEET LOADING ----------
+      // -------- CONFIG / LOAD --------
 
       async function loadConfig() {
         try {
-          const res = await fetch("config.json", { cache: "no-cache" });
+          // from site root (config.json sits next to home index.html)
+          const res = await fetch("/config.json", { cache: "no-cache" });
           if (!res.ok) throw new Error("config fetch failed");
           const cfg = await res.json();
 
@@ -802,22 +778,16 @@
           const text = await res.text();
           const rows = parseSheetJSON(text);
 
-          const mapped = rows
+          colorsData = rows
             .map((r) => {
               const c = r.c || [];
               const name = c[0]?.v ? String(c[0].v).trim() : "";
               const status = c[1]?.v ? String(c[1].v).trim() : "";
               if (!name) return null;
               const normStatus = normalizeStatus(status);
-              return {
-                name,
-                status,
-                normStatus,
-              };
+              return { name, status, normStatus };
             })
             .filter(Boolean);
-
-          colorsData = mapped;
 
           console.log("Colors from sheet:", colorsData);
         } catch (err) {
@@ -843,7 +813,7 @@
           const text = await res.text();
           const rows = parseSheetJSON(text);
 
-          const mapped = rows
+          inventoryData = rows
             .map((r) => {
               const c = r.c || [];
               const name = c[0]?.v ? String(c[0].v).trim() : "";
@@ -852,9 +822,7 @@
               const statusRaw = c[3]?.v ? String(c[3].v).trim() : "";
               const notes = c[4]?.v ? String(c[4].v).trim() : "";
 
-              if (!name || priceRaw === null || priceRaw === "") {
-                return null;
-              }
+              if (!name || priceRaw === null || priceRaw === "") return null;
 
               const price = Number(priceRaw) || 0;
               const stock = safeNumber(stockRaw);
@@ -863,18 +831,13 @@
               if (statusNorm === "offshelf") return null;
 
               const isLimited = statusNorm === "limited";
-              if (isLimited && (stock === null || stock <= 0)) {
-                return null;
-              }
+              if (isLimited && (stock === null || stock <= 0)) return null;
 
               let availability = "available";
-              if (statusNorm === "temporarily unavailable") {
-                availability = "temp";
-              } else if (statusNorm === "sold out" || statusNorm === "unavailable") {
+              if (statusNorm === "temporarily unavailable") availability = "temp";
+              else if (statusNorm === "sold out" || statusNorm === "unavailable")
                 availability = "unavailable";
-              } else if (isLimited) {
-                availability = "limited";
-              }
+              else if (isLimited) availability = "limited";
 
               return {
                 name,
@@ -889,9 +852,7 @@
             })
             .filter(Boolean);
 
-          inventoryData = mapped;
           console.log("Inventory from sheet:", inventoryData);
-
           renderPremadeCards();
         } catch (err) {
           console.error("Error loading inventory sheet", err);
@@ -899,12 +860,12 @@
         }
       }
 
-      // ---------- BUILD UI ----------
+      // -------- COLORS HELPERS --------
 
       function getBaseColorsForPremade() {
         return colorsData.filter((c) => {
-          const nameNorm = c.name.trim().toLowerCase();
-          if (nameNorm === "premade") return false;
+          const n = c.name.trim().toLowerCase();
+          if (n === "premade") return false;
           const s = c.normStatus;
           if (s === "offshelf") return false;
           return true;
@@ -913,14 +874,16 @@
 
       function getBaseColorsForCustom() {
         return colorsData.filter((c) => {
-          const nameNorm = c.name.trim().toLowerCase();
-          if (nameNorm === "premade") return false;
+          const n = c.name.trim().toLowerCase();
+          if (n === "premade") return false;
           const s = c.normStatus;
           if (s === "offshelf" || s === "sold out" || s === "unavailable")
             return false;
           return true;
         });
       }
+
+      // -------- BUILD PREMIADES --------
 
       function renderPremadeCards() {
         const listEl = document.getElementById("premade-list");
@@ -965,7 +928,7 @@
           } else if (item.availability === "limited") {
             badge.classList.add("badge-limited");
             if (item.stock != null) {
-              badge.textContent = `Limited (${item.stock} in stock)`;
+              badge.textContent = `Limited (${item.stock} premades)`;
             } else {
               badge.textContent = "Limited";
             }
@@ -989,21 +952,22 @@
           const colorRow = document.createElement("div");
           colorRow.className = "field-row";
           const colorLabel = document.createElement("label");
-          colorLabel.textContent = "Color (for printed-to-order)";
+          colorLabel.textContent = "Color";
           colorRow.appendChild(colorLabel);
 
-          let colorSelect;
+          const hasPremadeStock =
+            item.stock != null && item.stock > 0 && item.availability !== "unavailable";
+
+          let colorSelect = document.createElement("select");
 
           if (item.isLimited) {
-            // Limited: premade-only, no color choice
-            colorSelect = document.createElement("select");
+            // Limited items: premade only
             colorSelect.disabled = true;
             const opt = document.createElement("option");
-            opt.value = "Premade";
+            opt.value = "__premade";
             opt.textContent = "Premade only";
             colorSelect.appendChild(opt);
           } else {
-            colorSelect = document.createElement("select");
             const placeholder = document.createElement("option");
             placeholder.value = "";
             placeholder.textContent = "Select color";
@@ -1033,6 +997,13 @@
 
               colorSelect.appendChild(o);
             });
+
+            if (hasPremadeStock) {
+              const prem = document.createElement("option");
+              prem.value = "__premade";
+              prem.textContent = "Premade (15% off, random color)";
+              colorSelect.appendChild(prem);
+            }
           }
 
           colorSelect.id = `premade-color-${index}`;
@@ -1056,78 +1027,76 @@
           right.appendChild(qtyRow);
 
           const btnRow = document.createElement("div");
+          const btn = document.createElement("button");
+          btn.textContent = "Add to cart";
+          btn.className = "btn btn-primary";
+          btn.style.width = "100%";
 
-          // 1) Color print (printed-to-order) for non-limited items
-          if (!item.isLimited) {
-            const colorBtn = document.createElement("button");
-            colorBtn.textContent = "Add color print";
-            colorBtn.className = "btn btn-primary";
-            colorBtn.style.width = "100%";
+          if (item.availability === "unavailable") {
+            btn.disabled = true;
+            btn.textContent = "Unavailable";
+          }
 
-            if (item.availability !== "available") {
-              colorBtn.disabled = true;
-              colorBtn.textContent = "Unavailable";
-            }
+          btn.addEventListener("click", () => {
+            let qtyVal = Math.max(1, Number(qtyInput.value) || 1);
 
-            colorBtn.addEventListener("click", () => {
-              const qtyVal = Math.max(1, Number(qtyInput.value) || 1);
-              const color = colorSelect.value || "";
-              if (!color) {
+            let mode, color, maxStock = null;
+
+            if (item.isLimited) {
+              // limited premade only
+              if (!hasPremadeStock) {
                 showSubmitMessage(
-                  "Please choose a color for that item.",
+                  `Sorry, "${item.name}" premades are sold out.`,
                   true
                 );
                 return;
               }
+              mode = "Premade";
+              color = "Premade";
+              maxStock = item.stock;
+            } else {
+              const selected = colorSelect.value;
+              if (selected === "__premade") {
+                if (!hasPremadeStock) {
+                  showSubmitMessage(
+                    `Sorry, "${item.name}" premades are sold out.`,
+                    true
+                  );
+                  return;
+                }
+                mode = "Premade";
+                color = "Premade";
+                maxStock = item.stock;
+              } else {
+                if (!selected) {
+                  showSubmitMessage(
+                    "Please choose a color or the premade option.",
+                    true
+                  );
+                  return;
+                }
+                mode = "Color";
+                color = selected;
+                maxStock = null; // colors are made to order
+              }
+            }
 
-              addToCart(
-                {
-                  name: item.name,
-                  mode: "Color",
-                  color,
-                  price: item.price,
-                  maxStock: null, // printed to order, not limited by premade stock
-                },
-                qtyVal
-              );
-            });
+            addToCart(
+              {
+                name: item.name,
+                mode,
+                color,
+                price:
+                  mode === "Premade"
+                    ? item.price * PREMADE_DISCOUNT
+                    : item.price,
+                maxStock,
+              },
+              qtyVal
+            );
+          });
 
-            btnRow.appendChild(colorBtn);
-          }
-
-          // 2) Premade option (15% discount) only if there is stock
-          if (
-            item.stock != null &&
-            item.stock > 0 &&
-            item.availability !== "unavailable" &&
-            item.availability !== "temp"
-          ) {
-            const premadeBtn = document.createElement("button");
-            premadeBtn.className = "btn btn-primary";
-            premadeBtn.style.width = "100%";
-            premadeBtn.style.marginTop = "6px";
-            premadeBtn.textContent = "Add premade (discounted)";
-
-            const premadePrice = Math.max(0.01, item.price * 0.85); // 15% discount
-
-            premadeBtn.addEventListener("click", () => {
-              const qtyVal = Math.max(1, Number(qtyInput.value) || 1);
-
-              addToCart(
-                {
-                  name: item.name,
-                  mode: "Premade",
-                  color: "",
-                  price: premadePrice,
-                  maxStock: item.stock,
-                },
-                qtyVal
-              );
-            });
-
-            btnRow.appendChild(premadeBtn);
-          }
-
+          btnRow.appendChild(btn);
           right.appendChild(btnRow);
 
           card.appendChild(left);
@@ -1135,7 +1104,7 @@
           listEl.appendChild(card);
         });
 
-        // custom colors
+        // custom colors dropdown
         const customColorSelect = document.getElementById("custom-color");
         customColorSelect.innerHTML =
           '<option value="">Select color</option>';
@@ -1147,7 +1116,7 @@
         });
       }
 
-      // ---------- CART ----------
+      // -------- CART --------
 
       function addToCart(itemBase, qty) {
         qty = Math.max(1, Number(qty) || 1);
@@ -1164,14 +1133,12 @@
           const remaining = itemBase.maxStock - existingQty;
           if (remaining <= 0) {
             showSubmitMessage(
-              `Sorry, "${itemBase.name}" is sold out for premade stock.`,
+              `Sorry, "${itemBase.name}" premades are sold out.`,
               true
             );
             return;
           }
-          if (qty > remaining) {
-            qty = remaining;
-          }
+          if (qty > remaining) qty = remaining;
         }
 
         const existing = cart.find(
@@ -1190,7 +1157,7 @@
         } else {
           cart.push({
             name: itemBase.name,
-            mode: itemBase.mode,
+            mode: itemBase.mode, // "Premade", "Color", "Custom"
             color: itemBase.color,
             unitPrice: itemBase.price,
             quantity: qty,
@@ -1200,6 +1167,14 @@
 
         renderCart();
         showSubmitMessage("", false);
+      }
+
+      function detailLabelForItem(item) {
+        if (item.mode === "Premade") return "Premade";
+        if (item.mode === "Color") return item.color || "Color";
+        if (item.mode === "Custom")
+          return `Custom / ${item.color || "N/A"}`;
+        return item.color || item.mode || "";
       }
 
       function renderCart() {
@@ -1232,24 +1207,17 @@
           const left = document.createElement("div");
           const title = document.createElement("div");
           title.className = "cart-item-title";
-          title.textContent = item.name;
+
+          const detail = detailLabelForItem(item);
+          if (detail) {
+            title.textContent = `${item.name} (${detail})`;
+          } else {
+            title.textContent = item.name;
+          }
 
           const sub = document.createElement("div");
           sub.className = "cart-item-sub";
-
-          let detail = "";
-          if (item.mode === "Premade") {
-            detail = "(Premade)";
-          } else if (item.color) {
-            if (item.mode && item.mode !== "Color") {
-              detail = `${item.mode} (${item.color})`;
-            } else {
-              detail = `(${item.color})`;
-            }
-          } else if (item.mode) {
-            detail = `(${item.mode})`;
-          }
-          sub.textContent = detail;
+          sub.textContent = "";
 
           left.appendChild(title);
           left.appendChild(sub);
@@ -1263,8 +1231,8 @@
           minusBtn.addEventListener("click", () => {
             if (item.quantity > 1) {
               item.quantity -= 1;
+              renderCart();
             }
-            renderCart();
           });
 
           const qty = document.createElement("span");
@@ -1357,7 +1325,7 @@
         grandEl.textContent = formatCurrency(grandTotal);
       }
 
-      // ---------- CONTACT + PAYMENT VALIDATION ----------
+      // -------- CONTACT & PAYMENT --------
 
       function isValidEmail(value) {
         const trimmed = value.trim();
@@ -1422,7 +1390,7 @@
         el.className = isError ? "error-text" : "success-text";
       }
 
-      // ---------- ORDER SUBMISSION ----------
+      // -------- WEBHOOK & SHEET --------
 
       async function sendOrderWebhook(content) {
         const payload = { content };
@@ -1450,9 +1418,9 @@
       }
 
       async function sendStockUpdateToAppsScript(stockItems) {
-        if (!STOCK_WEBAPP_URL || !Array.isArray(stockItems) || !stockItems.length) {
+        if (!STOCK_WEBAPP_URL || !Array.isArray(stockItems) || !stockItems.length)
           return;
-        }
+
         try {
           await fetch(STOCK_WEBAPP_URL, {
             method: "POST",
@@ -1481,6 +1449,8 @@
           console.error("[STOCK WEBAPP ERROR] Failed to log order", err);
         }
       }
+
+      // -------- SUBMIT --------
 
       async function handleSubmitOrder() {
         if (!cart.length) {
@@ -1548,14 +1518,12 @@
         const cashappRefInput = document.getElementById("cashapp-reference");
         let cashappRef = cashappRefInput.value.trim();
 
-        if (payment.value === "cashapp") {
-          if (!cashappRef) {
-            showSubmitMessage(
-              "Please enter your Cash App name or a payment note.",
-              true
-            );
-            return;
-          }
+        if (payment.value === "cashapp" && !cashappRef) {
+          showSubmitMessage(
+            "Please enter your Cash App name or a payment note.",
+            true
+          );
+          return;
         }
 
         const orderId = nextOrderNumber();
@@ -1572,7 +1540,9 @@
         const grandTotal = itemsSubtotal + shippingEstimate + expediteFee;
 
         const stockItems = cart
-          .filter((item) => item.mode === "Premade" && item.maxStock != null)
+          .filter(
+            (item) => item.mode === "Premade" && item.maxStock != null
+          )
           .map((item) => ({
             name: item.name,
             qty: item.quantity,
@@ -1584,23 +1554,12 @@
         lines.push("**Items:**");
         cart.forEach((item) => {
           const subtotal = item.unitPrice * item.quantity;
-          let detailLabel = "";
-          if (item.mode === "Premade") {
-            detailLabel = " (Premade)";
-          } else if (item.color) {
-            if (item.mode && item.mode !== "Color") {
-              detailLabel = ` (${item.mode} - ${item.color})`;
-            } else {
-              detailLabel = ` (${item.color})`;
-            }
-          } else if (item.mode) {
-            detailLabel = ` (${item.mode})`;
-          }
-
+          const detail = detailLabelForItem(item);
+          const displayName = detail
+            ? `${item.name} (${detail})`
+            : item.name;
           lines.push(
-            `• ${item.name}${detailLabel} x${item.quantity} — ${formatCurrency(
-              subtotal
-            )}`
+            `• ${displayName} x${item.quantity} — ${formatCurrency(subtotal)}`
           );
         });
         lines.push("");
@@ -1638,7 +1597,6 @@
 
         const summary = lines.join("\n");
 
-        // Build order record for sheet (includes externalTracking)
         const orderRecord = {
           orderId,
           createdAt: new Date().toISOString(),
@@ -1681,9 +1639,7 @@
           document
             .querySelectorAll('input[name="payment-method"]')
             .forEach((r) => (r.checked = false));
-          document
-            .getElementById("cashapp-extra")
-            .classList.add("hidden");
+          document.getElementById("cashapp-extra").classList.add("hidden");
         } catch (err) {
           console.error("Submit error", err);
           showSubmitMessage(
@@ -1695,7 +1651,7 @@
         }
       }
 
-      // ---------- INIT ----------
+      // -------- INIT --------
 
       async function init() {
         await loadConfig();
@@ -1711,7 +1667,6 @@
         paymentRadios.forEach((radio) => {
           radio.addEventListener("change", () => {
             if (!radio.checked) return;
-
             if (radio.value === "cashapp") {
               cashappExtra.classList.remove("hidden");
             } else {
@@ -1728,61 +1683,58 @@
           .getElementById("expedite-choice")
           .addEventListener("change", updateTotals);
 
-        document
-          .getElementById("add-custom-btn")
-          .addEventListener("click", () => {
-            const fileInput = document.getElementById("custom-file");
-            const sizeSelect = document.getElementById("custom-size");
-            const detailSelect = document.getElementById("custom-detail");
-            const colorSelect = document.getElementById("custom-color");
-            const qtyInput = document.getElementById("custom-qty");
+        document.getElementById("add-custom-btn").addEventListener("click", () => {
+          const fileInput = document.getElementById("custom-file");
+          const sizeSelect = document.getElementById("custom-size");
+          const detailSelect = document.getElementById("custom-detail");
+          const colorSelect = document.getElementById("custom-color");
+          const qtyInput = document.getElementById("custom-qty");
 
-            const file = fileInput.files[0];
-            if (!file) {
-              showSubmitMessage(
-                "Please upload a file for custom prints.",
-                true
-              );
-              return;
-            }
-
-            const color = colorSelect.value;
-            if (!color) {
-              showSubmitMessage(
-                "Please choose a color for the custom print.",
-                true
-              );
-              return;
-            }
-
-            let qty = Math.max(1, Number(qtyInput.value) || 1);
-
-            let basePrice = 5;
-            const size = sizeSelect.value;
-            const detail = detailSelect.value;
-
-            if (size === "medium") basePrice += 3;
-            if (size === "large") basePrice += 7;
-
-            if (detail === "high") basePrice += 2;
-            if (detail === "ultra") basePrice += 5;
-
-            const estPrice = basePrice;
-
-            addToCart(
-              {
-                name: file.name,
-                mode: "Custom",
-                color,
-                price: estPrice,
-                maxStock: null,
-              },
-              qty
+          const file = fileInput.files[0];
+          if (!file) {
+            showSubmitMessage(
+              "Please upload a file for custom prints.",
+              true
             );
+            return;
+          }
 
-            document.getElementById("custom-estimate-text").textContent =
-              "Custom print estimate added to cart.";
-          });
+          const color = colorSelect.value;
+          if (!color) {
+            showSubmitMessage(
+              "Please choose a color for the custom print.",
+              true
+            );
+            return;
+          }
+
+          let qty = Math.max(1, Number(qtyInput.value) || 1);
+
+          let basePrice = 5;
+          const size = sizeSelect.value;
+          const detail = detailSelect.value;
+
+          if (size === "medium") basePrice += 3;
+          if (size === "large") basePrice += 7;
+          if (detail === "high") basePrice += 2;
+          if (detail === "ultra") basePrice += 5;
+
+          const estPrice = basePrice;
+
+          addToCart(
+            {
+              name: file.name,
+              mode: "Custom",
+              color,
+              price: estPrice,
+              maxStock: null,
+            },
+            qty
+          );
+
+          document.getElementById("custom-estimate-text").textContent =
+            "Custom print estimate added to cart.";
+        });
 
         document
           .getElementById("submit-order-btn")

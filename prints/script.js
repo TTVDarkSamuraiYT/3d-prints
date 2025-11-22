@@ -206,9 +206,14 @@ async function loadInventory() {
 function getBaseColorsForPremade() {
   return colorsData.filter((c) => {
     const nameNorm = c.name.trim().toLowerCase();
-    if (nameNorm === "premade") return false;
+
+    // Skip header row "colors" and the special "premade" row
+    if (nameNorm === "colors" || nameNorm === "premade") return false;
+
     const s = c.normStatus;
-    if (s === "offshelf") return false;
+    if (s === "offshelf") return false; // hidden from shop
+
+    // For premades we allow available / limited / being resupplied / temp unavailable
     return true;
   });
 }
@@ -216,10 +221,14 @@ function getBaseColorsForPremade() {
 function getBaseColorsForCustom() {
   return colorsData.filter((c) => {
     const nameNorm = c.name.trim().toLowerCase();
-    if (nameNorm === "premade") return false;
+
+    // Skip header row and "premade" pseudo-color
+    if (nameNorm === "colors" || nameNorm === "premade") return false;
+
     const s = c.normStatus;
-    if (s === "offshelf" || s === "sold out" || s === "unavailable")
-      return false;
+    // For custom we don't offer off-shelf or sold-out colors
+    if (s === "offshelf" || s === "sold out" || s === "unavailable") return false;
+
     return true;
   });
 }

@@ -179,7 +179,7 @@
         <a href="/prints/">Back to shop</a>
       </div>
 
-      <header style="margin-bottom: 16px">
+      <header style="margin-bottom:16px;">
         <h1>Order tracking</h1>
         <p class="helper-text">
           Look up the status of your order. You can search by order number, or
@@ -188,9 +188,7 @@
       </header>
 
       <section class="card">
-        <div
-          style="display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px"
-        >
+        <div style="display:grid;grid-template-columns:minmax(0,1fr);gap:10px;">
           <div>
             <label for="search-order-id">Order number</label>
             <input
@@ -215,11 +213,15 @@
           </div>
         </div>
 
-        <button id="search-btn" class="btn btn-primary" style="margin-top: 12px">
+        <button
+          id="search-btn"
+          class="btn btn-primary"
+          style="margin-top:12px;"
+        >
           Search
         </button>
 
-        <div id="search-message" class="helper-text" style="margin-top: 8px">
+        <div id="search-message" class="helper-text" style="margin-top:8px;">
           No results yet. Enter something above and press Search.
         </div>
 
@@ -284,21 +286,6 @@
           const text = await res.text();
           const rows = parseSheetJSON(text);
 
-          // Columns (0-based index):
-          // 0: Order ID
-          // 1: Created At
-          // 2: Name
-          // 3: Contact
-          // 4: Shipping
-          // 5: External tracking
-          // 6: Status
-          // 7: Payment
-          // 8: Items JSON
-          // 9: Items Subtotal
-          // 10: Shipping Est
-          // 11: Expedite Fee
-          // 12: Total Est
-          // 13: Notes
           ordersData = rows
             .map((r) => {
               const c = r.c || [];
@@ -343,7 +330,7 @@
 
         msgEl.textContent = `Showing ${matches.length} order${
           matches.length === 1 ? "" : "s"
-        }.`;
+        }.`; 
         msgEl.className = "helper-text";
 
         matches.forEach((o) => {
@@ -354,9 +341,12 @@
           header.className = "result-header";
 
           const left = document.createElement("div");
-          left.innerHTML = `<strong>Order #${o.orderId}</strong><div class="muted">${
-            o.name || "No name on file"
-          }</div>`;
+          left.innerHTML =
+            "<strong>Order #" +
+            o.orderId +
+            "</strong><div class='muted'>" +
+            (o.name || "No name on file") +
+            "</div>";
 
           const pill = document.createElement("span");
           const statusNorm = normalizeStatus(o.status);
@@ -378,7 +368,7 @@
 
           const contactLine = document.createElement("div");
           contactLine.className = "muted";
-          contactLine.textContent = `Contact: ${o.contact || "n/a"}`;
+          contactLine.textContent = "Contact: " + (o.contact || "n/a");
 
           const shipLine = document.createElement("div");
           shipLine.className = "muted";
@@ -457,7 +447,8 @@
             if (contactL.includes(queryLower)) return true;
 
             if (looksLikeEmail) {
-              return false; // already checked by includes()
+              // email already covered by includes check
+              return false;
             }
 
             if (

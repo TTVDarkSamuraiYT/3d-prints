@@ -34,6 +34,29 @@ body {
   padding: 24px 16px 48px;
 }
 
+/* top bar for Home link */
+.top-bar {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.top-bar a {
+  color: var(--muted);
+  text-decoration: none;
+  font-size: 0.9rem;
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.top-bar a:hover {
+  background: rgba(255, 255, 255, 0.08);
+  text-decoration: none;
+}
+
 header {
   margin-bottom: 24px;
 }

@@ -1,4 +1,4 @@
-// ---------- GLOBALS ----------
+// -------- GLOBALS --------
 let SHEET_ID = "";
 let INVENTORY_SHEET_NAME = "";
 let COLORS_SHEET_NAME = "";
@@ -12,7 +12,9 @@ let colorsData = [];
 let inventoryData = [];
 let cart = [];
 
-// Order counter per day
+const PREMADE_DISCOUNT = 0.85; // 15% off premades
+
+// -------- ORDER NUMBER --------
 function getTodayKey() {
   const d = new Date();
   const y = d.getFullYear();
@@ -38,8 +40,7 @@ function nextOrderNumber() {
   return `${todayKey}-${String(counter).padStart(3, "0")}`;
 }
 
-// ---------- HELPERS ----------
-
+// -------- HELPERS --------
 function formatCurrency(amount) {
   return `$${amount.toFixed(2)}`;
 }
@@ -62,9 +63,9 @@ function safeNumber(v) {
   return Number.isFinite(n) ? n : null;
 }
 
-// ---------- CONFIG / SHEET LOADING ----------
+// -------- CONFIG / LOAD --------
 
-const CONFIG_PATH = "../config.json"; // IMPORTANT: one level up from /prints
+const CONFIG_PATH = "../config.json"; // config.json in repo root
 
 async function loadConfig() {
   try {
@@ -104,22 +105,16 @@ async function loadColors() {
     const text = await res.text();
     const rows = parseSheetJSON(text);
 
-    const mapped = rows
+    colorsData = rows
       .map((r) => {
         const c = r.c || [];
         const name = c[0]?.v ? String(c[0].v).trim() : "";
         const status = c[1]?.v ? String(c[1].v).trim() : "";
         if (!name) return null;
         const normStatus = normalizeStatus(status);
-        return {
-          name,
-          status,
-          normStatus,
-        };
+        return { name, status, normStatus };
       })
       .filter(Boolean);
-
-    colorsData = mapped;
 
     console.log("Colors from sheet:", colorsData);
   } catch (err) {
@@ -145,7 +140,7 @@ async function loadInventory() {
     const text = await res.text();
     const rows = parseSheetJSON(text);
 
-    const mapped = rows
+    inventoryData = rows
       .map((r) => {
         const c = r.c || [];
         const name = c[0]?.v ? String(c[0].v).trim() : "";
@@ -154,9 +149,7 @@ async function loadInventory() {
         const statusRaw = c[3]?.v ? String(c[3].v).trim() : "";
         const notes = c[4]?.v ? String(c[4].v).trim() : "";
 
-        if (!name || priceRaw === null || priceRaw === "") {
-          return null;
-        }
+        if (!name || priceRaw === null || priceRaw === "") return null;
 
         const price = Number(priceRaw) || 0;
         const stock = safeNumber(stockRaw);
@@ -165,18 +158,13 @@ async function loadInventory() {
         if (statusNorm === "offshelf") return null;
 
         const isLimited = statusNorm === "limited";
-        if (isLimited && (stock === null || stock <= 0)) {
-          return null;
-        }
+        if (isLimited && (stock === null || stock <= 0)) return null;
 
         let availability = "available";
-        if (statusNorm === "temporarily unavailable") {
-          availability = "temp";
-        } else if (statusNorm === "sold out") {
+        if (statusNorm === "temporarily unavailable") availability = "temp";
+        else if (statusNorm === "sold out" || statusNorm === "unavailable")
           availability = "unavailable";
-        } else if (isLimited) {
-          availability = "limited";
-        }
+        else if (isLimited) availability = "limited";
 
         return {
           name,
@@ -191,9 +179,7 @@ async function loadInventory() {
       })
       .filter(Boolean);
 
-    inventoryData = mapped;
     console.log("Inventory from sheet:", inventoryData);
-
     renderPremadeCards();
   } catch (err) {
     console.error("Error loading inventory sheet", err);
@@ -201,37 +187,30 @@ async function loadInventory() {
   }
 }
 
-// ---------- BUILD UI ----------
+// -------- COLORS HELPERS --------
 
 function getBaseColorsForPremade() {
   return colorsData.filter((c) => {
-    const nameNorm = c.name.trim().toLowerCase();
-
-    // Skip header row "colors" and the special "premade" row
-    if (nameNorm === "colors" || nameNorm === "premade") return false;
-
+    const n = c.name.trim().toLowerCase();
+    // skip header row and pseudo "premade" row
+    if (n === "colors" || n === "color" || n === "premade") return false;
     const s = c.normStatus;
-    if (s === "offshelf") return false; // hidden from shop
-
-    // For premades we allow available / limited / being resupplied / temp unavailable
+    if (s === "offshelf") return false;
     return true;
   });
 }
 
 function getBaseColorsForCustom() {
   return colorsData.filter((c) => {
-    const nameNorm = c.name.trim().toLowerCase();
-
-    // Skip header row and "premade" pseudo-color
-    if (nameNorm === "colors" || nameNorm === "premade") return false;
-
+    const n = c.name.trim().toLowerCase();
+    if (n === "colors" || n === "color" || n === "premade") return false;
     const s = c.normStatus;
-    // For custom we don't offer off-shelf or sold-out colors
     if (s === "offshelf" || s === "sold out" || s === "unavailable") return false;
-
     return true;
   });
 }
+
+// -------- BUILD PREMADES --------
 
 function renderPremadeCards() {
   const listEl = document.getElementById("premade-list");
@@ -276,7 +255,7 @@ function renderPremadeCards() {
     } else if (item.availability === "limited") {
       badge.classList.add("badge-limited");
       if (item.stock != null) {
-        badge.textContent = `Limited (${item.stock} in stock)`;
+        badge.textContent = `Limited (${item.stock} premades)`;
       } else {
         badge.textContent = "Limited";
       }
@@ -297,23 +276,26 @@ function renderPremadeCards() {
 
     const right = document.createElement("div");
 
+    // Color selector
     const colorRow = document.createElement("div");
     colorRow.className = "field-row";
     const colorLabel = document.createElement("label");
     colorLabel.textContent = "Color";
     colorRow.appendChild(colorLabel);
 
-    let colorSelect;
+    const hasPremadeStock =
+      item.stock != null && item.stock > 0 && item.availability !== "unavailable";
+
+    let colorSelect = document.createElement("select");
 
     if (item.isLimited) {
-      colorSelect = document.createElement("select");
+      // Limited items: premade only
       colorSelect.disabled = true;
       const opt = document.createElement("option");
-      opt.value = "Premade";
+      opt.value = "__premade";
       opt.textContent = "Premade only";
       colorSelect.appendChild(opt);
     } else {
-      colorSelect = document.createElement("select");
       const placeholder = document.createElement("option");
       placeholder.value = "";
       placeholder.textContent = "Select color";
@@ -343,12 +325,20 @@ function renderPremadeCards() {
 
         colorSelect.appendChild(o);
       });
+
+      if (hasPremadeStock) {
+        const prem = document.createElement("option");
+        prem.value = "__premade";
+        prem.textContent = "Premade (15% off, random color)";
+        colorSelect.appendChild(prem);
+      }
     }
 
     colorSelect.id = `premade-color-${index}`;
     colorRow.appendChild(colorSelect);
     right.appendChild(colorRow);
 
+    // Quantity
     const qtyRow = document.createElement("div");
     qtyRow.className = "field-row";
     const qtyLabel = document.createElement("label");
@@ -361,43 +351,73 @@ function renderPremadeCards() {
     qtyInput.step = "1";
     qtyInput.value = "1";
     qtyInput.id = `premade-qty-${index}`;
-
     qtyRow.appendChild(qtyInput);
     right.appendChild(qtyRow);
 
+    // Add to cart
     const btnRow = document.createElement("div");
     const btn = document.createElement("button");
     btn.textContent = "Add to cart";
     btn.className = "btn btn-primary";
     btn.style.width = "100%";
 
-    if (item.availability !== "available" && !item.isLimited) {
-      btn.disabled = true;
-      btn.textContent = "Unavailable";
-    } else if (item.availability !== "available" && item.isLimited) {
+    if (item.availability === "unavailable") {
       btn.disabled = true;
       btn.textContent = "Unavailable";
     }
 
     btn.addEventListener("click", () => {
-      const qtyVal = Math.max(1, Number(qtyInput.value) || 1);
+      let qtyVal = Math.max(1, Number(qtyInput.value) || 1);
 
-      let color = "Premade";
-      if (!item.isLimited) {
-        color = colorSelect.value || "";
-        if (!color) {
-          showSubmitMessage("Please choose a color for that item.", true);
+      let mode,
+        color,
+        maxStock = null;
+
+      if (item.isLimited) {
+        if (!hasPremadeStock) {
+          showSubmitMessage(
+            `Sorry, "${item.name}" premades are sold out.`,
+            true
+          );
           return;
+        }
+        mode = "Premade";
+        color = "Premade";
+        maxStock = item.stock;
+      } else {
+        const selected = colorSelect.value;
+        if (selected === "__premade") {
+          if (!hasPremadeStock) {
+            showSubmitMessage(
+              `Sorry, "${item.name}" premades are sold out.`,
+              true
+            );
+            return;
+          }
+          mode = "Premade";
+          color = "Premade";
+          maxStock = item.stock;
+        } else {
+          if (!selected) {
+            showSubmitMessage(
+              "Please choose a color or the premade option.",
+              true
+            );
+            return;
+          }
+          mode = "Color";
+          color = selected;
+          maxStock = null; // made to order
         }
       }
 
       addToCart(
         {
           name: item.name,
-          mode: "Premade",
+          mode,
           color,
-          price: item.price,
-          maxStock: item.isLimited ? item.stock : null,
+          price: mode === "Premade" ? item.price * PREMADE_DISCOUNT : item.price,
+          maxStock,
         },
         qtyVal
       );
@@ -411,7 +431,7 @@ function renderPremadeCards() {
     listEl.appendChild(card);
   });
 
-  // custom colors
+  // custom colors dropdown
   const customColorSelect = document.getElementById("custom-color");
   customColorSelect.innerHTML = '<option value="">Select color</option>';
   getBaseColorsForCustom().forEach((c) => {
@@ -422,7 +442,7 @@ function renderPremadeCards() {
   });
 }
 
-// ---------- CART ----------
+// -------- CART --------
 
 function addToCart(itemBase, qty) {
   qty = Math.max(1, Number(qty) || 1);
@@ -439,14 +459,12 @@ function addToCart(itemBase, qty) {
     const remaining = itemBase.maxStock - existingQty;
     if (remaining <= 0) {
       showSubmitMessage(
-        `Sorry, "${itemBase.name}" is sold out for premade stock.`,
+        `Sorry, "${itemBase.name}" premades are sold out.`,
         true
       );
       return;
     }
-    if (qty > remaining) {
-      qty = remaining;
-    }
+    if (qty > remaining) qty = remaining;
   }
 
   const existing = cart.find(
@@ -465,7 +483,7 @@ function addToCart(itemBase, qty) {
   } else {
     cart.push({
       name: itemBase.name,
-      mode: itemBase.mode,
+      mode: itemBase.mode, // "Premade", "Color", "Custom"
       color: itemBase.color,
       unitPrice: itemBase.price,
       quantity: qty,
@@ -475,6 +493,13 @@ function addToCart(itemBase, qty) {
 
   renderCart();
   showSubmitMessage("", false);
+}
+
+function detailLabelForItem(item) {
+  if (item.mode === "Premade") return "Premade";
+  if (item.mode === "Color") return item.color || "Color";
+  if (item.mode === "Custom") return `Custom / ${item.color || "N/A"}`;
+  return item.color || item.mode || "";
 }
 
 function renderCart() {
@@ -507,11 +532,17 @@ function renderCart() {
     const left = document.createElement("div");
     const title = document.createElement("div");
     title.className = "cart-item-title";
-    title.textContent = item.name;
+
+    const detail = detailLabelForItem(item);
+    if (detail) {
+      title.textContent = `${item.name} (${detail})`;
+    } else {
+      title.textContent = item.name;
+    }
 
     const sub = document.createElement("div");
     sub.className = "cart-item-sub";
-    sub.textContent = `${item.mode || "Premade"} / ${item.color || "N/A"}`;
+    sub.textContent = "";
 
     left.appendChild(title);
     left.appendChild(sub);
@@ -525,8 +556,8 @@ function renderCart() {
     minusBtn.addEventListener("click", () => {
       if (item.quantity > 1) {
         item.quantity -= 1;
+        renderCart();
       }
-      renderCart();
     });
 
     const qty = document.createElement("span");
@@ -615,7 +646,7 @@ function updateTotals() {
   grandEl.textContent = formatCurrency(grandTotal);
 }
 
-// ---------- CONTACT + PAYMENT VALIDATION ----------
+// -------- CONTACT & PAYMENT --------
 
 function isValidEmail(value) {
   const trimmed = value.trim();
@@ -675,7 +706,7 @@ function showSubmitMessage(msg, isError) {
   el.className = isError ? "error-text" : "success-text";
 }
 
-// ---------- ORDER SUBMISSION ----------
+// -------- WEBHOOK & SHEET --------
 
 async function sendOrderWebhook(content) {
   const payload = { content };
@@ -700,9 +731,9 @@ async function sendOrderWebhook(content) {
 }
 
 async function sendStockUpdateToAppsScript(stockItems) {
-  if (!STOCK_WEBAPP_URL || !Array.isArray(stockItems) || !stockItems.length) {
+  if (!STOCK_WEBAPP_URL || !Array.isArray(stockItems) || !stockItems.length)
     return;
-  }
+
   try {
     await fetch(STOCK_WEBAPP_URL, {
       method: "POST",
@@ -731,6 +762,8 @@ async function sendOrderToSheets(orderRecord) {
     console.error("[STOCK WEBAPP ERROR] Failed to log order", err);
   }
 }
+
+// -------- SUBMIT --------
 
 async function handleSubmitOrder() {
   if (!cart.length) {
@@ -798,14 +831,12 @@ async function handleSubmitOrder() {
   const cashappRefInput = document.getElementById("cashapp-reference");
   let cashappRef = cashappRefInput.value.trim();
 
-  if (payment.value === "cashapp") {
-    if (!cashappRef) {
-      showSubmitMessage(
-        "Please enter your Cash App name or a payment note.",
-        true
-      );
-      return;
-    }
+  if (payment.value === "cashapp" && !cashappRef) {
+    showSubmitMessage(
+      "Please enter your Cash App name or a payment note.",
+      true
+    );
+    return;
   }
 
   const orderId = nextOrderNumber();
@@ -831,10 +862,10 @@ async function handleSubmitOrder() {
   lines.push("**Items:**");
   cart.forEach((item) => {
     const subtotal = item.unitPrice * item.quantity;
+    const detail = detailLabelForItem(item);
+    const displayName = detail ? `${item.name} (${detail})` : item.name;
     lines.push(
-      `• ${item.name} (${item.mode} / ${item.color || "N/A"}) x${
-        item.quantity
-      } — ${formatCurrency(subtotal)}`
+      `• ${displayName} x${item.quantity} — ${formatCurrency(subtotal)}`
     );
   });
   lines.push("");
@@ -863,14 +894,16 @@ async function handleSubmitOrder() {
   } else if (payment.value === "cash") {
     lines.push("**Payment:** Cash (local pickup)");
   } else if (payment.value === "cashapp") {
-    lines.push(`**Payment:** Cash App to ${CASHAPP_TAG} — reference: ${cashappRef}`);
+    lines.push(
+      `**Payment:** Cash App to ${CASHAPP_TAG} — reference: ${cashappRef}`
+    );
   } else {
     lines.push(`**Payment:** ${payment.text}`);
   }
 
   const summary = lines.join("\n");
 
-  // Build order record for sheet
+  // Order record for Sheets (matches Orders headers including External tracking)
   const orderRecord = {
     orderId,
     createdAt: new Date().toISOString(),
@@ -878,6 +911,7 @@ async function handleSubmitOrder() {
     contact,
     shippingInfo:
       shippingChoice === "pickup" ? "Local pickup" : shipText || "",
+    externalTracking: "",
     status: payment.value === "cash" ? "processing" : "paid",
     paymentMethod: payment.text,
     itemsJson: JSON.stringify(cart),
@@ -898,7 +932,11 @@ async function handleSubmitOrder() {
       sendOrderToSheets(orderRecord),
     ]);
 
-    showSubmitMessage("Order submitted.", false);
+    // Show order number to the customer
+    showSubmitMessage(
+      `Order submitted! Your order number is ${orderId}.`,
+      false
+    );
 
     cart = [];
     renderCart();
@@ -919,7 +957,7 @@ async function handleSubmitOrder() {
   }
 }
 
-// ---------- INIT ----------
+// -------- INIT --------
 
 async function init() {
   await loadConfig();
@@ -935,7 +973,6 @@ async function init() {
   paymentRadios.forEach((radio) => {
     radio.addEventListener("change", () => {
       if (!radio.checked) return;
-
       if (radio.value === "cashapp") {
         cashappExtra.classList.remove("hidden");
       } else {
@@ -967,10 +1004,7 @@ async function init() {
 
     const color = colorSelect.value;
     if (!color) {
-      showSubmitMessage(
-        "Please choose a color for the custom print.",
-        true
-      );
+      showSubmitMessage("Please choose a color for the custom print.", true);
       return;
     }
 
@@ -982,7 +1016,6 @@ async function init() {
 
     if (size === "medium") basePrice += 3;
     if (size === "large") basePrice += 7;
-
     if (detail === "high") basePrice += 2;
     if (detail === "ultra") basePrice += 5;
 
@@ -1014,7 +1047,7 @@ async function init() {
     window.location.href = "/tracking/";
   });
 
-  // Periodic refresh of config & inventory
+  // periodic refresh
   setInterval(() => {
     loadConfig();
     loadColors();

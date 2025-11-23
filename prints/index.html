@@ -8,59 +8,50 @@
   </head>
   <body>
     <div class="page">
-      <div class="top-bar">
-        <a href="/">Home</a>
-      </div>
-
-      <header>
-        <div class="header-top">
-          <div>
-            <h1>Tekniq Solutions – Silvio's 3D Print Shop</h1>
-            <p>Choose a premade design or upload your own custom model.</p>
-            <p class="helper-text small-header">
-              This is a tiny one-person mini business, so the site and payment
-              flow might feel a bit simpler than a big store. Thanks for your
-              patience while I make everything better over time!
-            </p>
-          </div>
+      <div class="header-top">
+        <div>
+          <h1>Tekniq Solutions – Silvio's 3D Print Shop</h1>
+          <p>Choose a premade design or upload your own custom model.</p>
+          <p class="helper-text small-header">
+            This is a tiny one-person mini business, so the site and payment
+            flow might feel a bit simpler than a big store. Thanks for your
+            patience while I make everything better over time!
+          </p>
+          <p class="helper-text small-header">
+            Premades are <strong>15% off</strong> and usually a random color
+            from what I have on hand. If you want a specific color, mention it
+            in your order notes and I’ll try my best to match it. If I have
+            multiple premades for your part, I’ll let you know the options.
+          </p>
         </div>
-      </header>
+        <a href="/" class="home-link">Home</a>
+      </div>
 
       <div class="grid">
         <!-- LEFT: Premade + Custom -->
         <div>
-          <!-- Premades -->
           <section class="card">
             <div
-              style="
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-                gap: 8px;
-              "
+              style="display:flex;justify-content:space-between;align-items:center;gap:8px;"
             >
               <h2>Premade prints</h2>
               <span class="live-inventory-note">Live inventory</span>
             </div>
-            <p class="helper-text" style="margin-bottom: 8px">
-              Premade parts are pre-printed and get a
-              <strong>15% discount</strong>. Colors are usually random from what
-              I have on hand. If you request a specific color in your notes,
-              I’ll try my best to match it, or let you know which premade
-              colors are available. If the exact color isn’t available, your
-              premade will be a random color from what’s in stock.
+            <p class="helper-text" style="margin-bottom:8px;">
+              Premade parts are pre-printed and get a <strong>15% discount</strong>.
+              If there’s premade stock for a part, you’ll see a “Premade
+              (15% off, random color)” option for it.
             </p>
             <div id="premade-list" class="premade-list"></div>
             <div
               id="inventory-error"
               class="error-text"
-              style="display: none"
+              style="display:none;"
             >
               Sorry, there was an issue loading the inventory system.
             </div>
           </section>
 
-          <!-- Custom -->
           <section class="card" style="margin-top: 12px">
             <h2>Custom print</h2>
             <p class="helper-text">
@@ -124,7 +115,6 @@
 
         <!-- RIGHT: Cart + Info + Payment -->
         <div>
-          <!-- Cart -->
           <section class="card" id="cart-card">
             <div class="cart-card-header">
               <h2>Cart</h2>
@@ -158,7 +148,7 @@
                 <span id="grand-total">$0.00</span>
               </div>
 
-              <div style="margin-top: 10px">
+              <div style="margin-top:10px;">
                 <label for="shipping-choice">Shipping / pickup</label>
                 <select id="shipping-choice">
                   <option value="pickup" selected>
@@ -169,7 +159,7 @@
 
                 <label
                   for="expedite-choice"
-                  style="margin-top: 8px; display: block"
+                  style="margin-top:8px;display:block;"
                 >
                   Expedite option
                 </label>
@@ -182,7 +172,6 @@
             </div>
           </section>
 
-          <!-- Info -->
           <section class="card" style="margin-top: 12px" id="info-section">
             <h2>Info</h2>
 
@@ -225,7 +214,6 @@
             </div>
           </section>
 
-          <!-- Payment -->
           <section class="card" style="margin-top: 12px" id="payment-section">
             <h2>Payment</h2>
             <p class="helper-text">
@@ -286,7 +274,7 @@
             <button
               id="submit-order-btn"
               class="btn btn-primary"
-              style="margin-top: 12px; width: 100%"
+              style="margin-top: 12px; width: 100%;"
             >
               Proceed to checkout
             </button>
@@ -295,18 +283,21 @@
               type="button"
               id="open-tracking-btn"
               class="btn btn-ghost"
-              style="margin-top: 8px; width: 100%"
+              style="margin-top: 8px; width: 100%;"
             >
               Track an existing order
             </button>
 
-            <div id="submit-message" class="helper-text" style="margin-top: 6px">
-            </div>
+            <div
+              id="submit-message"
+              class="helper-text"
+              style="margin-top: 6px;"
+            ></div>
           </section>
         </div>
       </div>
     </div>
 
-    <script src="script.js"></script>
+    <script src="script.js" defer></script>
   </body>
 </html>

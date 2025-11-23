@@ -1,4 +1,4 @@
-// -------- GLOBALS --------
+// ---------- GLOBALS ----------
 let SHEET_ID = "";
 let INVENTORY_SHEET_NAME = "";
 let COLORS_SHEET_NAME = "";
@@ -12,9 +12,10 @@ let colorsData = [];
 let inventoryData = [];
 let cart = [];
 
-const PREMADE_DISCOUNT = 0.85; // 15% off premades
+const PREMADE_DISCOUNT = 0.85; // 15% off
 
-// -------- ORDER NUMBER --------
+// ---------- ORDER NUMBER PER DAY ----------
+
 function getTodayKey() {
   const d = new Date();
   const y = d.getFullYear();
@@ -40,7 +41,8 @@ function nextOrderNumber() {
   return `${todayKey}-${String(counter).padStart(3, "0")}`;
 }
 
-// -------- HELPERS --------
+// ---------- HELPERS ----------
+
 function formatCurrency(amount) {
   return `$${amount.toFixed(2)}`;
 }
@@ -63,9 +65,9 @@ function safeNumber(v) {
   return Number.isFinite(n) ? n : null;
 }
 
-// -------- CONFIG / LOAD --------
+// ---------- CONFIG / SHEET LOADING ----------
 
-const CONFIG_PATH = "../config.json"; // config.json in repo root
+const CONFIG_PATH = "/config.json"; // always from site root
 
 async function loadConfig() {
   try {
@@ -161,10 +163,16 @@ async function loadInventory() {
         if (isLimited && (stock === null || stock <= 0)) return null;
 
         let availability = "available";
-        if (statusNorm === "temporarily unavailable") availability = "temp";
-        else if (statusNorm === "sold out" || statusNorm === "unavailable")
+        if (statusNorm === "temporarily unavailable") {
+          availability = "temp";
+        } else if (
+          statusNorm === "sold out" ||
+          statusNorm === "unavailable"
+        ) {
           availability = "unavailable";
-        else if (isLimited) availability = "limited";
+        } else if (isLimited) {
+          availability = "limited";
+        }
 
         return {
           name,
@@ -180,6 +188,7 @@ async function loadInventory() {
       .filter(Boolean);
 
     console.log("Inventory from sheet:", inventoryData);
+
     renderPremadeCards();
   } catch (err) {
     console.error("Error loading inventory sheet", err);
@@ -187,30 +196,36 @@ async function loadInventory() {
   }
 }
 
-// -------- COLORS HELPERS --------
+// ---------- COLOR HELPERS ----------
 
 function getBaseColorsForPremade() {
   return colorsData.filter((c) => {
-    const n = c.name.trim().toLowerCase();
-    // skip header row and pseudo "premade" row
-    if (n === "colors" || n === "color" || n === "premade") return false;
+    const nameNorm = c.name.trim().toLowerCase();
+
+    // skip header row "colors" and pseudo-color "premade"
+    if (nameNorm === "colors" || nameNorm === "premade") return false;
+
     const s = c.normStatus;
-    if (s === "offshelf") return false;
+    if (s === "offshelf") return false; // hidden
+    // allow available / limited / temp unavailable / being resupplied
     return true;
   });
 }
 
 function getBaseColorsForCustom() {
   return colorsData.filter((c) => {
-    const n = c.name.trim().toLowerCase();
-    if (n === "colors" || n === "color" || n === "premade") return false;
+    const nameNorm = c.name.trim().toLowerCase();
+    if (nameNorm === "colors" || nameNorm === "premade") return false;
+
     const s = c.normStatus;
-    if (s === "offshelf" || s === "sold out" || s === "unavailable") return false;
+    if (s === "offshelf" || s === "sold out" || s === "unavailable")
+      return false;
+
     return true;
   });
 }
 
-// -------- BUILD PREMADES --------
+// ---------- BUILD PREMADE CARDS ----------
 
 function renderPremadeCards() {
   const listEl = document.getElementById("premade-list");
@@ -276,7 +291,6 @@ function renderPremadeCards() {
 
     const right = document.createElement("div");
 
-    // Color selector
     const colorRow = document.createElement("div");
     colorRow.className = "field-row";
     const colorLabel = document.createElement("label");
@@ -289,7 +303,7 @@ function renderPremadeCards() {
     let colorSelect = document.createElement("select");
 
     if (item.isLimited) {
-      // Limited items: premade only
+      // limited items = premade only, stock-limited
       colorSelect.disabled = true;
       const opt = document.createElement("option");
       opt.value = "__premade";
@@ -327,10 +341,10 @@ function renderPremadeCards() {
       });
 
       if (hasPremadeStock) {
-        const prem = document.createElement("option");
-        prem.value = "__premade";
-        prem.textContent = "Premade (15% off, random color)";
-        colorSelect.appendChild(prem);
+        const premOpt = document.createElement("option");
+        premOpt.value = "__premade";
+        premOpt.textContent = "Premade (15% off, random color)";
+        colorSelect.appendChild(premOpt);
       }
     }
 
@@ -338,7 +352,6 @@ function renderPremadeCards() {
     colorRow.appendChild(colorSelect);
     right.appendChild(colorRow);
 
-    // Quantity
     const qtyRow = document.createElement("div");
     qtyRow.className = "field-row";
     const qtyLabel = document.createElement("label");
@@ -351,10 +364,10 @@ function renderPremadeCards() {
     qtyInput.step = "1";
     qtyInput.value = "1";
     qtyInput.id = `premade-qty-${index}`;
+
     qtyRow.appendChild(qtyInput);
     right.appendChild(qtyRow);
 
-    // Add to cart
     const btnRow = document.createElement("div");
     const btn = document.createElement("button");
     btn.textContent = "Add to cart";
@@ -369,9 +382,7 @@ function renderPremadeCards() {
     btn.addEventListener("click", () => {
       let qtyVal = Math.max(1, Number(qtyInput.value) || 1);
 
-      let mode,
-        color,
-        maxStock = null;
+      let mode, color, maxStock = null;
 
       if (item.isLimited) {
         if (!hasPremadeStock) {
@@ -407,7 +418,7 @@ function renderPremadeCards() {
           }
           mode = "Color";
           color = selected;
-          maxStock = null; // made to order
+          maxStock = null; // made-to-order, no premade stock limit
         }
       }
 
@@ -431,18 +442,20 @@ function renderPremadeCards() {
     listEl.appendChild(card);
   });
 
-  // custom colors dropdown
+  // custom colors
   const customColorSelect = document.getElementById("custom-color");
-  customColorSelect.innerHTML = '<option value="">Select color</option>';
-  getBaseColorsForCustom().forEach((c) => {
-    const o = document.createElement("option");
-    o.value = c.name;
-    o.textContent = c.name;
-    customColorSelect.appendChild(o);
-  });
+  if (customColorSelect) {
+    customColorSelect.innerHTML = '<option value="">Select color</option>';
+    getBaseColorsForCustom().forEach((c) => {
+      const o = document.createElement("option");
+      o.value = c.name;
+      o.textContent = c.name;
+      customColorSelect.appendChild(o);
+    });
+  }
 }
 
-// -------- CART --------
+// ---------- CART LOGIC ----------
 
 function addToCart(itemBase, qty) {
   qty = Math.max(1, Number(qty) || 1);
@@ -483,7 +496,7 @@ function addToCart(itemBase, qty) {
   } else {
     cart.push({
       name: itemBase.name,
-      mode: itemBase.mode, // "Premade", "Color", "Custom"
+      mode: itemBase.mode, // "Premade" | "Color" | "Custom"
       color: itemBase.color,
       unitPrice: itemBase.price,
       quantity: qty,
@@ -498,7 +511,8 @@ function addToCart(itemBase, qty) {
 function detailLabelForItem(item) {
   if (item.mode === "Premade") return "Premade";
   if (item.mode === "Color") return item.color || "Color";
-  if (item.mode === "Custom") return `Custom / ${item.color || "N/A"}`;
+  if (item.mode === "Custom")
+    return `Custom / ${item.color || "N/A"}`;
   return item.color || item.mode || "";
 }
 
@@ -646,7 +660,7 @@ function updateTotals() {
   grandEl.textContent = formatCurrency(grandTotal);
 }
 
-// -------- CONTACT & PAYMENT --------
+// ---------- CONTACT + PAYMENT VALIDATION ----------
 
 function isValidEmail(value) {
   const trimmed = value.trim();
@@ -706,7 +720,7 @@ function showSubmitMessage(msg, isError) {
   el.className = isError ? "error-text" : "success-text";
 }
 
-// -------- WEBHOOK & SHEET --------
+// ---------- ORDER SUBMISSION ----------
 
 async function sendOrderWebhook(content) {
   const payload = { content };
@@ -731,9 +745,9 @@ async function sendOrderWebhook(content) {
 }
 
 async function sendStockUpdateToAppsScript(stockItems) {
-  if (!STOCK_WEBAPP_URL || !Array.isArray(stockItems) || !stockItems.length)
+  if (!STOCK_WEBAPP_URL || !Array.isArray(stockItems) || !stockItems.length) {
     return;
-
+  }
   try {
     await fetch(STOCK_WEBAPP_URL, {
       method: "POST",
@@ -763,8 +777,6 @@ async function sendOrderToSheets(orderRecord) {
   }
 }
 
-// -------- SUBMIT --------
-
 async function handleSubmitOrder() {
   if (!cart.length) {
     showSubmitMessage("Your cart is empty.", true);
@@ -785,8 +797,8 @@ async function handleSubmitOrder() {
     return;
   }
 
-  let isEmail = isValidEmail(contact);
-  let isPhone = isValidPhone(contact);
+  const isEmail = isValidEmail(contact);
+  const isPhone = isValidPhone(contact);
 
   if (!isEmail && !isPhone) {
     showSubmitMessage(
@@ -903,7 +915,6 @@ async function handleSubmitOrder() {
 
   const summary = lines.join("\n");
 
-  // Order record for Sheets (matches Orders headers including External tracking)
   const orderRecord = {
     orderId,
     createdAt: new Date().toISOString(),
@@ -932,9 +943,8 @@ async function handleSubmitOrder() {
       sendOrderToSheets(orderRecord),
     ]);
 
-    // Show order number to the customer
     showSubmitMessage(
-      `Order submitted! Your order number is ${orderId}.`,
+      `Order submitted! Your order number is ${orderId}. Keep this number to track your order.`,
       false
     );
 
@@ -957,7 +967,7 @@ async function handleSubmitOrder() {
   }
 }
 
-// -------- INIT --------
+// ---------- INIT ----------
 
 async function init() {
   await loadConfig();
@@ -973,6 +983,7 @@ async function init() {
   paymentRadios.forEach((radio) => {
     radio.addEventListener("change", () => {
       if (!radio.checked) return;
+
       if (radio.value === "cashapp") {
         cashappExtra.classList.remove("hidden");
       } else {
@@ -1004,7 +1015,10 @@ async function init() {
 
     const color = colorSelect.value;
     if (!color) {
-      showSubmitMessage("Please choose a color for the custom print.", true);
+      showSubmitMessage(
+        "Please choose a color for the custom print.",
+        true
+      );
       return;
     }
 
@@ -1047,7 +1061,7 @@ async function init() {
     window.location.href = "/tracking/";
   });
 
-  // periodic refresh
+  // Periodic refresh
   setInterval(() => {
     loadConfig();
     loadColors();

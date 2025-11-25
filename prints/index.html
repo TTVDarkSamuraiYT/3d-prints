@@ -2,30 +2,26 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <title>Tekniq Solutions – Silvio's 3D Prints</title>
+    <title>Tekniq Solutions – Silvio's 3D Print Shop</title>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <link rel="stylesheet" href="style.css" />
   </head>
   <body>
     <div class="page">
-      <div class="header-top">
-        <div>
-          <h1>Tekniq Solutions – Silvio's 3D Print Shop</h1>
-          <p>Choose a premade design or upload your own custom model.</p>
-          <p class="helper-text small-header">
-            This is a tiny one-person mini business, so the site and payment
-            flow might feel a bit simpler than a big store. Thanks for your
-            patience while I make everything better over time!
-          </p>
-          <p class="helper-text small-header">
-            Premades are <strong>15% off</strong> and usually a random color
-            from what I have on hand. If you want a specific color, mention it
-            in your order notes and I’ll try my best to match it. If I have
-            multiple premades for your part, I’ll let you know the options.
-          </p>
+      <header>
+        <div class="header-top">
+          <div>
+            <h1>Tekniq Solutions – Silvio's 3D Prints</h1>
+            <p>Choose a premade design or upload your own custom model.</p>
+            <p class="helper-text small-header">
+              This is a tiny one-person mini business, so the site and payment
+              flow might feel a bit simpler than a big store. Thanks for your
+              patience while I make everything better over time!
+            </p>
+          </div>
+          <a href="/" class="home-link">Home</a>
         </div>
-        <a href="/" class="home-link">Home</a>
-      </div>
+      </header>
 
       <div class="grid">
         <!-- LEFT: Premade + Custom -->
@@ -38,9 +34,11 @@
               <span class="live-inventory-note">Live inventory</span>
             </div>
             <p class="helper-text" style="margin-bottom:8px;">
-              Premade parts are pre-printed and get a <strong>15% discount</strong>.
-              If there’s premade stock for a part, you’ll see a “Premade
-              (15% off, random color)” option for it.
+              Premade parts are pre-printed and get a
+              <strong>15% discount</strong>. Colors are usually random from what
+              I have on hand. If you request a specific color in your notes,
+              I'll try my best to match it or let you know what premade colors
+              are available.
             </p>
             <div id="premade-list" class="premade-list"></div>
             <div
@@ -115,6 +113,7 @@
 
         <!-- RIGHT: Cart + Info + Payment -->
         <div>
+          <!-- Cart -->
           <section class="card" id="cart-card">
             <div class="cart-card-header">
               <h2>Cart</h2>
@@ -172,6 +171,7 @@
             </div>
           </section>
 
+          <!-- Info -->
           <section class="card" style="margin-top: 12px" id="info-section">
             <h2>Info</h2>
 
@@ -214,6 +214,7 @@
             </div>
           </section>
 
+          <!-- Payment -->
           <section class="card" style="margin-top: 12px" id="payment-section">
             <h2>Payment</h2>
             <p class="helper-text">
@@ -298,6 +299,6 @@
       </div>
     </div>
 
-    <script src="script.js" defer></script>
+    <script src="script.js"></script>
   </body>
 </html>

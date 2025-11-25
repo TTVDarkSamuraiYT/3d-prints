@@ -3,9 +3,10 @@
   "INVENTORY_SHEET_NAME": "Inventory",
   "COLORS_SHEET_NAME": "colors",
   "ORDERS_SHEET_NAME": "Orders",
-  "ORDER_WEBHOOK_URL": "https://discord.com/api/webhooks/1440361626095190108/QA49X4hjGojcqqYCDFyCAVDedfUiizULEl5CA3_PiG5oemgagQ77KJBvAzbJormYu42I",
-  "HISTORY_WEBHOOK_URL": "https://discord.com/api/webhooks/1440361769003384882/OC7Yd1BAkpCtwxgbqtBgeMBzabBajVThB6_qMHNExhDXx038_jPoXG4aC7PyKdZTrN8f",
+  "ORDER_WEBHOOK_URL": "https://discordapp.com/api/webhooks/1442759890031480892/qhFThJwZrQTrFXYTnAVRa69SDF4fFMd4UFwOO2a87YeuI9Qkn8_lxF88XKhwWTL9kv7_",
+  "HISTORY_WEBHOOK_URL": "https://discordapp.com/api/webhooks/1442760142411006045/c2z5KcgTyJWU33g8aVskD_iHsacvKGqMqxrsdV73aE9W5eqCu-erLhO1k1BFPyhPE1Se",
   "STOCK_WEBAPP_URL": "https://script.google.com/macros/s/AKfycbz4I82bI343Ni3HTupmAuMbp0AEdoSvgQDt3_anrRvQo-QUZhike7ZIvbgvKmaZTebj/exec",
   "CASHAPP_TAG": "$YEETMASTER6"
 }
+
 

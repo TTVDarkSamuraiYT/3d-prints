@@ -256,12 +256,13 @@
       }
 
       function normalizePhoneDigits(value) {
-        return value.replace(/\D/g, "").slice(-10);
+        return value.replace(/\D/g, "").slice(-10); // last 10 digits
       }
 
       async function loadConfig() {
         try {
-          const res = await fetch("/config.json", { cache: "no-cache" });
+          // project root: ../config.json from /tracking/
+          const res = await fetch("../config.json", { cache: "no-cache" });
           if (!res.ok) throw new Error("config fetch failed");
           const cfg = await res.json();
           SHEET_ID = cfg.SHEET_ID;
@@ -286,6 +287,14 @@
           const text = await res.text();
           const rows = parseSheetJSON(text);
 
+          // Expected columns:
+          // 0: Order ID
+          // 1: Name
+          // 2: priority
+          // 3: Contact
+          // 4: Shipping
+          // 5: Status
+          // 6: Notes
           ordersData = rows
             .map((r) => {
               const c = r.c || [];
@@ -293,16 +302,12 @@
               if (!orderId) return null;
               return {
                 orderId,
-                createdAt: c[1]?.v ? String(c[1].v).trim() : "",
-                name: c[2]?.v ? String(c[2].v).trim() : "",
+                name: c[1]?.v ? String(c[1].v).trim() : "",
+                priority: c[2]?.v ? String(c[2].v).trim() : "",
                 contact: c[3]?.v ? String(c[3].v).trim() : "",
                 shippingInfo: c[4]?.v ? String(c[4].v).trim() : "",
-                externalTracking: c[5]?.v ? String(c[5].v).trim() : "",
-                status: c[6]?.v ? String(c[6].v).trim() : "",
-                paymentMethod: c[7]?.v ? String(c[7].v).trim() : "",
-                itemsSubtotal: c[9]?.v ?? "",
-                totalEstimate: c[12]?.v ?? "",
-                notes: c[13]?.v ? String(c[13].v).trim() : "",
+                status: c[5]?.v ? String(c[5].v).trim() : "",
+                notes: c[6]?.v ? String(c[6].v).trim() : "",
               };
             })
             .filter(Boolean);
@@ -330,7 +335,7 @@
 
         msgEl.textContent = `Showing ${matches.length} order${
           matches.length === 1 ? "" : "s"
-        }.`; 
+        }`;
         msgEl.className = "helper-text";
 
         matches.forEach((o) => {
@@ -344,7 +349,7 @@
           left.innerHTML =
             "<strong>Order #" +
             o.orderId +
-            "</strong><div class='muted'>" +
+            "</strong><div class=\"muted\">" +
             (o.name || "No name on file") +
             "</div>";
 
@@ -375,22 +380,10 @@
           shipLine.textContent =
             "Shipping: " + (o.shippingInfo || "not provided");
 
-          const trackLine = document.createElement("div");
-          trackLine.className = "muted";
-          if (o.externalTracking) {
-            trackLine.innerHTML =
-              'External tracking: <a style="color:#74b9ff;" target="_blank" rel="noopener" href="' +
-              o.externalTracking +
-              '">link</a>';
-          } else {
-            trackLine.textContent = "External tracking: not set yet";
-          }
-
-          const totalLine = document.createElement("div");
-          totalLine.className = "muted";
-          if (o.totalEstimate) {
-            totalLine.textContent =
-              "Total estimate: $" + Number(o.totalEstimate).toFixed(2);
+          const priorityLine = document.createElement("div");
+          priorityLine.className = "muted";
+          if (o.priority) {
+            priorityLine.textContent = "Priority: " + o.priority;
           }
 
           const noteLine = document.createElement("div");
@@ -401,8 +394,7 @@
 
           body.appendChild(contactLine);
           body.appendChild(shipLine);
-          body.appendChild(trackLine);
-          body.appendChild(totalLine);
+          if (o.priority) body.appendChild(priorityLine);
           if (o.notes) body.appendChild(noteLine);
 
           wrap.appendChild(body);
@@ -447,7 +439,7 @@
             if (contactL.includes(queryLower)) return true;
 
             if (looksLikeEmail) {
-              // email already covered by includes check
+              // already checked includes above
               return false;
             }
 

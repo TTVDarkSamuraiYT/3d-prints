@@ -170,6 +170,16 @@
         color: var(--muted);
         font-size: 0.85rem;
       }
+
+      .priority-pill {
+        padding: 2px 8px;
+        border-radius: 999px;
+        font-size: 0.7rem;
+        margin-left: 6px;
+        background: rgba(255, 255, 255, 0.08);
+        color: var(--muted);
+        text-transform: capitalize;
+      }
     </style>
   </head>
   <body>
@@ -183,7 +193,7 @@
         <h1>Order tracking</h1>
         <p class="helper-text">
           Look up the status of your order. You can search by order number, or
-          by the same name / phone / email you used when ordering.
+          by the same phone / email you used when ordering.
         </p>
       </header>
 
@@ -199,12 +209,12 @@
           </div>
           <div>
             <label for="search-contact">
-              Name or contact (phone / email)
+              Contact (phone / email)
             </label>
             <input
               type="text"
               id="search-contact"
-              placeholder="Same info you used when ordering"
+              placeholder="Same contact you used when ordering"
             />
             <div class="helper-text">
               Phone formats like 774-123-4567. Email needs to look like a real
@@ -261,7 +271,7 @@
 
       async function loadConfig() {
         try {
-          // project root: ../config.json from /tracking/
+          // tracking/ is one level below root, config.json lives in root
           const res = await fetch("../config.json", { cache: "no-cache" });
           if (!res.ok) throw new Error("config fetch failed");
           const cfg = await res.json();
@@ -287,7 +297,7 @@
           const text = await res.text();
           const rows = parseSheetJSON(text);
 
-          // Expected columns:
+          // Orders sheet layout:
           // 0: Order ID
           // 1: Name
           // 2: priority
@@ -335,7 +345,7 @@
 
         msgEl.textContent = `Showing ${matches.length} order${
           matches.length === 1 ? "" : "s"
-        }`;
+        } that matched your search.`;
         msgEl.className = "helper-text";
 
         matches.forEach((o) => {
@@ -346,12 +356,14 @@
           header.className = "result-header";
 
           const left = document.createElement("div");
+          const nameText = o.name || "No name on file";
           left.innerHTML =
-            "<strong>Order #" +
-            o.orderId +
-            "</strong><div class=\"muted\">" +
-            (o.name || "No name on file") +
-            "</div>";
+            `<strong>Order #${o.orderId}</strong>` +
+            `<div class="muted">${nameText}` +
+            (o.priority
+              ? `<span class="priority-pill">${o.priority}</span>`
+              : "") +
+            `</div>`;
 
           const pill = document.createElement("span");
           const statusNorm = normalizeStatus(o.status);
@@ -373,18 +385,12 @@
 
           const contactLine = document.createElement("div");
           contactLine.className = "muted";
-          contactLine.textContent = "Contact: " + (o.contact || "n/a");
+          contactLine.textContent = `Contact: ${o.contact || "n/a"}`;
 
           const shipLine = document.createElement("div");
           shipLine.className = "muted";
           shipLine.textContent =
             "Shipping: " + (o.shippingInfo || "not provided");
-
-          const priorityLine = document.createElement("div");
-          priorityLine.className = "muted";
-          if (o.priority) {
-            priorityLine.textContent = "Priority: " + o.priority;
-          }
 
           const noteLine = document.createElement("div");
           noteLine.className = "muted";
@@ -394,7 +400,6 @@
 
           body.appendChild(contactLine);
           body.appendChild(shipLine);
-          if (o.priority) body.appendChild(priorityLine);
           if (o.notes) body.appendChild(noteLine);
 
           wrap.appendChild(body);
@@ -431,18 +436,18 @@
           const looksLikeEmail = isValidEmail(contactVal);
 
           matches = matches.filter((o) => {
-            const nameL = (o.name || "").toLowerCase();
             const contactL = (o.contact || "").toLowerCase();
             const contactDigits = normalizePhoneDigits(o.contact || "");
 
-            if (nameL.includes(queryLower)) return true;
+            // direct substring match on the contact field
             if (contactL.includes(queryLower)) return true;
 
+            // if it's clearly an email, substring match is enough above
             if (looksLikeEmail) {
-              // already checked includes above
               return false;
             }
 
+            // for phones, compare last 10 digits
             if (
               queryDigits &&
               contactDigits &&
@@ -466,6 +471,24 @@
           .addEventListener("click", (e) => {
             e.preventDefault();
             handleSearch();
+          });
+
+        // Allow Enter key in inputs to trigger search
+        document
+          .getElementById("search-order-id")
+          .addEventListener("keydown", (e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              handleSearch();
+            }
+          });
+        document
+          .getElementById("search-contact")
+          .addEventListener("keydown", (e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              handleSearch();
+            }
           });
       }
 

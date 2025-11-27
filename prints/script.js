@@ -2,10 +2,8 @@
 let SHEET_ID = "";
 let INVENTORY_SHEET_NAME = "";
 let COLORS_SHEET_NAME = "";
-let ORDERS_SHEET_NAME = "";
 let PROMOS_SHEET_NAME = "";
 let ORDER_WEBHOOK_URL = "";
-let HISTORY_WEBHOOK_URL = "";
 let STOCK_WEBAPP_URL = "";
 let CASHAPP_TAG = "";
 
@@ -15,7 +13,7 @@ let promosData = [];
 let cart = [];
 let appliedPromo = null; // { rawCode, code, discountType, discountValue, scope, statusNorm, limit }
 
-// Order counter per day (for order ID like 20251126-001)
+// Order counter per day (for IDs like 20251126-001-ab)
 function getTodayKey() {
   const d = new Date();
   const y = d.getFullYear();
@@ -24,21 +22,39 @@ function getTodayKey() {
   return `${y}${m}${day}`;
 }
 
+/**
+ * Generate an order ID that should never duplicate:
+ *  - Keeps a per-day incrementing counter in localStorage
+ *  - Adds a 2-character base36 random suffix
+ *  => Example: 20251126-003-f9
+ */
 function nextOrderNumber() {
   const todayKey = getTodayKey();
-  const stored = JSON.parse(
-    localStorage.getItem("order_counter_state") || "{}"
-  );
+  const storageKey = "order_counter_state_v2";
+
+  let stored;
+  try {
+    stored = JSON.parse(localStorage.getItem(storageKey) || "{}");
+  } catch (e) {
+    stored = {};
+  }
+
   let counter = 0;
   if (stored.date === todayKey) {
     counter = stored.counter || 0;
   }
   counter += 1;
+
   localStorage.setItem(
-    "order_counter_state",
+    storageKey,
     JSON.stringify({ date: todayKey, counter })
   );
-  return `${todayKey}-${String(counter).padStart(3, "0")}`;
+
+  const counterPart = String(counter).padStart(3, "0");
+  const rand = Math.floor(Math.random() * 1296); // 36^2
+  const randPart = rand.toString(36).padStart(2, "0");
+
+  return `${todayKey}-${counterPart}-${randPart}`;
 }
 
 // ---------- HELPERS ----------
@@ -66,7 +82,6 @@ function safeNumber(v) {
 }
 
 // Parse "discount $/%" from Promos sheet
-// Returns { type: 'percent' | 'flat', value: number } or null
 function parseDiscountCell(raw) {
   if (raw == null || raw === "") return null;
 
@@ -95,7 +110,6 @@ function parseDiscountCell(raw) {
 
 // ---------- CONFIG / SHEET LOADING ----------
 
-// config.json is in repo root, prints/ is one level down
 const CONFIG_PATH = "../config.json";
 
 async function loadConfig() {
@@ -107,10 +121,8 @@ async function loadConfig() {
     SHEET_ID = cfg.SHEET_ID;
     INVENTORY_SHEET_NAME = cfg.INVENTORY_SHEET_NAME;
     COLORS_SHEET_NAME = cfg.COLORS_SHEET_NAME;
-    ORDERS_SHEET_NAME = cfg.ORDERS_SHEET_NAME || "Orders";
     PROMOS_SHEET_NAME = cfg.PROMOS_SHEET_NAME || "Promos";
     ORDER_WEBHOOK_URL = cfg.ORDER_WEBHOOK_URL;
-    HISTORY_WEBHOOK_URL = cfg.HISTORY_WEBHOOK_URL;
     STOCK_WEBAPP_URL = cfg.STOCK_WEBAPP_URL || "";
     CASHAPP_TAG = cfg.CASHAPP_TAG || "$CashApp";
 
@@ -191,7 +203,7 @@ async function loadInventory() {
         }
 
         const price = Number(priceRaw) || 0;
-        const stock = safeNumber(stockRaw); // # of premades available
+        const stock = safeNumber(stockRaw);
         const statusNorm = normalizeStatus(statusRaw);
 
         if (statusNorm === "offshelf") return null;
@@ -259,13 +271,13 @@ async function loadPromos() {
         if (!parsedDiscount) return null;
 
         const statusNorm = normalizeStatus(status);
-        const scopeNorm = scopeRaw ? scopeRaw.toLowerCase() : "cart"; // "cart" or "custom"
+        const scopeNorm = scopeRaw ? scopeRaw.toLowerCase() : "cart";
         const limit = safeNumber(limitRaw);
 
         return {
           rawCode,
           code: rawCode.toUpperCase(),
-          discountType: parsedDiscount.type, // 'percent' | 'flat'
+          discountType: parsedDiscount.type,
           discountValue: parsedDiscount.value,
           statusNorm,
           scope: scopeNorm === "custom" ? "custom" : "cart",
@@ -287,11 +299,10 @@ function getBaseColorsForPremade() {
   return colorsData.filter((c) => {
     const nameNorm = c.name.trim().toLowerCase();
 
-    // Skip header row "colors" and the special "premade" row
     if (nameNorm === "colors" || nameNorm === "premade") return false;
 
     const s = c.normStatus;
-    if (s === "offshelf") return false; // hidden from shop
+    if (s === "offshelf") return false;
 
     return true;
   });
@@ -365,7 +376,7 @@ function renderPremadeCards() {
     statusWrap.appendChild(badge);
     left.appendChild(statusWrap);
 
-    // Teal stock label (only shown when premade is selected, or always for limited-only items)
+    // Teal stock label (for premade option)
     const stockLabel = document.createElement("div");
     stockLabel.className = "premade-stock-label";
     stockLabel.id = `premade-stock-${index}`;
@@ -374,6 +385,7 @@ function renderPremadeCards() {
     } else {
       stockLabel.textContent = "Stock: 0";
     }
+    stockLabel.style.display = item.isLimitedStatus ? "inline-block" : "none";
     left.appendChild(stockLabel);
 
     if (item.notes) {
@@ -395,16 +407,13 @@ function renderPremadeCards() {
     let colorSelect;
 
     if (item.isLimitedStatus) {
-      // Limited status: premade-only item
+      // Premade-only item
       colorSelect = document.createElement("select");
       colorSelect.disabled = true;
       const opt = document.createElement("option");
       opt.value = "__premade";
       opt.textContent = "Premade only";
       colorSelect.appendChild(opt);
-
-      // Always show stock label for premade-only items
-      stockLabel.style.display = "inline-block";
     } else {
       colorSelect = document.createElement("select");
       const placeholder = document.createElement("option");
@@ -446,12 +455,8 @@ function renderPremadeCards() {
 
       // Show / hide stock label based on select
       colorSelect.addEventListener("change", () => {
-        if (colorSelect.value === "__premade") {
-          if (hasPremadeStock) {
-            stockLabel.style.display = "inline-block";
-          } else {
-            stockLabel.style.display = "none";
-          }
+        if (colorSelect.value === "__premade" && hasPremadeStock) {
+          stockLabel.style.display = "inline-block";
         } else {
           stockLabel.style.display = "none";
         }
@@ -516,6 +521,8 @@ function renderPremadeCards() {
             true
           );
         }
+
+        stockLabel.style.display = "inline-block";
       } else {
         const selected = colorSelect.value;
 
@@ -539,7 +546,6 @@ function renderPremadeCards() {
             );
           }
 
-          // show stock label if hidden
           stockLabel.style.display = "inline-block";
         } else {
           if (!selected) {
@@ -551,7 +557,7 @@ function renderPremadeCards() {
           }
           mode = "Color";
           color = selected;
-          maxStock = null; // made-to-order, no premade limit
+          maxStock = null;
           stockLabel.style.display = "none";
         }
       }
@@ -665,7 +671,7 @@ function renderCart() {
   if (!cart.length) {
     countEl.textContent = "0 items";
     emptyNote.style.display = "block";
-    summaryEl.style.display = "none";
+    summaryEl.style.display = "block";
     updateTotals();
     return;
   }
@@ -686,7 +692,8 @@ function renderCart() {
     title.className = "cart-item-title";
 
     const detail = detailLabelForItem(item);
-    title.textContent = detail ? `${item.name} (${detail})` : item.name;
+    const displayName = detail ? `${item.name} (${detail})` : item.name;
+    title.textContent = displayName;
 
     const sub = document.createElement("div");
     sub.className = "cart-item-sub";
@@ -770,7 +777,6 @@ function getExpediteFee(itemsSubtotal, expediteChoice) {
   return 0;
 }
 
-// Core pricing calculation used by both updateTotals() and handleSubmitOrder()
 function calculatePricing(shippingChoice, expediteChoice) {
   let itemsSubtotal = 0;
   let customSubtotal = 0;
@@ -825,7 +831,6 @@ function calculatePricing(shippingChoice, expediteChoice) {
   };
 }
 
-// Ensure promo discount row exists in summary
 function ensurePromoRow() {
   const summary = document.getElementById("cart-summary");
   if (!summary) return null;
@@ -949,61 +954,53 @@ function showSubmitMessage(msg, isError) {
   el.className = isError ? "error-text" : "success-text";
 }
 
-// ---------- ORDER SUBMISSION / BACKEND ----------
+// ---------- ORDER SUBMISSION ----------
 
 async function sendOrderWebhook(content) {
+  if (!ORDER_WEBHOOK_URL) return;
   const payload = { content };
 
-  async function send(url) {
-    if (!url) return;
-    try {
-      const res = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      if (!res.ok) {
-        console.error("Webhook failed", url, await res.text());
-      }
-    } catch (err) {
-      console.error("Webhook error", url, err);
+  try {
+    const res = await fetch(ORDER_WEBHOOK_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      console.error("Order webhook failed", await res.text());
     }
-  }
-
-  await Promise.all([send(ORDER_WEBHOOK_URL), send(HISTORY_WEBHOOK_URL)]);
-}
-
-async function sendStockUpdateToAppsScript(stockItems) {
-  if (!STOCK_WEBAPP_URL || !Array.isArray(stockItems) || !stockItems.length) {
-    return;
-  }
-  try {
-    await fetch(STOCK_WEBAPP_URL, {
-      method: "POST",
-      mode: "no-cors",
-      body: JSON.stringify({ items: stockItems }),
-    });
-    console.log("[STOCK WEBAPP] Stock update sent", stockItems);
   } catch (err) {
-    console.error("[STOCK WEBAPP ERROR] Failed to send stock update", err);
+    console.error("Order webhook error", err);
   }
 }
 
-async function sendOrderToSheets(orderRecord) {
+/**
+ * Sends stock and promo updates to Apps Script.
+ * Payload:
+ *  { items: [...], promoCodeUsed: "CODE" }
+ */
+async function sendAppsScriptUpdate(stockItems) {
   if (!STOCK_WEBAPP_URL) return;
+
+  const payload = {};
+  if (Array.isArray(stockItems) && stockItems.length) {
+    payload.items = stockItems;
+  }
+  if (appliedPromo) {
+    payload.promoCodeUsed = appliedPromo.rawCode;
+  }
+
+  if (!payload.items && !payload.promoCodeUsed) return;
+
   try {
     await fetch(STOCK_WEBAPP_URL, {
       method: "POST",
       mode: "no-cors",
-      body: JSON.stringify({
-        order: orderRecord,
-        ordersSheetName: ORDERS_SHEET_NAME,
-        promoCodeUsed: appliedPromo ? appliedPromo.rawCode : "",
-      }),
+      body: JSON.stringify(payload),
     });
-    console.log("[STOCK WEBAPP] Order logged to sheet");
+    console.log("[WEBAPP] Stock/promo update sent", payload);
   } catch (err) {
-    console.error("[STOCK WEBAPP ERROR] Failed to log order", err);
+    console.error("[WEBAPP ERROR] Failed to send stock/promo update", err);
   }
 }
 
@@ -1046,7 +1043,6 @@ function setupPromoUI() {
       return;
     }
 
-    // If code only works on custom prints, make sure there is at least one custom item
     if (promo.scope === "custom") {
       const hasCustom = cart.some((i) => i.mode === "Custom");
       if (!hasCustom) {
@@ -1152,8 +1148,8 @@ async function handleSubmitOrder() {
   }
 
   const orderId = nextOrderNumber();
-
   const pricing = calculatePricing(shippingChoice, expediteChoice);
+
   const stockItems = cart
     .filter((item) => item.mode === "Premade" && item.maxStock != null)
     .map((item) => ({
@@ -1227,48 +1223,13 @@ async function handleSubmitOrder() {
 
   const summary = lines.join("\n");
 
-  const priorityValue =
-    expediteChoice === "priority"
-      ? "priority"
-      : expediteChoice === "rush"
-      ? "rush"
-      : "none";
-
-  // Build order record for Orders sheet
-  let notesForSheet = notesText || "";
-  if (appliedPromo && pricing.promoDiscountAmount > 0.001) {
-    if (notesForSheet) notesForSheet += " | ";
-    notesForSheet += `Promo ${appliedPromo.rawCode} (-${formatCurrency(
-      pricing.promoDiscountAmount
-    )})`;
-  }
-
-  const orderRecord = {
-    orderId,
-    createdAt: new Date().toISOString(), // not in sheet but useful if ever needed
-    name: nameText || "",
-    priority: priorityValue,
-    contact,
-    shippingInfo:
-      shippingChoice === "pickup" ? "Local pickup" : shipText || "",
-    status: payment.value === "cash" ? "processing" : "paid",
-    paymentMethod: payment.text,
-    itemsJson: JSON.stringify(cart),
-    itemsSubtotal: pricing.itemsSubtotal,
-    shippingEstimate: pricing.shippingEstimate,
-    expediteFee: pricing.expediteFee,
-    totalEstimate: pricing.grandTotal,
-    notes: notesForSheet,
-  };
-
   showSubmitMessage("Submitting order…", false);
   document.getElementById("submit-order-btn").disabled = true;
 
   try {
     await Promise.all([
       sendOrderWebhook(summary),
-      sendStockUpdateToAppsScript(stockItems),
-      sendOrderToSheets(orderRecord),
+      sendAppsScriptUpdate(stockItems),
     ]);
 
     showSubmitMessage(
@@ -1333,7 +1294,6 @@ async function init() {
     .getElementById("expedite-choice")
     .addEventListener("change", updateTotals);
 
-  // Custom print add button
   document.getElementById("add-custom-btn").addEventListener("click", () => {
     const fileInput = document.getElementById("custom-file");
     const sizeSelect = document.getElementById("custom-size");
@@ -1398,7 +1358,7 @@ async function init() {
 
   setupPromoUI();
 
-  // Periodic refresh of config & inventory & promos
+  // Periodic refresh of config & sheets
   setInterval(() => {
     loadConfig();
     loadColors();

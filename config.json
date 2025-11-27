@@ -5,9 +5,10 @@
   "ORDERS_SHEET_NAME": "Orders",
   "ORDER_WEBHOOK_URL": "https://discordapp.com/api/webhooks/1442759890031480892/qhFThJwZrQTrFXYTnAVRa69SDF4fFMd4UFwOO2a87YeuI9Qkn8_lxF88XKhwWTL9kv7_",
   "HISTORY_WEBHOOK_URL": "https://discordapp.com/api/webhooks/1442760142411006045/c2z5KcgTyJWU33g8aVskD_iHsacvKGqMqxrsdV73aE9W5eqCu-erLhO1k1BFPyhPE1Se",
-  "STOCK_WEBAPP_URL": "https://script.google.com/macros/s/AKfycbykB-nDmXPgQx4NPtKOq6c6OVwNVwKLeUMbsjfQjEOXWagcZjPbKLrOtV076ovvFeqo/exec",
+  "STOCK_WEBAPP_URL": "https://script.google.com/macros/s/AKfycbxbX4CXwJ-4K0ZYVIbey4j5fWj-6E3EAwxfYaxItAQ0WwglEHW0kJ839zQCEC9PYTw1/exec",
   "CASHAPP_TAG": "$YEETMASTER6"
 }
+
 
 
 

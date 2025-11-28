@@ -2,7 +2,7 @@
 let SHEET_ID = "";
 let INVENTORY_SHEET_NAME = "";
 let COLORS_SHEET_NAME = "";
-let ORDERS_SHEET_NAME = ""; // not used anymore for writing, just kept for compatibility
+let ORDERS_SHEET_NAME = ""; // kept only for compatibility, not used to write
 let ORDER_WEBHOOK_URL = "";
 let STOCK_WEBAPP_URL = "";
 let CASHAPP_TAG = "";

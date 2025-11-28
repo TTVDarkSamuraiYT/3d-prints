@@ -1,316 +1,49 @@
-<!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <title>Tekniq Solutions – 3D Prints</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <link rel="stylesheet" href="style.css" />
-  </head>
-  <body>
-    <div class="page">
-      <header>
-        <div class="header-top">
-          <div>
-            <h1>Tekniq Solutions – 3D Printing Shop</h1>
-            <p>Choose a premade design or upload your own custom model.</p>
-            <p class="helper-text small-header">
-              This is a tiny one-person mini business, so the site and payment
-              flow might feel a bit simpler than a big store. Thanks for your
-              patience while I make everything better over time!
-            </p>
-          </div>
-          <a href="/" class="home-link">Home</a>
-        </div>
-      </header>
+<div id="cart-summary" style="display:none;">
+  <!-- ... other summary rows ... -->
 
-      <div class="grid">
-        <!-- LEFT SIDE: Premade & Custom -->
-        <div class="grid-left">
-          <!-- Premade section -->
-          <section class="card">
-            <div class="card-header">
-              <h2>Premade prints (live inventory)</h2>
-              <p class="helper-text">
-                These use my live stock system. Premades have a small discount
-                and ship faster, but are limited by stock.
-              </p>
-            </div>
-            <div id="inventory-error" class="error-banner" style="display:none;">
-              Could not load live inventory. Try refreshing in a moment.
-            </div>
-            <div id="premade-list"></div>
-          </section>
-
-          <!-- Custom section -->
-          <section class="card">
-            <div class="card-header">
-              <h2>Custom prints</h2>
-              <p class="helper-text">
-                Upload your own model and choose options. Price shown is an
-                estimate; final quote may change slightly based on complexity.
-              </p>
-            </div>
-
-            <div class="field-row">
-              <label for="custom-file">Model file</label>
-              <input type="file" id="custom-file" />
-            </div>
-
-            <div class="field-row">
-              <label for="custom-size">Approx. size</label>
-              <select id="custom-size">
-                <option value="small">Small (up to 5cm)</option>
-                <option value="medium">Medium (5–15cm)</option>
-                <option value="large">Large (15cm+)</option>
-              </select>
-            </div>
-
-            <div class="field-row">
-              <label for="custom-detail">Detail level</label>
-              <select id="custom-detail">
-                <option value="standard">Standard</option>
-                <option value="high">High detail</option>
-                <option value="ultra">Ultra detail</option>
-              </select>
-            </div>
-
-            <div class="field-row">
-              <label for="custom-color">Color</label>
-              <select id="custom-color">
-                <option value="">Loading colors…</option>
-              </select>
-            </div>
-
-            <div class="field-row">
-              <label for="custom-qty">Quantity</label>
-              <input
-                type="number"
-                id="custom-qty"
-                min="1"
-                step="1"
-                value="1"
-              />
-            </div>
-
-            <div class="field-row">
-              <button id="add-custom-btn" class="btn btn-primary">
-                Add custom print to cart
-              </button>
-            </div>
-
-            <div id="custom-estimate-text" class="helper-text">
-              Upload a file and click “Add custom print to cart” to get an
-              estimate.
-            </div>
-          </section>
-        </div>
-
-        <!-- RIGHT SIDE: Cart & Checkout -->
-        <div class="grid-right">
-          <section class="card">
-            <div class="card-header">
-              <h2>Your cart & checkout</h2>
-              <p class="helper-text">
-                Review your items, choose shipping and payment, then place your
-                order. I’ll confirm everything by message.
-              </p>
-            </div>
-
-            <!-- Cart items -->
-            <div class="cart-header">
-              <span id="cart-count">0 items</span>
-            </div>
-            <div id="cart-items"></div>
-            <div
-              id="empty-cart-note"
-              class="helper-text"
-              style="margin-top:8px;"
-            >
-              Your cart is empty. Add a premade or custom print from the left.
-            </div>
-
-            <!-- Shipping & queue options -->
-            <div class="divider"></div>
-
-            <div class="field-row">
-              <label for="shipping-choice">Shipping / pickup</label>
-              <select id="shipping-choice">
-                <option value="pickup">Local pickup</option>
-                <option value="standard">Standard shipping (US)</option>
-              </select>
-              <p class="helper-text">
-                I’ll confirm the exact shipping cost before payment.
-              </p>
-            </div>
-
-            <div class="field-row">
-              <label for="expedite-choice">Queue priority</label>
-              <select id="expedite-choice">
-                <option value="none">Normal queue</option>
-                <option value="priority">Priority (10% fee, min $5)</option>
-                <option value="rush">Rush (18% fee, min $10)</option>
-              </select>
-              <p class="helper-text">
-                Priority / rush moves your order ahead in the print queue.
-              </p>
-            </div>
-
-            <!-- PROMO CODE BOX -->
-            <div class="divider"></div>
-            <div class="field-row promo-row">
-              <label for="promo-code">Promo code</label>
-              <div class="promo-inline">
-                <input
-                  type="text"
-                  id="promo-code"
-                  placeholder="Enter code (if you have one)"
-                />
-                <button id="apply-promo-btn" class="btn btn-secondary">
-                  Apply
-                </button>
-                <button id="clear-promo-btn" class="btn btn-ghost">
-                  Clear
-                </button>
-              </div>
-              <p class="helper-text">
-                Codes may be limited-use or only for custom prints depending on
-                the promo.
-              </p>
-            </div>
-
-            <!-- Summary -->
-            <div id="cart-summary" class="summary">
-              <div class="summary-row">
-                <span>Items subtotal</span>
-                <span id="items-subtotal">$0.00</span>
-              </div>
-              <div class="summary-row">
-                <span>Shipping estimate</span>
-                <span id="shipping-estimate">$0.00</span>
-              </div>
-              <div class="summary-row">
-                <span>Queue fee</span>
-                <span id="expedite-fee">$0.00</span>
-              </div>
-              <!-- promo discount row is injected by script.js -->
-              <div class="summary-row total">
-                <span>Estimated total</span>
-                <span id="grand-total">$0.00</span>
-              </div>
-            </div>
-
-            <!-- Contact + payment -->
-            <div class="divider"></div>
-
-            <div class="field-row">
-              <label for="customer-name">Name (optional for pickup/cash)</label>
-              <input
-                type="text"
-                id="customer-name"
-                placeholder="First name or first + last"
-              />
-            </div>
-
-            <div class="field-row">
-              <label for="customer-contact">Contact (required)</label>
-              <input
-                type="text"
-                id="customer-contact"
-                placeholder="Phone or email"
-              />
-              <p class="helper-text">
-                This is what I’ll use to confirm your order & send payment link.
-              </p>
-            </div>
-
-            <div class="field-row">
-              <label for="shipping-info">Shipping details</label>
-              <input
-                type="text"
-                id="shipping-info"
-                placeholder="Address or pickup instructions"
-              />
-            </div>
-
-            <div class="field-row">
-              <label for="extra-notes">Notes (optional)</label>
-              <textarea
-                id="extra-notes"
-                rows="2"
-                placeholder="Color tweaks, deadlines, etc."
-              ></textarea>
-            </div>
-
-            <div class="divider"></div>
-
-            <div class="field-row">
-              <label>Payment method</label>
-              <div class="radio-row">
-                <label>
-                  <input
-                    type="radio"
-                    name="payment-method"
-                    value="cashapp"
-                  />
-                  Cash App (<span id="cashapp-tag-display">$CashApp</span>)
-                </label>
-              </div>
-              <div class="radio-row">
-                <label>
-                  <input type="radio" name="payment-method" value="card" />
-                  Card (Square invoice)
-                </label>
-              </div>
-              <div class="radio-row">
-                <label>
-                  <input type="radio" name="payment-method" value="cash" />
-                  Cash on pickup
-                </label>
-              </div>
-            </div>
-
-            <div
-              id="cashapp-extra"
-              class="field-row hidden"
-              style="margin-top:4px;"
-            >
-              <label for="cashapp-reference">Cash App note / $tag</label>
-              <input
-                type="text"
-                id="cashapp-reference"
-                placeholder="Your $tag or note I’ll see"
-              />
-            </div>
-
-            <div class="divider"></div>
-
-            <div class="field-row">
-              <button id="submit-order-btn" class="btn btn-primary">
-                Place order
-              </button>
-            </div>
-
-            <div id="submit-message" class="helper-text"></div>
-
-            <div class="divider"></div>
-
-            <div class="field-row">
-              <p class="helper-text">
-                Already ordered?
-                <button
-                  id="open-tracking-btn"
-                  class="btn btn-link"
-                  type="button"
-                >
-                  Track your order
-                </button>
-              </p>
-            </div>
-          </section>
-        </div>
-      </div>
+  <!-- PROMO BOX -->
+  <div class="promo-box">
+    <label for="promo-code">Promo code</label>
+    <div class="promo-row">
+      <input
+        type="text"
+        id="promo-code"
+        placeholder="Enter code"
+      />
+      <button id="apply-promo-btn" class="btn btn-primary">
+        Apply
+      </button>
+      <button id="clear-promo-btn" class="btn btn-ghost">
+        Clear
+      </button>
     </div>
+    <!-- promo message now lives HERE under the box -->
+    <div id="promo-message" class="helper-text"></div>
+  </div>
 
-    <script src="script.js"></script>
-  </body>
-</html>
+  <div class="summary-row">
+    <span>Items subtotal</span>
+    <span id="items-subtotal">$0.00</span>
+  </div>
+
+  <!-- new optional promo line (script shows/hides it) -->
+  <div class="summary-row" id="promo-row" style="display:none;">
+    <span>Promo discount</span>
+    <span id="promo-discount-value"></span>
+  </div>
+
+  <div class="summary-row">
+    <span>Shipping</span>
+    <span id="shipping-estimate">$0.00</span>
+  </div>
+
+  <div class="summary-row">
+    <span>Expedite fee</span>
+    <span id="expedite-fee">$0.00</span>
+  </div>
+
+  <div class="summary-row total">
+    <strong>Total</strong>
+    <strong id="grand-total">$0.00</strong>
+  </div>
+</div>

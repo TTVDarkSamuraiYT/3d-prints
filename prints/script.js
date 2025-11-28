@@ -2,59 +2,70 @@
 let SHEET_ID = "";
 let INVENTORY_SHEET_NAME = "";
 let COLORS_SHEET_NAME = "";
-let PROMOS_SHEET_NAME = "";
+let ORDERS_SHEET_NAME = ""; // not used anymore for writing, just kept for compatibility
 let ORDER_WEBHOOK_URL = "";
 let STOCK_WEBAPP_URL = "";
 let CASHAPP_TAG = "";
+
+let PROMOS_SHEET_NAME = "Promos";
 
 let colorsData = [];
 let inventoryData = [];
 let promosData = [];
 let cart = [];
-let appliedPromo = null; // { rawCode, code, discountType, discountValue, scope, statusNorm, limit }
 
-// Order counter per day (for IDs like 20251126-001-ab)
-function getTodayKey() {
-  const d = new Date();
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}${m}${day}`;
-}
+// currently applied promo (or null)
+let appliedPromo = null; // { code, type, amount, scope, statusNorm }
+let promoDiscountAmount = 0;
 
-/**
- * Generate an order ID that should never duplicate:
- *  - Keeps a per-day incrementing counter in localStorage
- *  - Adds a 2-character base36 random suffix
- *  => Example: 20251126-003-f9
- */
+// premade discount (15% off)
+const PREMADE_DISCOUNT = 0.85;
+
+// ---------- ORDER ID (NEVER DUPLICATE) ----------
+// Format: YYYYMMDD-HHMMSS-SEQrr
+// - date/time part keeps it mostly increasing
+// - SEQ is a local sequence for multiple orders in the same second
+// - "rr" is a small random component to make collisions across browsers practically impossible
 function nextOrderNumber() {
-  const todayKey = getTodayKey();
-  const storageKey = "order_counter_state_v2";
+  const now = new Date();
 
-  let stored;
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, "0");
+  const d = String(now.getDate()).padStart(2, "0");
+  const hh = String(now.getHours()).padStart(2, "0");
+  const mm = String(now.getMinutes()).padStart(2, "0");
+  const ss = String(now.getSeconds()).padStart(2, "0");
+
+  const datePart = `${y}${m}${d}`;
+  const timePart = `${hh}${mm}${ss}`;
+  const key = `${datePart}-${timePart}`;
+
+  let state;
   try {
-    stored = JSON.parse(localStorage.getItem(storageKey) || "{}");
-  } catch (e) {
-    stored = {};
+    state = JSON.parse(localStorage.getItem("order_state") || "{}");
+  } catch {
+    state = {};
   }
 
-  let counter = 0;
-  if (stored.date === todayKey) {
-    counter = stored.counter || 0;
+  let seq = 1;
+  if (state.key === key && typeof state.seq === "number") {
+    seq = state.seq + 1;
   }
-  counter += 1;
 
-  localStorage.setItem(
-    storageKey,
-    JSON.stringify({ date: todayKey, counter })
-  );
+  state.key = key;
+  state.seq = seq;
+  try {
+    localStorage.setItem("order_state", JSON.stringify(state));
+  } catch {
+    // ignore storage issues, uniqueness still covered by time + random
+  }
 
-  const counterPart = String(counter).padStart(3, "0");
-  const rand = Math.floor(Math.random() * 1296); // 36^2
-  const randPart = rand.toString(36).padStart(2, "0");
+  const seqPart = String(seq).padStart(3, "0");
+  const randPart = Math.floor(Math.random() * 36 * 36)
+    .toString(36)
+    .padStart(2, "0");
 
-  return `${todayKey}-${counterPart}-${randPart}`;
+  return `${datePart}-${timePart}-${seqPart}${randPart}`;
 }
 
 // ---------- HELPERS ----------
@@ -81,36 +92,41 @@ function safeNumber(v) {
   return Number.isFinite(n) ? n : null;
 }
 
-// Parse "discount $/%" from Promos sheet
-function parseDiscountCell(raw) {
+// parse promo discount like "13%", "13", "$5", "5 $" etc.
+function parsePromoDiscount(raw) {
   if (raw == null || raw === "") return null;
 
   if (typeof raw === "number") {
-    if (!Number.isFinite(raw) || raw <= 0) return null;
-    if (raw > 1.0000001) {
-      return { type: "flat", value: raw }; // dollars
-    } else {
-      return { type: "percent", value: raw }; // 0.15 => 15%
-    }
+    // treat bare number as percent
+    return { type: "percent", amount: raw };
   }
 
   const s = String(raw).trim();
-  if (!s) return null;
 
-  if (s.endsWith("%")) {
-    const n = parseFloat(s.slice(0, -1));
-    if (!Number.isFinite(n) || n <= 0) return null;
-    return { type: "percent", value: n / 100 };
+  // "13%" style
+  const percentMatch = s.match(/([\d.]+)\s*%/);
+  if (percentMatch) {
+    const val = parseFloat(percentMatch[1]);
+    if (!isNaN(val)) return { type: "percent", amount: val };
   }
 
-  const n = parseFloat(s);
-  if (!Number.isFinite(n) || n <= 0) return null;
-  return { type: "flat", value: n };
+  // "$5" style
+  const dollarMatch = s.match(/\$?\s*([\d.]+)/);
+  if (dollarMatch && s.includes("$")) {
+    const val = parseFloat(dollarMatch[1]);
+    if (!isNaN(val)) return { type: "fixed", amount: val };
+  }
+
+  // plain "13" -> percent
+  const num = parseFloat(s);
+  if (!isNaN(num)) return { type: "percent", amount: num };
+
+  return null;
 }
 
 // ---------- CONFIG / SHEET LOADING ----------
 
-const CONFIG_PATH = "../config.json";
+const CONFIG_PATH = "../config.json"; // one level up from /prints
 
 async function loadConfig() {
   try {
@@ -121,10 +137,11 @@ async function loadConfig() {
     SHEET_ID = cfg.SHEET_ID;
     INVENTORY_SHEET_NAME = cfg.INVENTORY_SHEET_NAME;
     COLORS_SHEET_NAME = cfg.COLORS_SHEET_NAME;
-    PROMOS_SHEET_NAME = cfg.PROMOS_SHEET_NAME || "Promos";
+    ORDERS_SHEET_NAME = cfg.ORDERS_SHEET_NAME || "Orders";
     ORDER_WEBHOOK_URL = cfg.ORDER_WEBHOOK_URL;
     STOCK_WEBAPP_URL = cfg.STOCK_WEBAPP_URL || "";
     CASHAPP_TAG = cfg.CASHAPP_TAG || "$CashApp";
+    PROMOS_SHEET_NAME = cfg.PROMOS_SHEET_NAME || "Promos";
 
     const cashTagEl = document.getElementById("cashapp-tag-display");
     if (cashTagEl) cashTagEl.textContent = CASHAPP_TAG;
@@ -149,7 +166,7 @@ async function loadColors() {
     const text = await res.text();
     const rows = parseSheetJSON(text);
 
-    const mapped = rows
+    colorsData = rows
       .map((r) => {
         const c = r.c || [];
         const name = c[0]?.v ? String(c[0].v).trim() : "";
@@ -164,7 +181,6 @@ async function loadColors() {
       })
       .filter(Boolean);
 
-    colorsData = mapped;
     console.log("Colors from sheet:", colorsData);
   } catch (err) {
     console.error("Error loading colors sheet", err);
@@ -206,16 +222,21 @@ async function loadInventory() {
         const stock = safeNumber(stockRaw);
         const statusNorm = normalizeStatus(statusRaw);
 
+        // fully off shelf, don't show
         if (statusNorm === "offshelf") return null;
 
-        const isLimitedStatus = statusNorm === "limited";
+        const isLimited = statusNorm === "limited";
+        if (isLimited && (stock === null || stock <= 0)) {
+          // limited but no stock left
+          return null;
+        }
 
         let availability = "available";
         if (statusNorm === "temporarily unavailable") {
           availability = "temp";
         } else if (statusNorm === "sold out" || statusNorm === "unavailable") {
           availability = "unavailable";
-        } else if (isLimitedStatus) {
+        } else if (isLimited) {
           availability = "limited";
         }
 
@@ -227,7 +248,7 @@ async function loadInventory() {
           statusNorm,
           notes,
           availability,
-          isLimitedStatus,
+          isLimited,
         };
       })
       .filter(Boolean);
@@ -245,6 +266,7 @@ async function loadInventory() {
 async function loadPromos() {
   promosData = [];
   if (!SHEET_ID || !PROMOS_SHEET_NAME) return;
+
   try {
     const url =
       "https://docs.google.com/spreadsheets/d/" +
@@ -260,50 +282,58 @@ async function loadPromos() {
     promosData = rows
       .map((r) => {
         const c = r.c || [];
-        const rawCode = c[0]?.v ? String(c[0].v).trim() : "";
-        if (!rawCode) return null;
-        const discRaw = c[1]?.v;
-        const status = c[2]?.v ? String(c[2].v).trim() : "";
+        const codeRaw = c[0]?.v;
+        if (!codeRaw) return null;
+
+        const discountRaw = c[1]?.v;
+        const statusRaw = c[2]?.v ? String(c[2].v).trim() : "";
         const limitRaw = c[3]?.v;
-        const scopeRaw = c[4]?.v ? String(c[4].v).trim() : "";
+        const discountedRaw = c[4]?.v ? String(c[4].v).trim() : "";
 
-        const parsedDiscount = parseDiscountCell(discRaw);
-        if (!parsedDiscount) return null;
+        const code = String(codeRaw).trim().toUpperCase();
+        const discountParsed = parsePromoDiscount(discountRaw);
+        if (!discountParsed) return null;
 
-        const statusNorm = normalizeStatus(status);
-        const scopeNorm = scopeRaw ? scopeRaw.toLowerCase() : "cart";
-        const limit = safeNumber(limitRaw);
+        let limit = safeNumber(limitRaw);
+        if (limit == null) limit = null;
+
+        let statusNorm = normalizeStatus(statusRaw);
+        if (!statusNorm) statusNorm = "available";
+
+        // scope: "cart" or "custom" (default cart)
+        let scope = discountedRaw ? discountedRaw.toLowerCase() : "cart";
+        if (scope !== "custom") scope = "cart";
 
         return {
-          rawCode,
-          code: rawCode.toUpperCase(),
-          discountType: parsedDiscount.type,
-          discountValue: parsedDiscount.value,
+          code,
+          discountType: discountParsed.type, // 'percent' | 'fixed'
+          discountAmount: discountParsed.amount,
+          rawStatus: statusRaw,
           statusNorm,
-          scope: scopeNorm === "custom" ? "custom" : "cart",
           limit,
+          scope, // 'cart' or 'custom'
         };
       })
       .filter(Boolean);
 
-    console.log("Promos from sheet:", promosData);
+    console.log("Promos loaded:", promosData);
   } catch (err) {
     console.error("Error loading promos sheet", err);
     promosData = [];
   }
 }
 
-// ---------- BUILD UI ----------
+// ---------- COLORS HELPERS ----------
 
 function getBaseColorsForPremade() {
   return colorsData.filter((c) => {
     const nameNorm = c.name.trim().toLowerCase();
 
+    // Skip header row "colors" and special "premade"
     if (nameNorm === "colors" || nameNorm === "premade") return false;
 
     const s = c.normStatus;
     if (s === "offshelf") return false;
-
     return true;
   });
 }
@@ -311,18 +341,20 @@ function getBaseColorsForPremade() {
 function getBaseColorsForCustom() {
   return colorsData.filter((c) => {
     const nameNorm = c.name.trim().toLowerCase();
-
     if (nameNorm === "colors" || nameNorm === "premade") return false;
 
     const s = c.normStatus;
-    if (s === "offshelf" || s === "sold out" || s === "unavailable") return false;
-
+    if (s === "offshelf" || s === "sold out" || s === "unavailable")
+      return false;
     return true;
   });
 }
 
+// ---------- BUILD UI / PREMIADES ----------
+
 function renderPremadeCards() {
   const listEl = document.getElementById("premade-list");
+  if (!listEl) return;
   listEl.innerHTML = "";
 
   const baseColors = getBaseColorsForPremade();
@@ -376,16 +408,13 @@ function renderPremadeCards() {
     statusWrap.appendChild(badge);
     left.appendChild(statusWrap);
 
-    // Teal stock label (for premade option)
+    // stock label that only shows when "Premade" option is selected
     const stockLabel = document.createElement("div");
     stockLabel.className = "premade-stock-label";
-    stockLabel.id = `premade-stock-${index}`;
-    if (item.stock != null && item.stock > 0) {
+    stockLabel.style.display = "none";
+    if (item.stock != null) {
       stockLabel.textContent = `Stock: ${item.stock}`;
-    } else {
-      stockLabel.textContent = "Stock: 0";
     }
-    stockLabel.style.display = item.isLimitedStatus ? "inline-block" : "none";
     left.appendChild(stockLabel);
 
     if (item.notes) {
@@ -403,19 +432,19 @@ function renderPremadeCards() {
     colorLabel.textContent = "Color";
     colorRow.appendChild(colorLabel);
 
-    const hasPremadeStock = item.stock != null && item.stock > 0;
-    let colorSelect;
+    const colorSelect = document.createElement("select");
+    colorSelect.id = `premade-color-${index}`;
 
-    if (item.isLimitedStatus) {
-      // Premade-only item
-      colorSelect = document.createElement("select");
-      colorSelect.disabled = true;
+    const hasPremadeStock =
+      item.stock != null && item.stock > 0 && item.availability !== "unavailable";
+
+    if (item.isLimited) {
+      // limited items: premade-only
       const opt = document.createElement("option");
       opt.value = "__premade";
-      opt.textContent = "Premade only";
+      opt.textContent = "Premade (15% off, random color)";
       colorSelect.appendChild(opt);
     } else {
-      colorSelect = document.createElement("select");
       const placeholder = document.createElement("option");
       placeholder.value = "";
       placeholder.textContent = "Select color";
@@ -446,24 +475,23 @@ function renderPremadeCards() {
         colorSelect.appendChild(o);
       });
 
-      if (hasPremadeStock && item.availability !== "unavailable") {
-        const premOpt = document.createElement("option");
-        premOpt.value = "__premade";
-        premOpt.textContent = "Premade (15% off, random color)";
-        colorSelect.appendChild(premOpt);
+      if (hasPremadeStock) {
+        const prem = document.createElement("option");
+        prem.value = "__premade";
+        prem.textContent = "Premade (15% off, random color)";
+        colorSelect.appendChild(prem);
       }
-
-      // Show / hide stock label based on select
-      colorSelect.addEventListener("change", () => {
-        if (colorSelect.value === "__premade" && hasPremadeStock) {
-          stockLabel.style.display = "inline-block";
-        } else {
-          stockLabel.style.display = "none";
-        }
-      });
     }
 
-    colorSelect.id = `premade-color-${index}`;
+    // show/hide "Stock: X" when premade is chosen
+    colorSelect.addEventListener("change", () => {
+      if (colorSelect.value === "__premade" && item.stock != null) {
+        stockLabel.style.display = "inline-block";
+      } else {
+        stockLabel.style.display = "none";
+      }
+    });
+
     colorRow.appendChild(colorSelect);
     right.appendChild(colorRow);
 
@@ -496,13 +524,11 @@ function renderPremadeCards() {
 
     btn.addEventListener("click", () => {
       let qtyVal = Math.max(1, Number(qtyInput.value) || 1);
-
       let mode;
       let color;
       let maxStock = null;
 
-      if (item.isLimitedStatus) {
-        // Premade-only item
+      if (item.isLimited) {
         if (!hasPremadeStock) {
           showSubmitMessage(
             `Sorry, "${item.name}" premades are sold out.`,
@@ -513,19 +539,8 @@ function renderPremadeCards() {
         mode = "Premade";
         color = "Premade";
         maxStock = item.stock;
-
-        if (qtyVal > item.stock) {
-          qtyVal = item.stock;
-          showSubmitMessage(
-            `You can only order up to ${item.stock} premades for "${item.name}".`,
-            true
-          );
-        }
-
-        stockLabel.style.display = "inline-block";
       } else {
         const selected = colorSelect.value;
-
         if (selected === "__premade") {
           if (!hasPremadeStock) {
             showSubmitMessage(
@@ -537,16 +552,6 @@ function renderPremadeCards() {
           mode = "Premade";
           color = "Premade";
           maxStock = item.stock;
-
-          if (qtyVal > item.stock) {
-            qtyVal = item.stock;
-            showSubmitMessage(
-              `You can only order up to ${item.stock} premades for "${item.name}".`,
-              true
-            );
-          }
-
-          stockLabel.style.display = "inline-block";
         } else {
           if (!selected) {
             showSubmitMessage(
@@ -557,8 +562,7 @@ function renderPremadeCards() {
           }
           mode = "Color";
           color = selected;
-          maxStock = null;
-          stockLabel.style.display = "none";
+          maxStock = null; // made-to-order, no stock cap
         }
       }
 
@@ -567,8 +571,7 @@ function renderPremadeCards() {
           name: item.name,
           mode,
           color,
-          price:
-            mode === "Premade" ? item.price * 0.85 /* 15% off */ : item.price,
+          price: mode === "Premade" ? item.price * PREMADE_DISCOUNT : item.price,
           maxStock,
         },
         qtyVal
@@ -583,18 +586,20 @@ function renderPremadeCards() {
     listEl.appendChild(card);
   });
 
-  // custom colors
+  // custom colors dropdown
   const customColorSelect = document.getElementById("custom-color");
-  customColorSelect.innerHTML = '<option value="">Select color</option>';
-  getBaseColorsForCustom().forEach((c) => {
-    const o = document.createElement("option");
-    o.value = c.name;
-    o.textContent = c.name;
-    customColorSelect.appendChild(o);
-  });
+  if (customColorSelect) {
+    customColorSelect.innerHTML = '<option value="">Select color</option>';
+    getBaseColorsForCustom().forEach((c) => {
+      const o = document.createElement("option");
+      o.value = c.name;
+      o.textContent = c.name;
+      customColorSelect.appendChild(o);
+    });
+  }
 }
 
-// ---------- CART & PRICING ----------
+// ---------- CART ----------
 
 function addToCart(itemBase, qty) {
   qty = Math.max(1, Number(qty) || 1);
@@ -616,13 +621,7 @@ function addToCart(itemBase, qty) {
       );
       return;
     }
-    if (qty > remaining) {
-      qty = remaining;
-      showSubmitMessage(
-        `Only ${remaining} premades left for "${itemBase.name}".`,
-        true
-      );
-    }
+    if (qty > remaining) qty = remaining;
   }
 
   const existing = cart.find(
@@ -641,7 +640,7 @@ function addToCart(itemBase, qty) {
   } else {
     cart.push({
       name: itemBase.name,
-      mode: itemBase.mode, // Premade, Color, Custom
+      mode: itemBase.mode, // "Premade", "Color", "Custom"
       color: itemBase.color,
       unitPrice: itemBase.price,
       quantity: qty,
@@ -650,6 +649,8 @@ function addToCart(itemBase, qty) {
   }
 
   renderCart();
+  // keep any applied promo but recompute discount amount
+  updateTotals();
   showSubmitMessage("", false);
 }
 
@@ -666,12 +667,14 @@ function renderCart() {
   const emptyNote = document.getElementById("empty-cart-note");
   const summaryEl = document.getElementById("cart-summary");
 
+  if (!itemsEl || !countEl || !emptyNote || !summaryEl) return;
+
   itemsEl.innerHTML = "";
 
   if (!cart.length) {
     countEl.textContent = "0 items";
     emptyNote.style.display = "block";
-    summaryEl.style.display = "block";
+    summaryEl.style.display = "none";
     updateTotals();
     return;
   }
@@ -692,8 +695,11 @@ function renderCart() {
     title.className = "cart-item-title";
 
     const detail = detailLabelForItem(item);
-    const displayName = detail ? `${item.name} (${detail})` : item.name;
-    title.textContent = displayName;
+    if (detail) {
+      title.textContent = `${item.name} (${detail})`;
+    } else {
+      title.textContent = item.name;
+    }
 
     const sub = document.createElement("div");
     sub.className = "cart-item-sub";
@@ -711,8 +717,10 @@ function renderCart() {
     minusBtn.addEventListener("click", () => {
       if (item.quantity > 1) {
         item.quantity -= 1;
-        renderCart();
+      } else {
+        cart.splice(idx, 1);
       }
+      renderCart();
     });
 
     const qty = document.createElement("span");
@@ -760,8 +768,9 @@ function renderCart() {
   updateTotals();
 }
 
-function getShippingEstimate(itemsSubtotal, shippingChoice) {
-  if (shippingChoice === "pickup") return 0;
+function getShippingEstimate(itemsSubtotal) {
+  // you can tweak these thresholds any time
+  if (itemsSubtotal <= 0) return 0;
   if (itemsSubtotal <= 10) return 6.0;
   if (itemsSubtotal <= 40) return 9.0;
   return 14.0;
@@ -777,7 +786,16 @@ function getExpediteFee(itemsSubtotal, expediteChoice) {
   return 0;
 }
 
-function calculatePricing(shippingChoice, expediteChoice) {
+function updateTotals() {
+  const itemsSubtotalEl = document.getElementById("items-subtotal");
+  const shippingEl = document.getElementById("shipping-estimate");
+  const expediteEl = document.getElementById("expedite-fee");
+  const grandEl = document.getElementById("grand-total");
+  const promoRow = document.getElementById("promo-row");
+  const promoValueEl = document.getElementById("promo-discount-value");
+
+  if (!itemsSubtotalEl || !shippingEl || !expediteEl || !grandEl) return;
+
   let itemsSubtotal = 0;
   let customSubtotal = 0;
 
@@ -789,107 +807,53 @@ function calculatePricing(shippingChoice, expediteChoice) {
     }
   });
 
-  let promoDiscountAmount = 0;
+  const shippingChoice = "standard"; // you can easily add pickup/choice later
+  const expediteChoiceEl = document.getElementById("expedite-choice");
+  const expediteChoice = expediteChoiceEl
+    ? expediteChoiceEl.value
+    : "none";
 
+  const shippingEstimate = getShippingEstimate(itemsSubtotal);
+  const expediteFee = getExpediteFee(itemsSubtotal, expediteChoice);
+
+  // promo discount
+  promoDiscountAmount = 0;
   if (appliedPromo) {
-    let base =
-      appliedPromo.scope === "custom" ? customSubtotal : itemsSubtotal;
+    let base = 0;
+    if (appliedPromo.scope === "custom") {
+      base = customSubtotal;
+    } else {
+      base = itemsSubtotal;
+    }
+
     if (base > 0) {
-      if (appliedPromo.discountType === "percent") {
-        promoDiscountAmount = base * appliedPromo.discountValue;
-      } else {
-        promoDiscountAmount = appliedPromo.discountValue;
+      if (appliedPromo.type === "percent") {
+        promoDiscountAmount = (base * appliedPromo.amount) / 100;
+      } else if (appliedPromo.type === "fixed") {
+        promoDiscountAmount = appliedPromo.amount;
       }
-      if (promoDiscountAmount > base) promoDiscountAmount = base;
+
+      if (promoDiscountAmount > base) {
+        promoDiscountAmount = base;
+      }
     }
   }
 
-  const effectiveItemsSubtotal = Math.max(
-    0,
-    itemsSubtotal - promoDiscountAmount
-  );
+  const itemsAfterPromo = Math.max(itemsSubtotal - promoDiscountAmount, 0);
+  const grandTotal = itemsAfterPromo + shippingEstimate + expediteFee;
 
-  const shippingEstimate = getShippingEstimate(
-    effectiveItemsSubtotal,
-    shippingChoice
-  );
-  const expediteFee = getExpediteFee(
-    effectiveItemsSubtotal,
-    expediteChoice
-  );
-  const grandTotal =
-    effectiveItemsSubtotal + shippingEstimate + expediteFee;
+  itemsSubtotalEl.textContent = formatCurrency(itemsSubtotal);
+  shippingEl.textContent = formatCurrency(shippingEstimate);
+  expediteEl.textContent = formatCurrency(expediteFee);
+  grandEl.textContent = formatCurrency(grandTotal);
 
-  return {
-    itemsSubtotal,
-    customSubtotal,
-    promoDiscountAmount,
-    effectiveItemsSubtotal,
-    shippingEstimate,
-    expediteFee,
-    grandTotal,
-  };
-}
-
-function ensurePromoRow() {
-  const summary = document.getElementById("cart-summary");
-  if (!summary) return null;
-
-  let row = document.getElementById("promo-discount-row");
-  if (row) return row;
-
-  row = document.createElement("div");
-  row.className = "summary-row";
-  row.id = "promo-discount-row";
-
-  const label = document.createElement("span");
-  label.textContent = "Promo discount";
-
-  const val = document.createElement("span");
-  val.id = "promo-discount";
-  val.textContent = "-$0.00";
-
-  row.appendChild(label);
-  row.appendChild(val);
-
-  const totalRow = summary.querySelector(".summary-row.total");
-  if (totalRow && totalRow.parentNode === summary) {
-    summary.insertBefore(row, totalRow);
-  } else {
-    summary.appendChild(row);
-  }
-
-  return row;
-}
-
-function updateTotals() {
-  const itemsSubtotalEl = document.getElementById("items-subtotal");
-  const shippingEl = document.getElementById("shipping-estimate");
-  const expediteEl = document.getElementById("expedite-fee");
-  const grandEl = document.getElementById("grand-total");
-
-  const shippingChoice = document.getElementById("shipping-choice").value;
-  const expediteChoice = document.getElementById("expedite-choice").value;
-
-  const pricing = calculatePricing(shippingChoice, expediteChoice);
-
-  itemsSubtotalEl.textContent = formatCurrency(pricing.itemsSubtotal);
-  shippingEl.textContent = formatCurrency(pricing.shippingEstimate);
-  expediteEl.textContent = formatCurrency(pricing.expediteFee);
-  grandEl.textContent = formatCurrency(pricing.grandTotal);
-
-  const promoRow = ensurePromoRow();
-  if (promoRow) {
-    if (pricing.promoDiscountAmount > 0.001) {
+  if (promoRow && promoValueEl) {
+    if (promoDiscountAmount > 0) {
       promoRow.style.display = "flex";
-      const valEl = document.getElementById("promo-discount");
-      const text = formatCurrency(pricing.promoDiscountAmount).replace(
-        "$",
-        ""
-      );
-      valEl.textContent = `- $${text}`;
+      promoValueEl.textContent = "-" + formatCurrency(promoDiscountAmount);
     } else {
       promoRow.style.display = "none";
+      promoValueEl.textContent = "";
     }
   }
 }
@@ -945,6 +909,7 @@ function getSelectedPayment() {
 
 function showSubmitMessage(msg, isError) {
   const el = document.getElementById("submit-message");
+  if (!el) return;
   if (!msg) {
     el.textContent = "";
     el.className = "helper-text";
@@ -954,7 +919,94 @@ function showSubmitMessage(msg, isError) {
   el.className = isError ? "error-text" : "success-text";
 }
 
-// ---------- ORDER SUBMISSION ----------
+// ---------- PROMO UI / LOGIC ----------
+
+function showPromoMessage(msg, isError) {
+  const el = document.getElementById("promo-message");
+  if (!el) return;
+  if (!msg) {
+    el.textContent = "";
+    el.className = "helper-text";
+    return;
+  }
+  el.textContent = msg;
+  el.className = isError ? "error-text" : "success-text";
+}
+
+function clearPromo() {
+  appliedPromo = null;
+  promoDiscountAmount = 0;
+  const input = document.getElementById("promo-code");
+  if (input) input.value = "";
+  showPromoMessage("", false);
+  updateTotals();
+}
+
+function applyPromoCode() {
+  if (!cart.length) {
+    showPromoMessage("Add something to your cart before applying a code.", true);
+    return;
+  }
+
+  const input = document.getElementById("promo-code");
+  if (!input) return;
+  const raw = input.value.trim();
+  if (!raw) {
+    showPromoMessage("Enter a promo code first.", true);
+    return;
+  }
+
+  const codeUpper = raw.toUpperCase();
+  const promo = promosData.find((p) => p.code === codeUpper);
+
+  if (!promo) {
+    showPromoMessage("That code is not valid right now.", true);
+    appliedPromo = null;
+    updateTotals();
+    return;
+  }
+
+  // Status rules:
+  // - Off Use -> act as if it doesn't exist
+  // - Limited -> valid only if limit > 0
+  // - Available -> always valid, ignore limit
+  if (promo.statusNorm === "off use") {
+    showPromoMessage("That code is not active right now.", true);
+    appliedPromo = null;
+    updateTotals();
+    return;
+  }
+
+  if (promo.statusNorm === "limited") {
+    if (promo.limit == null || promo.limit <= 0) {
+      showPromoMessage("That code has reached its usage limit.", true);
+      appliedPromo = null;
+      updateTotals();
+      return;
+    }
+  }
+
+  // Looks good; store simplified promo info
+  appliedPromo = {
+    code: promo.code,
+    type: promo.discountType,
+    amount: promo.discountAmount,
+    scope: promo.scope,
+    statusNorm: promo.statusNorm,
+  };
+
+  const scopeText =
+    promo.scope === "custom" ? "custom prints" : "cart total";
+  const discountText =
+    promo.discountType === "percent"
+      ? `${promo.discountAmount}% off ${scopeText}`
+      : `$${promo.discountAmount.toFixed(2)} off ${scopeText}`;
+
+  showPromoMessage(`Promo "${raw}" applied: ${discountText}.`, false);
+  updateTotals();
+}
+
+// ---------- WEBHOOK & APPS SCRIPT ----------
 
 async function sendOrderWebhook(content) {
   if (!ORDER_WEBHOOK_URL) return;
@@ -974,23 +1026,19 @@ async function sendOrderWebhook(content) {
   }
 }
 
-/**
- * Sends stock and promo updates to Apps Script.
- * Payload:
- *  { items: [...], promoCodeUsed: "CODE" }
- */
-async function sendAppsScriptUpdate(stockItems) {
+// send stock + promo usage to Apps Script
+async function sendStockAndPromoUpdate(stockItems, promoCodeUsed) {
   if (!STOCK_WEBAPP_URL) return;
 
   const payload = {};
   if (Array.isArray(stockItems) && stockItems.length) {
     payload.items = stockItems;
   }
-  if (appliedPromo) {
-    payload.promoCodeUsed = appliedPromo.rawCode;
+  if (promoCodeUsed) {
+    payload.promoCodeUsed = promoCodeUsed;
   }
 
-  if (!payload.items && !payload.promoCodeUsed) return;
+  if (!Object.keys(payload).length) return;
 
   try {
     await fetch(STOCK_WEBAPP_URL, {
@@ -1004,74 +1052,7 @@ async function sendAppsScriptUpdate(stockItems) {
   }
 }
 
-// ---------- PROMO UI ----------
-
-function setupPromoUI() {
-  const input = document.getElementById("promo-code");
-  const applyBtn = document.getElementById("apply-promo-btn");
-  const clearBtn = document.getElementById("clear-promo-btn");
-
-  if (!input || !applyBtn) return;
-
-  applyBtn.addEventListener("click", () => {
-    const raw = input.value.trim();
-    if (!raw) {
-      showSubmitMessage("Enter a promo code first.", true);
-      return;
-    }
-    const codeUpper = raw.toUpperCase();
-
-    const promo = promosData.find(
-      (p) => p.code === codeUpper && p.statusNorm !== "off use"
-    );
-
-    if (!promo) {
-      appliedPromo = null;
-      updateTotals();
-      showSubmitMessage("That promo code is not active right now.", true);
-      return;
-    }
-
-    if (
-      promo.statusNorm === "limited" &&
-      promo.limit != null &&
-      promo.limit <= 0
-    ) {
-      appliedPromo = null;
-      updateTotals();
-      showSubmitMessage("That promo code has no uses left.", true);
-      return;
-    }
-
-    if (promo.scope === "custom") {
-      const hasCustom = cart.some((i) => i.mode === "Custom");
-      if (!hasCustom) {
-        appliedPromo = null;
-        updateTotals();
-        showSubmitMessage(
-          "This promo only applies to custom prints. Add a custom print first.",
-          true
-        );
-        return;
-      }
-    }
-
-    appliedPromo = promo;
-    updateTotals();
-    showSubmitMessage(`Promo "${promo.rawCode}" applied.`, false);
-  });
-
-  if (clearBtn) {
-    clearBtn.addEventListener("click", () => {
-      appliedPromo = null;
-      input.value = "";
-      updateTotals();
-      showSubmitMessage("Promo removed.", false);
-    });
-  }
-}
-
-// ---------- HANDLE SUBMIT ----------
+// ---------- ORDER SUBMISSION ----------
 
 async function handleSubmitOrder() {
   if (!cart.length) {
@@ -1083,9 +1064,10 @@ async function handleSubmitOrder() {
   const contactInput = document.getElementById("customer-contact");
   const shippingInfoInput = document.getElementById("shipping-info");
   const notesInput = document.getElementById("extra-notes");
+  const expediteChoiceEl = document.getElementById("expedite-choice");
 
-  const shippingChoice = document.getElementById("shipping-choice").value;
-  const expediteChoice = document.getElementById("expedite-choice").value;
+  const shippingChoice = "standard"; // simplify for now
+  const expediteChoice = expediteChoiceEl ? expediteChoiceEl.value : "none";
 
   let contact = contactInput.value.trim();
   if (!contact) {
@@ -1093,8 +1075,8 @@ async function handleSubmitOrder() {
     return;
   }
 
-  let isEmail = isValidEmail(contact);
-  let isPhone = isValidPhone(contact);
+  const isEmail = isValidEmail(contact);
+  const isPhone = isValidPhone(contact);
 
   if (!isEmail && !isPhone) {
     showSubmitMessage(
@@ -1148,7 +1130,35 @@ async function handleSubmitOrder() {
   }
 
   const orderId = nextOrderNumber();
-  const pricing = calculatePricing(shippingChoice, expediteChoice);
+
+  // recompute totals with current promo
+  let itemsSubtotal = 0;
+  let customSubtotal = 0;
+  cart.forEach((item) => {
+    const sub = item.unitPrice * item.quantity;
+    itemsSubtotal += sub;
+    if (item.mode === "Custom") customSubtotal += sub;
+  });
+
+  const shippingEstimate = getShippingEstimate(itemsSubtotal);
+  const expediteFee = getExpediteFee(itemsSubtotal, expediteChoice);
+
+  // ensure promo discount matches what updateTotals will show
+  promoDiscountAmount = 0;
+  if (appliedPromo) {
+    let base = appliedPromo.scope === "custom" ? customSubtotal : itemsSubtotal;
+    if (base > 0) {
+      if (appliedPromo.type === "percent") {
+        promoDiscountAmount = (base * appliedPromo.amount) / 100;
+      } else if (appliedPromo.type === "fixed") {
+        promoDiscountAmount = appliedPromo.amount;
+      }
+      if (promoDiscountAmount > base) promoDiscountAmount = base;
+    }
+  }
+
+  const itemsAfterPromo = Math.max(itemsSubtotal - promoDiscountAmount, 0);
+  const grandTotal = itemsAfterPromo + shippingEstimate + expediteFee;
 
   const stockItems = cart
     .filter((item) => item.mode === "Premade" && item.maxStock != null)
@@ -1157,6 +1167,12 @@ async function handleSubmitOrder() {
       qty: item.quantity,
     }));
 
+  let promoCodeUsed = null;
+  if (appliedPromo && appliedPromo.statusNorm === "limited") {
+    promoCodeUsed = appliedPromo.code;
+  }
+
+  // build message for Discord webhook
   const lines = [];
   lines.push(`**New order #${orderId}**`);
   lines.push("");
@@ -1170,20 +1186,18 @@ async function handleSubmitOrder() {
     );
   });
   lines.push("");
-  lines.push(`Items subtotal: ${formatCurrency(pricing.itemsSubtotal)}`);
-  if (pricing.promoDiscountAmount > 0.001) {
+
+  lines.push(`Items subtotal: ${formatCurrency(itemsSubtotal)}`);
+  if (promoDiscountAmount > 0) {
     lines.push(
-      `Promo discount: -${formatCurrency(pricing.promoDiscountAmount)}${
-        appliedPromo ? ` (code: ${appliedPromo.rawCode})` : ""
+      `Promo discount: -${formatCurrency(promoDiscountAmount)}${
+        appliedPromo ? ` (code ${appliedPromo.code})` : ""
       }`
     );
   }
-  lines.push(
-    `Subtotal after promo: ${formatCurrency(pricing.effectiveItemsSubtotal)}`
-  );
-  lines.push(`Shipping estimate: ${formatCurrency(pricing.shippingEstimate)}`);
-  lines.push(`Expedite fee: ${formatCurrency(pricing.expediteFee)}`);
-  lines.push(`**Total estimate: ${formatCurrency(pricing.grandTotal)}**`);
+  lines.push(`Shipping estimate: ${formatCurrency(shippingEstimate)}`);
+  lines.push(`Expedite fee: ${formatCurrency(expediteFee)}`);
+  lines.push(`**Total estimate: ${formatCurrency(grandTotal)}**`);
   lines.push("");
 
   const shipText = shippingInfoInput.value.trim();
@@ -1191,20 +1205,10 @@ async function handleSubmitOrder() {
 
   lines.push(`**Contact:** ${contact}`);
   if (nameText) lines.push(`**Name:** ${nameText}`);
-  if (shippingChoice === "pickup") {
-    lines.push("**Shipping:** Local pickup");
-  } else if (shipText) {
-    lines.push(`**Shipping:** ${shipText}`);
-  }
-
-  if (expediteChoice === "priority") {
-    lines.push("**Queue priority:** Priority");
-  } else if (expediteChoice === "rush") {
-    lines.push("**Queue priority:** Rush");
-  } else {
-    lines.push("**Queue priority:** None");
-  }
-
+  lines.push(
+    "**Shipping:** " +
+      (shippingChoice === "standard" ? shipText || "standard" : "Local pickup")
+  );
   if (notesText) lines.push(`**Notes:** ${notesText}`);
 
   if (payment.value === "card") {
@@ -1229,7 +1233,7 @@ async function handleSubmitOrder() {
   try {
     await Promise.all([
       sendOrderWebhook(summary),
-      sendAppsScriptUpdate(stockItems),
+      sendStockAndPromoUpdate(stockItems, promoCodeUsed),
     ]);
 
     showSubmitMessage(
@@ -1237,23 +1241,20 @@ async function handleSubmitOrder() {
       false
     );
 
+    // clear cart + form but keep applied promo (user might reuse code)
     cart = [];
-    appliedPromo = null;
     renderCart();
 
+    // clear form
     nameInput.value = "";
     shippingInfoInput.value = "";
     notesInput.value = "";
-    if (cashappRefInput) cashappRefInput.value = "";
-    const promoInput = document.getElementById("promo-code");
-    if (promoInput) promoInput.value = "";
-    const promoRow = document.getElementById("promo-discount-row");
-    if (promoRow) promoRow.style.display = "none";
-
+    cashappRefInput.value = "";
     document
       .querySelectorAll('input[name="payment-method"]')
       .forEach((r) => (r.checked = false));
-    document.getElementById("cashapp-extra").classList.add("hidden");
+    const cashappExtra = document.getElementById("cashapp-extra");
+    if (cashappExtra) cashappExtra.classList.add("hidden");
   } catch (err) {
     console.error("Submit error", err);
     showSubmitMessage("Sorry, there was an error submitting your order.", true);
@@ -1277,7 +1278,6 @@ async function init() {
   paymentRadios.forEach((radio) => {
     radio.addEventListener("change", () => {
       if (!radio.checked) return;
-
       if (radio.value === "cashapp") {
         cashappExtra.classList.remove("hidden");
       } else {
@@ -1287,78 +1287,95 @@ async function init() {
     });
   });
 
-  document
-    .getElementById("shipping-choice")
-    .addEventListener("change", updateTotals);
-  document
-    .getElementById("expedite-choice")
-    .addEventListener("change", updateTotals);
+  const expediteChoiceEl = document.getElementById("expedite-choice");
+  if (expediteChoiceEl) {
+    expediteChoiceEl.addEventListener("change", updateTotals);
+  }
 
-  document.getElementById("add-custom-btn").addEventListener("click", () => {
-    const fileInput = document.getElementById("custom-file");
-    const sizeSelect = document.getElementById("custom-size");
-    const detailSelect = document.getElementById("custom-detail");
-    const colorSelect = document.getElementById("custom-color");
-    const qtyInput = document.getElementById("custom-qty");
+  const addCustomBtn = document.getElementById("add-custom-btn");
+  if (addCustomBtn) {
+    addCustomBtn.addEventListener("click", () => {
+      const fileInput = document.getElementById("custom-file");
+      const sizeSelect = document.getElementById("custom-size");
+      const detailSelect = document.getElementById("custom-detail");
+      const colorSelect = document.getElementById("custom-color");
+      const qtyInput = document.getElementById("custom-qty");
 
-    const file = fileInput.files[0];
-    if (!file) {
-      showSubmitMessage("Please upload a file for custom prints.", true);
-      return;
-    }
+      const file = fileInput.files[0];
+      if (!file) {
+        showSubmitMessage("Please upload a file for custom prints.", true);
+        return;
+      }
 
-    const color = colorSelect.value;
-    if (!color) {
-      showSubmitMessage(
-        "Please choose a color for the custom print.",
-        true
+      const color = colorSelect.value;
+      if (!color) {
+        showSubmitMessage("Please choose a color for the custom print.", true);
+        return;
+      }
+
+      let qty = Math.max(1, Number(qtyInput.value) || 1);
+
+      let basePrice = 5;
+      const size = sizeSelect.value;
+      const detail = detailSelect.value;
+
+      if (size === "medium") basePrice += 3;
+      if (size === "large") basePrice += 7;
+      if (detail === "high") basePrice += 2;
+      if (detail === "ultra") basePrice += 5;
+
+      addToCart(
+        {
+          name: file.name,
+          mode: "Custom",
+          color,
+          price: basePrice,
+          maxStock: null,
+        },
+        qty
       );
-      return;
-    }
 
-    let qty = Math.max(1, Number(qtyInput.value) || 1);
+      const estText = document.getElementById("custom-estimate-text");
+      if (estText) {
+        estText.textContent = "Custom print estimate added to cart.";
+      }
+    });
+  }
 
-    let basePrice = 5;
-    const size = sizeSelect.value;
-    const detail = detailSelect.value;
-
-    if (size === "medium") basePrice += 3;
-    if (size === "large") basePrice += 7;
-
-    if (detail === "high") basePrice += 2;
-    if (detail === "ultra") basePrice += 5;
-
-    const estPrice = basePrice;
-
-    addToCart(
-      {
-        name: file.name,
-        mode: "Custom",
-        color,
-        price: estPrice,
-        maxStock: null,
-      },
-      qty
-    );
-
-    document.getElementById("custom-estimate-text").textContent =
-      "Custom print estimate added to cart.";
-  });
-
-  document
-    .getElementById("submit-order-btn")
-    .addEventListener("click", (e) => {
+  const submitBtn = document.getElementById("submit-order-btn");
+  if (submitBtn) {
+    submitBtn.addEventListener("click", (e) => {
       e.preventDefault();
       handleSubmitOrder();
     });
+  }
 
-  document.getElementById("open-tracking-btn").addEventListener("click", () => {
-    window.location.href = "/tracking/";
-  });
+  const trackingBtn = document.getElementById("open-tracking-btn");
+  if (trackingBtn) {
+    trackingBtn.addEventListener("click", () => {
+      window.location.href = "/tracking/";
+    });
+  }
 
-  setupPromoUI();
+  const applyPromoBtn = document.getElementById("apply-promo-btn");
+  if (applyPromoBtn) {
+    applyPromoBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      applyPromoCode();
+    });
+  }
 
-  // Periodic refresh of config & sheets
+  const clearPromoBtn = document.getElementById("clear-promo-btn");
+  if (clearPromoBtn) {
+    clearPromoBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      clearPromo();
+    });
+  }
+
+  renderCart();
+
+  // periodic refresh of config/inventory/colors/promos (every 30s)
   setInterval(() => {
     loadConfig();
     loadColors();

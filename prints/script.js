@@ -23,9 +23,6 @@ const PREMADE_DISCOUNT = 0.85;
 
 // ---------- ORDER ID (NEVER DUPLICATE) ----------
 // Format: YYYYMMDD-HHMMSS-SEQrr
-// - date/time part keeps it mostly increasing
-// - SEQ is a local sequence for multiple orders in the same second
-// - "rr" is a small random component to make collisions across browsers practically impossible
 function nextOrderNumber() {
   const now = new Date();
 
@@ -57,7 +54,7 @@ function nextOrderNumber() {
   try {
     localStorage.setItem("order_state", JSON.stringify(state));
   } catch {
-    // ignore storage issues, uniqueness still covered by time + random
+    // ignore
   }
 
   const seqPart = String(seq).padStart(3, "0");
@@ -649,7 +646,6 @@ function addToCart(itemBase, qty) {
   }
 
   renderCart();
-  // keep any applied promo but recompute discount amount
   updateTotals();
   showSubmitMessage("", false);
 }
@@ -769,7 +765,6 @@ function renderCart() {
 }
 
 function getShippingEstimate(itemsSubtotal) {
-  // you can tweak these thresholds any time
   if (itemsSubtotal <= 0) return 0;
   if (itemsSubtotal <= 10) return 6.0;
   if (itemsSubtotal <= 40) return 9.0;
@@ -807,7 +802,6 @@ function updateTotals() {
     }
   });
 
-  const shippingChoice = "standard"; // you can easily add pickup/choice later
   const expediteChoiceEl = document.getElementById("expedite-choice");
   const expediteChoice = expediteChoiceEl
     ? expediteChoiceEl.value
@@ -1353,7 +1347,7 @@ async function init() {
   const trackingBtn = document.getElementById("open-tracking-btn");
   if (trackingBtn) {
     trackingBtn.addEventListener("click", () => {
-      window.location.href = "/tracking/";
+      window.location.href = "../tracking/";
     });
   }
 

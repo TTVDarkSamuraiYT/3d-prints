@@ -4,7 +4,8 @@
     <meta charset="UTF-8" />
     <title>Tekniq Solutions – 3D Prints</title>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <link rel="stylesheet" href="../style.css" />
+    <!-- use the prints stylesheet -->
+    <link rel="stylesheet" href="prints/style.css" />
   </head>
   <body>
     <div class="page">
@@ -12,302 +13,42 @@
         <div class="header-top">
           <div>
             <h1>Tekniq Solutions – 3D Printing Shop</h1>
-            <p>Choose a premade design or upload your own custom model.</p>
-            <p class="helper-text small-header">
-              This is a tiny one-person mini business, so the site and payment
-              flow might feel a bit simpler than a big store. Thanks for your
-              patience while I make everything better over time!
+            <p>
+              Small one-person 3D printing shop. Premade designs, custom prints,
+              and simple order tracking.
             </p>
-          </div>
-          <div class="header-actions">
-            <a href="/" class="home-link">Home</a>
-            <button id="open-tracking-btn" class="btn btn-ghost">
-              Track an order
-            </button>
+            <p class="helper-text small-header">
+              Thanks for supporting a tiny local maker. Website and systems are
+              still a work in progress, so things may look simple but everything
+              goes through me directly.
+            </p>
           </div>
         </div>
       </header>
 
       <div class="grid">
-        <!-- LEFT: Premade + Custom -->
         <main class="left-column">
-          <!-- PREMADE INVENTORY -->
           <section class="card">
-            <h2>Premade prints</h2>
+            <h2>Order prints</h2>
             <p class="helper-text">
-              Premade prints are ready-made designs I already have set up. Some
-              are limited by stock, some are made on demand.
+              Browse premade items, see live stock, upload your own models, and
+              submit an order request.
             </p>
-
-            <div
-              id="inventory-error"
-              class="error-box"
-              style="display: none;"
-            >
-              There was a problem loading premade stock. Please refresh in a
-              few seconds.
-            </div>
-
-            <div id="premade-list"></div>
-          </section>
-
-          <!-- CUSTOM UPLOADS -->
-          <section class="card">
-            <h2>Custom prints</h2>
-            <p class="helper-text">
-              Upload your own STL/3MF model and choose size, detail, and color.
-              I’ll print it just for you.
-            </p>
-
-            <div class="field-row">
-              <label for="custom-file">Model file (STL/3MF)</label>
-              <input
-                type="file"
-                id="custom-file"
-                accept=".stl,.3mf,.obj,.zip"
-              />
-            </div>
-
-            <div class="field-row">
-              <label for="custom-color">Color</label>
-              <select id="custom-color">
-                <option value="">Loading colors…</option>
-              </select>
-            </div>
-
-            <div class="field-row">
-              <label for="custom-size">Size</label>
-              <select id="custom-size">
-                <option value="small">Small</option>
-                <option value="medium">Medium (+$3)</option>
-                <option value="large">Large (+$7)</option>
-              </select>
-            </div>
-
-            <div class="field-row">
-              <label for="custom-detail">Detail level</label>
-              <select id="custom-detail">
-                <option value="standard">Standard</option>
-                <option value="high">High (+$2)</option>
-                <option value="ultra">Ultra (+$5)</option>
-              </select>
-            </div>
-
-            <div class="field-row">
-              <label for="custom-qty">Quantity</label>
-              <input
-                type="number"
-                id="custom-qty"
-                value="1"
-                min="1"
-                step="1"
-              />
-            </div>
-
-            <button id="add-custom-btn" class="btn btn-primary full-width">
-              Add custom print to cart
-            </button>
-
-            <p id="custom-estimate-text" class="helper-text"></p>
+            <a href="prints/" class="btn btn-primary">Go to shop</a>
           </section>
         </main>
 
-        <!-- RIGHT: Cart + Contact -->
         <aside class="right-column">
-          <section class="card cart-card">
-            <div class="cart-header">
-              <h2>Cart</h2>
-              <span id="cart-count" class="cart-count">0 items</span>
-            </div>
-
-            <p id="empty-cart-note" class="helper-text">
-              Your cart is currently empty. Add a premade or custom print to get
-              started.
+          <section class="card">
+            <h2>Track an order</h2>
+            <p class="helper-text">
+              Already placed an order? You can search by your order number or
+              contact info to check its status.
             </p>
-
-            <div id="cart-items"></div>
-
-            <div id="cart-summary" style="display: none;">
-              <hr />
-
-              <!-- EXPEDITE CHOICE -->
-              <div class="field-row">
-                <label for="expedite-choice">Order priority</label>
-                <select id="expedite-choice">
-                  <option value="none">
-                    None (normal queue, no extra fee)
-                  </option>
-                  <option value="priority">
-                    Priority – prints sooner (+ ~10%)
-                  </option>
-                  <option value="rush">Rush – ASAP (+ ~18%)</option>
-                </select>
-                <p class="helper-text">
-                  Priority/rush fees help cover extra time, filament,
-                  maintenance, and squeezing your print into my schedule sooner.
-                </p>
-              </div>
-
-              <!-- PROMO CODE BOX -->
-              <div class="promo-box">
-                <label for="promo-code">Promo code</label>
-                <div class="promo-row">
-                  <input
-                    type="text"
-                    id="promo-code"
-                    placeholder="Enter code"
-                  />
-                  <button
-                    id="apply-promo-btn"
-                    class="btn btn-primary"
-                    type="button"
-                  >
-                    Apply
-                  </button>
-                  <button
-                    id="clear-promo-btn"
-                    class="btn btn-ghost"
-                    type="button"
-                  >
-                    Clear
-                  </button>
-                </div>
-                <!-- message directly under promo box -->
-                <div id="promo-message" class="helper-text"></div>
-              </div>
-
-              <!-- SUMMARY ROWS -->
-              <div class="summary-row">
-                <span>Items subtotal</span>
-                <span id="items-subtotal">$0.00</span>
-              </div>
-
-              <div
-                class="summary-row"
-                id="promo-row"
-                style="display: none;"
-              >
-                <span>Promo discount</span>
-                <span id="promo-discount-value"></span>
-              </div>
-
-              <div class="summary-row">
-                <span>Shipping (estimate)</span>
-                <span id="shipping-estimate">$0.00</span>
-              </div>
-
-              <div class="summary-row">
-                <span>Expedite fee</span>
-                <span id="expedite-fee">$0.00</span>
-              </div>
-
-              <div class="summary-row total">
-                <strong>Total estimate</strong>
-                <strong id="grand-total">$0.00</strong>
-              </div>
-
-              <hr />
-
-              <!-- CUSTOMER INFO -->
-              <h3>Contact & shipping</h3>
-
-              <div class="field-row">
-                <label for="customer-name">Name (optional, but required for card)</label>
-                <input
-                  type="text"
-                  id="customer-name"
-                  placeholder="Name for the order (optional)"
-                />
-              </div>
-
-              <div class="field-row">
-                <label for="customer-contact">Contact info (required)</label>
-                <input
-                  type="text"
-                  id="customer-contact"
-                  placeholder="Email or phone number"
-                />
-                <p class="helper-text">
-                  I’ll only use this to contact you about your order or send a
-                  Square invoice (if paying by card).
-                </p>
-              </div>
-
-              <div class="field-row">
-                <label for="shipping-info">Shipping address or pickup info</label>
-                <textarea
-                  id="shipping-info"
-                  rows="3"
-                  placeholder="Full address for shipping, or mention if this is local pickup."
-                ></textarea>
-              </div>
-
-              <div class="field-row">
-                <label for="extra-notes">Extra notes (optional)</label>
-                <textarea
-                  id="extra-notes"
-                  rows="3"
-                  placeholder="Anything else I should know (deadlines, small tweaks, etc.)"
-                ></textarea>
-              </div>
-
-              <!-- PAYMENT METHODS -->
-              <h3>Payment method</h3>
-              <div class="payment-options">
-                <label class="radio-row">
-                  <input
-                    type="radio"
-                    name="payment-method"
-                    value="card"
-                  />
-                  <span>Card via Square (manual invoice)</span>
-                </label>
-                <label class="radio-row">
-                  <input
-                    type="radio"
-                    name="payment-method"
-                    value="cash"
-                  />
-                  <span>Cash (local pickup only)</span>
-                </label>
-                <label class="radio-row">
-                  <input
-                    type="radio"
-                    name="payment-method"
-                    value="cashapp"
-                  />
-                  <span>
-                    Cash App to <span id="cashapp-tag-display">$CashApp</span>
-                  </span>
-                </label>
-              </div>
-
-              <div id="cashapp-extra" class="field-row hidden">
-                <label for="cashapp-reference">
-                  Cash App reference (required for Cash App)
-                </label>
-                <input
-                  type="text"
-                  id="cashapp-reference"
-                  placeholder="Your $Cashtag or a payment note so I know which payment is yours"
-                />
-              </div>
-
-              <button
-                id="submit-order-btn"
-                class="btn btn-primary full-width"
-                type="button"
-              >
-                Submit order
-              </button>
-
-              <p id="submit-message" class="helper-text"></p>
-            </div>
+            <a href="tracking/" class="btn btn-ghost">Track my order</a>
           </section>
         </aside>
       </div>
     </div>
-
-    <script src="script.js"></script>
   </body>
 </html>

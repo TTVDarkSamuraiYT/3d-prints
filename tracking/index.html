@@ -2,497 +2,271 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <title>Order tracking – Tekniq Solutions</title>
+    <title>Track Order – Tekniq Solutions</title>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <style>
-      :root {
-        --bg: #050816;
-        --card: #0d1022;
-        --border-soft: rgba(255, 255, 255, 0.08);
-        --accent: #35d07f;
-        --text: #f5f7ff;
-        --muted: #95a0c6;
-        --danger: #ff4b5c;
-      }
-
-      * {
-        box-sizing: border-box;
-      }
-
-      body {
-        margin: 0;
-        font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
-          sans-serif;
-        background: radial-gradient(circle at top, #182848 0, #050816 45%, #000 100%);
-        color: var(--text);
-        min-height: 100vh;
-      }
-
-      .page {
-        max-width: 900px;
-        margin: 0 auto;
-        padding: 24px 16px 48px;
-      }
-
-      .top-bar {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 12px;
-      }
-
-      .top-bar a {
-        color: var(--muted);
-        text-decoration: none;
-        font-size: 0.9rem;
-      }
-
-      .top-bar a:hover {
-        text-decoration: underline;
-      }
-
-      h1 {
-        font-size: 1.8rem;
-        margin: 0 0 4px;
-      }
-
-      p {
-        margin: 0;
-      }
-
-      .card {
-        background: radial-gradient(circle at top left, #202b4a 0, #0b1020 40%);
-        border-radius: 18px;
-        padding: 16px 18px 18px;
-        border: 1px solid var(--border-soft);
-        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.45);
-      }
-
-      label {
-        display: block;
-        font-size: 0.85rem;
-        margin-bottom: 4px;
-        color: var(--muted);
-      }
-
-      input[type="text"] {
-        width: 100%;
-        border-radius: 999px;
-        border: 1px solid rgba(255, 255, 255, 0.14);
-        background: #0b1020;
-        color: var(--text);
-        padding: 8px 12px;
-        font-size: 0.9rem;
-        outline: none;
-      }
-
-      input[type="text"]:focus {
-        border-color: var(--accent);
-        box-shadow: 0 0 0 1px rgba(53, 208, 127, 0.5);
-      }
-
-      .btn {
-        border-radius: 999px;
-        border: none;
-        padding: 9px 16px;
-        font-size: 0.9rem;
-        font-weight: 600;
-        cursor: pointer;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-      }
-
-      .btn-primary {
-        background: linear-gradient(135deg, var(--accent), #24b66a);
-        color: #020308;
-      }
-
-      .helper-text {
-        font-size: 0.8rem;
-        color: var(--muted);
-      }
-
-      .error-text {
-        color: var(--danger);
-        font-size: 0.85rem;
-        margin-top: 6px;
-      }
-
-      .results {
-        margin-top: 16px;
-      }
-
-      .result-item {
-        border-radius: 12px;
-        padding: 10px 12px;
-        background: rgba(0, 0, 0, 0.25);
-        border: 1px solid rgba(255, 255, 255, 0.06);
-        margin-bottom: 10px;
-      }
-
-      .result-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: baseline;
-        gap: 8px;
-      }
-
-      .status-pill {
-        padding: 2px 8px;
-        border-radius: 999px;
-        font-size: 0.75rem;
-        text-transform: uppercase;
-        letter-spacing: 0.04em;
-      }
-
-      .status-paid {
-        background: rgba(52, 152, 219, 0.25);
-        color: #74b9ff;
-      }
-
-      .status-processing {
-        background: rgba(241, 196, 15, 0.25);
-        color: #f1c40f;
-      }
-
-      .status-shipped {
-        background: rgba(39, 174, 96, 0.25);
-        color: #2ecc71;
-      }
-
-      .status-other {
-        background: rgba(149, 165, 166, 0.25);
-        color: #ecf0f1;
-      }
-
-      .muted {
-        color: var(--muted);
-        font-size: 0.85rem;
-      }
-
-      .priority-pill {
-        padding: 2px 8px;
-        border-radius: 999px;
-        font-size: 0.7rem;
-        margin-left: 6px;
-        background: rgba(255, 255, 255, 0.08);
-        color: var(--muted);
-        text-transform: capitalize;
-      }
-    </style>
+    <!-- reuse the prints stylesheet -->
+    <link rel="stylesheet" href="../prints/style.css" />
   </head>
   <body>
     <div class="page">
-      <div class="top-bar">
-        <a href="/">Home</a>
-        <a href="/prints/">Back to shop</a>
-      </div>
-
-      <header style="margin-bottom:16px;">
-        <h1>Order tracking</h1>
-        <p class="helper-text">
-          Look up the status of your order. You can search by order number, or
-          by the same phone / email you used when ordering.
-        </p>
+      <header>
+        <div class="header-top">
+          <div>
+            <h1>Track your order</h1>
+            <p>Search by order number or contact info (email/phone).</p>
+            <p class="helper-text small-header">
+              This tracker reads from the <strong>Orders</strong> tab in my
+              Google Sheet. I update statuses manually (since this is a
+              one-person shop), so give me a little time after placing an order.
+            </p>
+          </div>
+          <div class="header-actions">
+            <a href="../" class="home-link">Home</a>
+            <a href="../prints/" class="home-link">Shop</a>
+          </div>
+        </div>
       </header>
 
-      <section class="card">
-        <div style="display:grid;grid-template-columns:minmax(0,1fr);gap:10px;">
-          <div>
-            <label for="search-order-id">Order number</label>
+      <main class="grid">
+        <section class="left-column card">
+          <h2>Find your order</h2>
+          <div class="field-row">
+            <label for="search-order-id">Order ID</label>
             <input
               type="text"
               id="search-order-id"
-              placeholder="Example: 20251118-001"
+              placeholder="Example: 20251128-143522-001ab"
             />
+            <p class="helper-text">
+              This is the number you saw on the confirmation message / Discord
+              DM. If you don’t have it, you can search by contact info instead.
+            </p>
           </div>
-          <div>
-            <label for="search-contact">
-              Contact (phone / email)
-            </label>
+
+          <div class="field-row">
+            <label for="search-contact">Contact (email or phone)</label>
             <input
               type="text"
               id="search-contact"
-              placeholder="Same contact you used when ordering"
+              placeholder="Same email or phone you used when ordering"
             />
-            <div class="helper-text">
-              Phone formats like 774-123-4567. Email needs to look like a real
-              address.
-            </div>
+            <p class="helper-text">
+              Search uses <strong>only Order ID and Contact</strong>. It ignores
+              name completely so multiple people named “John” don’t collide.
+            </p>
           </div>
-        </div>
 
-        <button
-          id="search-btn"
-          class="btn btn-primary"
-          style="margin-top:12px;"
-        >
-          Search
-        </button>
+          <button id="track-btn" class="btn btn-primary full-width">
+            Search orders
+          </button>
 
-        <div id="search-message" class="helper-text" style="margin-top:8px;">
-          No results yet. Enter something above and press Search.
-        </div>
+          <p id="track-message" class="helper-text"></p>
+        </section>
 
-        <div id="results" class="results"></div>
-      </section>
+        <section class="right-column card">
+          <h2>Results</h2>
+          <div id="results"></div>
+        </section>
+      </main>
     </div>
 
     <script>
+      const CONFIG_PATH = "../config.json";
+
       let SHEET_ID = "";
       let ORDERS_SHEET_NAME = "Orders";
-      let ordersData = [];
-
-      function normalizeStatus(str) {
-        if (!str) return "";
-        return String(str).trim().toLowerCase();
-      }
 
       function parseSheetJSON(text) {
         const json = JSON.parse(
           text.substring(text.indexOf("{"), text.lastIndexOf("}") + 1)
         );
-        return json.table.rows;
-      }
-
-      function isValidEmail(value) {
-        const trimmed = value.trim();
-        if (!trimmed.includes("@") || !trimmed.includes(".")) return false;
-        if (trimmed.length < 6) return false;
-        if (trimmed.startsWith("@")) return false;
-        const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        return re.test(trimmed.toLowerCase());
-      }
-
-      function normalizePhoneDigits(value) {
-        return value.replace(/\D/g, "").slice(-10); // last 10 digits
+        return json.table;
       }
 
       async function loadConfig() {
         try {
-          // tracking/ is one level below root, config.json lives in root
-          const res = await fetch("../config.json", { cache: "no-cache" });
+          const res = await fetch(CONFIG_PATH, { cache: "no-cache" });
           if (!res.ok) throw new Error("config fetch failed");
           const cfg = await res.json();
           SHEET_ID = cfg.SHEET_ID;
           ORDERS_SHEET_NAME = cfg.ORDERS_SHEET_NAME || "Orders";
-          console.log("Tracking config loaded.");
         } catch (err) {
           console.error("Error loading config.json", err);
-        }
-      }
-
-      async function loadOrders() {
-        if (!SHEET_ID || !ORDERS_SHEET_NAME) return;
-        try {
-          const url =
-            "https://docs.google.com/spreadsheets/d/" +
-            encodeURIComponent(SHEET_ID) +
-            "/gviz/tq?tqx=out:json&sheet=" +
-            encodeURIComponent(ORDERS_SHEET_NAME);
-
-          const res = await fetch(url);
-          if (!res.ok) throw new Error("orders fetch failed");
-          const text = await res.text();
-          const rows = parseSheetJSON(text);
-
-          // Orders sheet layout:
-          // 0: Order ID
-          // 1: Name
-          // 2: priority
-          // 3: Contact
-          // 4: Shipping
-          // 5: Status
-          // 6: Notes
-          ordersData = rows
-            .map((r) => {
-              const c = r.c || [];
-              const orderId = c[0]?.v ? String(c[0].v).trim() : "";
-              if (!orderId) return null;
-              return {
-                orderId,
-                name: c[1]?.v ? String(c[1].v).trim() : "",
-                priority: c[2]?.v ? String(c[2].v).trim() : "",
-                contact: c[3]?.v ? String(c[3].v).trim() : "",
-                shippingInfo: c[4]?.v ? String(c[4].v).trim() : "",
-                status: c[5]?.v ? String(c[5].v).trim() : "",
-                notes: c[6]?.v ? String(c[6].v).trim() : "",
-              };
-            })
-            .filter(Boolean);
-
-          console.log("Loaded orders:", ordersData.length);
-        } catch (err) {
-          console.error("Error loading orders sheet", err);
-          const msg = document.getElementById("search-message");
+          const msg = document.getElementById("track-message");
           msg.textContent =
-            "There was a problem loading orders. Please try again later.";
+            "Could not load configuration. Tracking might not work right now.";
           msg.className = "error-text";
         }
       }
 
-      function renderResults(matches) {
-        const resultsEl = document.getElementById("results");
-        const msgEl = document.getElementById("search-message");
-        resultsEl.innerHTML = "";
+      async function fetchOrders() {
+        if (!SHEET_ID || !ORDERS_SHEET_NAME) return [];
 
-        if (!matches.length) {
-          msgEl.textContent = "No orders matched that search.";
-          msgEl.className = "helper-text";
+        const url =
+          "https://docs.google.com/spreadsheets/d/" +
+          encodeURIComponent(SHEET_ID) +
+          "/gviz/tq?tqx=out:json&sheet=" +
+          encodeURIComponent(ORDERS_SHEET_NAME);
+
+        const res = await fetch(url);
+        if (!res.ok) throw new Error("orders fetch failed");
+        const text = await res.text();
+        const table = parseSheetJSON(text);
+
+        const rows = table.rows || [];
+        const cols = table.cols || [];
+
+        // build header map
+        const headers = cols.map((c) =>
+          (c.label || "").toString().trim().toLowerCase()
+        );
+
+        const idxOrderId = headers.indexOf("order id");
+        const idxName = headers.indexOf("name");
+        const idxPriority = headers.indexOf("priority");
+        const idxContact = headers.indexOf("contact");
+        const idxShipping = headers.indexOf("shipping");
+        const idxStatus = headers.indexOf("status");
+        const idxNotes = headers.indexOf("notes");
+
+        const list = [];
+
+        rows.forEach((r) => {
+          const c = r.c || [];
+          const get = (idx) =>
+            idx >= 0 && c[idx] && c[idx].v != null ? String(c[idx].v) : "";
+
+          const orderId = get(idxOrderId).trim();
+          if (!orderId) return;
+
+          list.push({
+            orderId,
+            name: get(idxName).trim(),
+            priority: get(idxPriority).trim(),
+            contact: get(idxContact).trim(),
+            shipping: get(idxShipping).trim(),
+            status: get(idxStatus).trim(),
+            notes: get(idxNotes).trim(),
+          });
+        });
+
+        return list;
+      }
+
+      function renderResults(orders) {
+        const container = document.getElementById("results");
+        container.innerHTML = "";
+
+        if (!orders.length) {
+          container.innerHTML =
+            '<p class="helper-text">No matching orders found.</p>';
           return;
         }
 
-        msgEl.textContent = `Showing ${matches.length} order${
-          matches.length === 1 ? "" : "s"
-        } that matched your search.`;
-        msgEl.className = "helper-text";
+        orders.forEach((o) => {
+          const card = document.createElement("div");
+          card.className = "card";
+          card.style.marginBottom = "10px";
 
-        matches.forEach((o) => {
-          const wrap = document.createElement("div");
-          wrap.className = "result-item";
+          const title = document.createElement("h3");
+          title.textContent = `Order #${o.orderId}`;
+          card.appendChild(title);
 
-          const header = document.createElement("div");
-          header.className = "result-header";
+          const statusLine = document.createElement("p");
+          statusLine.innerHTML =
+            "<strong>Status:</strong> " + (o.status || "Unknown");
+          card.appendChild(statusLine);
 
-          const left = document.createElement("div");
-          const nameText = o.name || "No name on file";
-          left.innerHTML =
-            `<strong>Order #${o.orderId}</strong>` +
-            `<div class="muted">${nameText}` +
-            (o.priority
-              ? `<span class="priority-pill">${o.priority}</span>`
-              : "") +
-            `</div>`;
-
-          const pill = document.createElement("span");
-          const statusNorm = normalizeStatus(o.status);
-          pill.className = "status-pill ";
-          if (statusNorm === "paid") pill.className += "status-paid";
-          else if (statusNorm === "processing")
-            pill.className += "status-processing";
-          else if (statusNorm === "shipped")
-            pill.className += "status-shipped";
-          else pill.className += "status-other";
-          pill.textContent = o.status || "Unknown";
-
-          header.appendChild(left);
-          header.appendChild(pill);
-          wrap.appendChild(header);
-
-          const body = document.createElement("div");
-          body.style.marginTop = "6px";
-
-          const contactLine = document.createElement("div");
-          contactLine.className = "muted";
-          contactLine.textContent = `Contact: ${o.contact || "n/a"}`;
-
-          const shipLine = document.createElement("div");
-          shipLine.className = "muted";
-          shipLine.textContent =
-            "Shipping: " + (o.shippingInfo || "not provided");
-
-          const noteLine = document.createElement("div");
-          noteLine.className = "muted";
-          if (o.notes) {
-            noteLine.textContent = "Notes: " + o.notes;
+          if (o.priority) {
+            const pLine = document.createElement("p");
+            pLine.innerHTML = "<strong>Priority:</strong> " + o.priority;
+            card.appendChild(pLine);
           }
 
-          body.appendChild(contactLine);
-          body.appendChild(shipLine);
-          if (o.notes) body.appendChild(noteLine);
+          if (o.contact) {
+            const cLine = document.createElement("p");
+            cLine.innerHTML = "<strong>Contact on file:</strong> " + o.contact;
+            card.appendChild(cLine);
+          }
 
-          wrap.appendChild(body);
-          resultsEl.appendChild(wrap);
+          if (o.shipping) {
+            const sLine = document.createElement("p");
+            sLine.innerHTML = "<strong>Shipping / pickup:</strong> " + o.shipping;
+            card.appendChild(sLine);
+          }
+
+          if (o.notes) {
+            const nLine = document.createElement("p");
+            nLine.innerHTML = "<strong>Notes:</strong> " + o.notes;
+            card.appendChild(nLine);
+          }
+
+          container.appendChild(card);
         });
       }
 
-      function handleSearch() {
-        const idVal = document.getElementById("search-order-id").value.trim();
+      async function handleSearch() {
+        const msg = document.getElementById("track-message");
+        msg.textContent = "";
+        msg.className = "helper-text";
+
+        const idVal = document
+          .getElementById("search-order-id")
+          .value.trim();
         const contactVal = document
           .getElementById("search-contact")
           .value.trim();
 
         if (!idVal && !contactVal) {
-          const msg = document.getElementById("search-message");
           msg.textContent =
-            "Enter an order number or some contact info first.";
+            "Enter an order ID or your contact info to search.";
           msg.className = "error-text";
           return;
         }
 
-        let matches = ordersData;
+        msg.textContent = "Searching…";
+        msg.className = "helper-text";
 
-        if (idVal) {
-          const idLower = idVal.toLowerCase();
-          matches = matches.filter((o) =>
-            o.orderId.toLowerCase().includes(idLower)
-          );
-        }
+        try {
+          const all = await fetchOrders();
 
-        if (contactVal) {
-          const queryLower = contactVal.toLowerCase();
-          const queryDigits = normalizePhoneDigits(contactVal);
-          const looksLikeEmail = isValidEmail(contactVal);
-
-          matches = matches.filter((o) => {
-            const contactL = (o.contact || "").toLowerCase();
-            const contactDigits = normalizePhoneDigits(o.contact || "");
-
-            // direct substring match on the contact field
-            if (contactL.includes(queryLower)) return true;
-
-            // if it's clearly an email, substring match is enough above
-            if (looksLikeEmail) {
-              return false;
+          const matches = all.filter((o) => {
+            let ok = true;
+            if (idVal) {
+              ok = ok && o.orderId.toLowerCase().includes(idVal.toLowerCase());
             }
-
-            // for phones, compare last 10 digits
-            if (
-              queryDigits &&
-              contactDigits &&
-              contactDigits.endsWith(queryDigits)
-            ) {
-              return true;
+            if (contactVal) {
+              ok =
+                ok &&
+                o.contact.toLowerCase().includes(contactVal.toLowerCase());
             }
-            return false;
+            return ok;
           });
-        }
 
-        renderResults(matches);
+          renderResults(matches);
+          msg.textContent = matches.length
+            ? `Found ${matches.length} matching order${
+                matches.length === 1 ? "" : "s"
+              }.`
+            : "No orders matched that search.";
+          msg.className = matches.length ? "success-text" : "helper-text";
+        } catch (err) {
+          console.error(err);
+          msg.textContent =
+            "There was an error looking up orders. Try again in a bit.";
+          msg.className = "error-text";
+        }
       }
 
-      async function init() {
-        await loadConfig();
-        await loadOrders();
-
+      window.addEventListener("DOMContentLoaded", () => {
+        loadConfig();
         document
-          .getElementById("search-btn")
+          .getElementById("track-btn")
           .addEventListener("click", (e) => {
             e.preventDefault();
             handleSearch();
           });
-
-        // Allow Enter key in inputs to trigger search
-        document
-          .getElementById("search-order-id")
-          .addEventListener("keydown", (e) => {
-            if (e.key === "Enter") {
-              e.preventDefault();
-              handleSearch();
-            }
-          });
-        document
-          .getElementById("search-contact")
-          .addEventListener("keydown", (e) => {
-            if (e.key === "Enter") {
-              e.preventDefault();
-              handleSearch();
-            }
-          });
-      }
-
-      window.addEventListener("DOMContentLoaded", init);
+      });
     </script>
   </body>
 </html>

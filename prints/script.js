@@ -7,7 +7,7 @@ let ORDER_WEBHOOK_URL = "";
 let STOCK_WEBAPP_URL = "";
 let CASHAPP_TAG = "";
 
-let PROMOS_SHEET_NAME = "Promos codes";
+let PROMOS_SHEET_NAME = "Promos";
 
 let colorsData = [];
 let inventoryData = [];
@@ -317,7 +317,7 @@ async function loadPromos() {
 // ---------- COLOR HELPERS ----------
 
 function getBaseColors() {
-  // filter out header/premade row, keep others with their status
+  // filter out header/premade row
   return colorsData.filter((c) => {
     const nameNorm = c.name.trim().toLowerCase();
     if (nameNorm === "colors" || nameNorm === "premade") return false;
@@ -340,7 +340,15 @@ function renderPremadeCards() {
     return;
   }
 
-  inventoryData.forEach((item, index) => {
+  // sort so available/limited at top, temp/unavailable at bottom
+  const orderMap = { available: 0, limited: 1, temp: 2, unavailable: 3 };
+  const sorted = [...inventoryData].sort(
+    (a, b) =>
+      (orderMap[a.availability] ?? 99) -
+      (orderMap[b.availability] ?? 99)
+  );
+
+  sorted.forEach((item, index) => {
     const card = document.createElement("div");
     card.className = "premade-card";
 
@@ -491,12 +499,20 @@ function renderPremadeCards() {
     btn.className = "btn btn-primary";
     btn.style.width = "100%";
 
-    if (item.availability === "unavailable") {
+    // disable controls when temp unavailable or unavailable
+    if (item.availability === "unavailable" || item.availability === "temp") {
       btn.disabled = true;
-      btn.textContent = "Unavailable";
+      btn.textContent =
+        item.availability === "temp"
+          ? "Temporarily unavailable"
+          : "Unavailable";
+      colorSelect.disabled = true;
+      qtyInput.disabled = true;
     }
 
     btn.addEventListener("click", () => {
+      if (btn.disabled) return;
+
       let qtyVal = Math.max(1, Number(qtyInput.value) || 1);
       let mode;
       let color;
@@ -560,7 +576,7 @@ function renderPremadeCards() {
     listEl.appendChild(card);
   });
 
-  // Custom colors: follow same status rules as inventory/colors
+  // Custom colors: follow same status rules
   const customColorSelect = document.getElementById("custom-color");
   if (customColorSelect) {
     customColorSelect.innerHTML = '<option value="">Select color</option>';
@@ -593,11 +609,7 @@ function renderPremadeCards() {
   }
 }
 
-// ---------- CART + TOTALS (unchanged logic except for shipping/local) ----------
-// ... (everything from addToCart down to updateTotals is identical
-// to the previous version I sent you, so I’m keeping it intact)
-// NOTE: for brevity in this message, I’m not re-commenting every line,
-// but nothing is removed – it’s the full code.
+// ---------- CART / TOTALS (same as before) ----------
 
 function addToCart(itemBase, qty) {
   qty = Math.max(1, Number(qty) || 1);
@@ -692,11 +704,8 @@ function renderCart() {
     title.className = "cart-item-title";
 
     const detail = detailLabelForItem(item);
-    if (detail) {
-      title.textContent = `${item.name} (${detail})`;
-    } else {
-      title.textContent = item.name;
-    }
+    const displayName = detail ? `${item.name} (${detail})` : item.name;
+    title.textContent = displayName;
 
     const sub = document.createElement("div");
     sub.className = "cart-item-sub";
@@ -861,8 +870,7 @@ function updateTotals() {
   }
 }
 
-// ---------- CONTACT + PAYMENT VALIDATION ----------
-// (same as previous – unchanged)
+// ---------- CONTACT + PAYMENT ----------
 
 function isValidEmail(value) {
   const trimmed = value.trim();
@@ -1006,7 +1014,6 @@ function applyPromoCode() {
 }
 
 // ---------- BACKEND CALLS ----------
-
 async function sendOrderWebhook(content) {
   if (!ORDER_WEBHOOK_URL) return;
   const payload = { content };
@@ -1025,8 +1032,8 @@ async function sendOrderWebhook(content) {
   }
 }
 
-// send stock + promo usage + order info to Apps Script
-async function sendStockAndPromoUpdate(stockItems, promoCodeUsed, orderInfo) {
+// send stock + promo usage ONLY (no order storage)
+async function sendStockAndPromoUpdate(stockItems, promoCodeUsed) {
   if (!STOCK_WEBAPP_URL) return;
 
   const payload = {};
@@ -1035,9 +1042,6 @@ async function sendStockAndPromoUpdate(stockItems, promoCodeUsed, orderInfo) {
   }
   if (promoCodeUsed) {
     payload.promoCodeUsed = promoCodeUsed;
-  }
-  if (orderInfo) {
-    payload.order = orderInfo;
   }
 
   if (!Object.keys(payload).length) return;
@@ -1048,14 +1052,13 @@ async function sendStockAndPromoUpdate(stockItems, promoCodeUsed, orderInfo) {
       mode: "no-cors",
       body: JSON.stringify(payload),
     });
-    console.log("[WEBAPP] Stock/promo/order update sent", payload);
+    console.log("[WEBAPP] Stock/promo update sent", payload);
   } catch (err) {
     console.error("[WEBAPP ERROR] Failed to send update", err);
   }
 }
 
 // ---------- ORDER SUBMISSION ----------
-
 async function handleSubmitOrder() {
   if (!cart.length) {
     showSubmitMessage("Your cart is empty.", true);
@@ -1176,24 +1179,6 @@ async function handleSubmitOrder() {
     promoCodeUsed = appliedPromo.code;
   }
 
-  // what goes into Orders sheet (Apps Script)
-  const initialStatus =
-    payment.value === "cash" ? "Awaiting pickup payment" : "Awaiting payment";
-
-  const shippingLabel =
-    shippingChoice === "local" ? "Local pickup" : "Shipping";
-
-  const orderRecord = {
-    orderId,
-    name: nameText,
-    priority: expediteChoice, // none / priority / rush
-    contact,
-    shipping: shippingLabel,
-    status: initialStatus,
-    notes: notesInput.value.trim(),
-    total: grandTotal,
-  };
-
   const lines = [];
   lines.push(`**New order #${orderId}**`);
   lines.push("");
@@ -1258,13 +1243,11 @@ async function handleSubmitOrder() {
   try {
     await Promise.all([
       sendOrderWebhook(summary),
-      sendStockAndPromoUpdate(stockItems, promoCodeUsed, orderRecord),
+      sendStockAndPromoUpdate(stockItems, promoCodeUsed),
     ]);
 
     const msg = `Order submitted! Your order number is ${orderId}.`;
-    // visible on page
     showSubmitMessage(msg, false);
-    // pop up so they definitely see it
     alert(msg);
 
     cart = [];
@@ -1288,7 +1271,6 @@ async function handleSubmitOrder() {
 }
 
 // ---------- INIT ----------
-
 async function init() {
   await loadConfig();
   await Promise.all([loadColors(), loadInventory(), loadPromos()]);

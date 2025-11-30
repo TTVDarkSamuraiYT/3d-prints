@@ -89,13 +89,20 @@ function safeNumber(v) {
   return Number.isFinite(n) ? n : null;
 }
 
-// parse promo discount like "13%", "13", "$5", "5 $" etc.
+// parse promo discount like "13%", 0.13 (Google %), "13", "$5", "5 $" etc.
 function parsePromoDiscount(raw) {
   if (raw == null || raw === "") return null;
 
+  // numeric value from sheet (Google stores 13% as 0.13)
   if (typeof raw === "number") {
-    // treat bare number as percent
-    return { type: "percent", amount: raw };
+    const n = raw;
+    if (!Number.isFinite(n)) return null;
+    if (n > 0 && n <= 1) {
+      // treat 0.13 as 13%
+      return { type: "percent", amount: n * 100 };
+    }
+    // treat 13 as 13% if user typed 13 into a plain number cell
+    return { type: "percent", amount: n };
   }
 
   const s = String(raw).trim();
@@ -764,7 +771,8 @@ function renderCart() {
   updateTotals();
 }
 
-function getShippingEstimate(itemsSubtotal) {
+function getShippingEstimate(itemsSubtotal, shippingChoice) {
+  if (shippingChoice === "local") return 0;
   if (itemsSubtotal <= 0) return 0;
   if (itemsSubtotal <= 10) return 6.0;
   if (itemsSubtotal <= 40) return 9.0;
@@ -807,7 +815,15 @@ function updateTotals() {
     ? expediteChoiceEl.value
     : "none";
 
-  const shippingEstimate = getShippingEstimate(itemsSubtotal);
+  const shippingChoiceEl = document.getElementById("shipping-choice");
+  const shippingChoice = shippingChoiceEl
+    ? shippingChoiceEl.value
+    : "shipping";
+
+  const shippingEstimate = getShippingEstimate(
+    itemsSubtotal,
+    shippingChoice
+  );
   const expediteFee = getExpediteFee(itemsSubtotal, expediteChoice);
 
   // promo discount
@@ -1059,9 +1075,12 @@ async function handleSubmitOrder() {
   const shippingInfoInput = document.getElementById("shipping-info");
   const notesInput = document.getElementById("extra-notes");
   const expediteChoiceEl = document.getElementById("expedite-choice");
+  const shippingChoiceEl = document.getElementById("shipping-choice");
 
-  const shippingChoice = "standard"; // simplify for now
   const expediteChoice = expediteChoiceEl ? expediteChoiceEl.value : "none";
+  const shippingChoice = shippingChoiceEl
+    ? shippingChoiceEl.value
+    : "shipping";
 
   let contact = contactInput.value.trim();
   if (!contact) {
@@ -1101,15 +1120,13 @@ async function handleSubmitOrder() {
     return;
   }
 
-  if (shippingChoice === "standard") {
-    const shippingText = shippingInfoInput.value.trim();
-    if (!shippingText) {
-      showSubmitMessage(
-        "Please provide shipping info for shipping orders.",
-        true
-      );
-      return;
-    }
+  const shipText = shippingInfoInput.value.trim();
+  if (shippingChoice === "shipping" && !shipText) {
+    showSubmitMessage(
+      "Please provide a shipping address for shipping orders.",
+      true
+    );
+    return;
   }
 
   const cashappRefInput = document.getElementById("cashapp-reference");
@@ -1134,7 +1151,10 @@ async function handleSubmitOrder() {
     if (item.mode === "Custom") customSubtotal += sub;
   });
 
-  const shippingEstimate = getShippingEstimate(itemsSubtotal);
+  const shippingEstimate = getShippingEstimate(
+    itemsSubtotal,
+    shippingChoice
+  );
   const expediteFee = getExpediteFee(itemsSubtotal, expediteChoice);
 
   // ensure promo discount matches what updateTotals will show
@@ -1194,15 +1214,19 @@ async function handleSubmitOrder() {
   lines.push(`**Total estimate: ${formatCurrency(grandTotal)}**`);
   lines.push("");
 
-  const shipText = shippingInfoInput.value.trim();
   const notesText = notesInput.value.trim();
 
   lines.push(`**Contact:** ${contact}`);
   if (nameText) lines.push(`**Name:** ${nameText}`);
-  lines.push(
-    "**Shipping:** " +
-      (shippingChoice === "standard" ? shipText || "standard" : "Local pickup")
-  );
+
+  if (shippingChoice === "local") {
+    lines.push(
+      "**Delivery:** Local pickup" + (shipText ? ` — ${shipText}` : "")
+    );
+  } else {
+    lines.push("**Delivery:** Shipping — " + (shipText || "address provided"));
+  }
+
   if (notesText) lines.push(`**Notes:** ${notesText}`);
 
   if (payment.value === "card") {
@@ -1284,6 +1308,11 @@ async function init() {
   const expediteChoiceEl = document.getElementById("expedite-choice");
   if (expediteChoiceEl) {
     expediteChoiceEl.addEventListener("change", updateTotals);
+  }
+
+  const shippingChoiceEl = document.getElementById("shipping-choice");
+  if (shippingChoiceEl) {
+    shippingChoiceEl.addEventListener("change", updateTotals);
   }
 
   const addCustomBtn = document.getElementById("add-custom-btn");

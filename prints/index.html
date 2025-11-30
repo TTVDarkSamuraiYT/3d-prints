@@ -131,6 +131,19 @@
             <div id="cart-summary" style="display: none;">
               <hr />
 
+              <!-- DELIVERY METHOD -->
+              <div class="field-row">
+                <label for="shipping-choice">Delivery method</label>
+                <select id="shipping-choice">
+                  <option value="shipping">Shipping</option>
+                  <option value="local">Local pickup</option>
+                </select>
+                <p class="helper-text">
+                  Local pickup removes the shipping fee. Shipping uses the
+                  estimate shown below (I’ll confirm exact cost with you).
+                </p>
+              </div>
+
               <!-- EXPEDITE CHOICE -->
               <div class="field-row">
                 <label for="expedite-choice">Order priority</label>
@@ -213,7 +226,9 @@
               <h3>Contact & shipping</h3>
 
               <div class="field-row">
-                <label for="customer-name">Name (optional, but required for card)</label>
+                <label for="customer-name">
+                  Name (optional, but required for card)
+                </label>
                 <input
                   type="text"
                   id="customer-name"
@@ -235,11 +250,13 @@
               </div>
 
               <div class="field-row">
-                <label for="shipping-info">Shipping address or pickup info</label>
+                <label for="shipping-info">
+                  Shipping address or pickup info
+                </label>
                 <textarea
                   id="shipping-info"
                   rows="3"
-                  placeholder="Full address for shipping, or mention if this is local pickup."
+                  placeholder="Full address for shipping, or write something like “local pickup in Worcester”."
                 ></textarea>
               </div>
 

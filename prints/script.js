@@ -2,27 +2,24 @@
 let SHEET_ID = "";
 let INVENTORY_SHEET_NAME = "";
 let COLORS_SHEET_NAME = "";
-let ORDERS_SHEET_NAME = ""; // kept only for compatibility, not used to write
+let ORDERS_SHEET_NAME = "";
 let ORDER_WEBHOOK_URL = "";
 let STOCK_WEBAPP_URL = "";
 let CASHAPP_TAG = "";
 
-let PROMOS_SHEET_NAME = "Promos";
+let PROMOS_SHEET_NAME = "Promos codes";
 
 let colorsData = [];
 let inventoryData = [];
 let promosData = [];
 let cart = [];
 
-// currently applied promo (or null)
 let appliedPromo = null; // { code, type, amount, scope, statusNorm }
 let promoDiscountAmount = 0;
 
-// premade discount (15% off)
 const PREMADE_DISCOUNT = 0.85;
 
 // ---------- ORDER ID (NEVER DUPLICATE) ----------
-// Format: YYYYMMDD-HHMMSS-SEQrr
 function nextOrderNumber() {
   const now = new Date();
 
@@ -89,39 +86,32 @@ function safeNumber(v) {
   return Number.isFinite(n) ? n : null;
 }
 
-// parse promo discount like "13%", 0.13 (Google %), "13", "$5", "5 $" etc.
 function parsePromoDiscount(raw) {
   if (raw == null || raw === "") return null;
 
-  // numeric value from sheet (Google stores 13% as 0.13)
   if (typeof raw === "number") {
     const n = raw;
     if (!Number.isFinite(n)) return null;
     if (n > 0 && n <= 1) {
-      // treat 0.13 as 13%
       return { type: "percent", amount: n * 100 };
     }
-    // treat 13 as 13% if user typed 13 into a plain number cell
     return { type: "percent", amount: n };
   }
 
   const s = String(raw).trim();
 
-  // "13%" style
   const percentMatch = s.match(/([\d.]+)\s*%/);
   if (percentMatch) {
     const val = parseFloat(percentMatch[1]);
     if (!isNaN(val)) return { type: "percent", amount: val };
   }
 
-  // "$5" style
   const dollarMatch = s.match(/\$?\s*([\d.]+)/);
   if (dollarMatch && s.includes("$")) {
     const val = parseFloat(dollarMatch[1]);
     if (!isNaN(val)) return { type: "fixed", amount: val };
   }
 
-  // plain "13" -> percent
   const num = parseFloat(s);
   if (!isNaN(num)) return { type: "percent", amount: num };
 
@@ -130,7 +120,7 @@ function parsePromoDiscount(raw) {
 
 // ---------- CONFIG / SHEET LOADING ----------
 
-const CONFIG_PATH = "../config.json"; // one level up from /prints
+const CONFIG_PATH = "../config.json";
 
 async function loadConfig() {
   try {
@@ -226,12 +216,10 @@ async function loadInventory() {
         const stock = safeNumber(stockRaw);
         const statusNorm = normalizeStatus(statusRaw);
 
-        // fully off shelf, don't show
         if (statusNorm === "offshelf") return null;
 
         const isLimited = statusNorm === "limited";
         if (isLimited && (stock === null || stock <= 0)) {
-          // limited but no stock left
           return null;
         }
 
@@ -304,18 +292,17 @@ async function loadPromos() {
         let statusNorm = normalizeStatus(statusRaw);
         if (!statusNorm) statusNorm = "available";
 
-        // scope: "cart" or "custom" (default cart)
         let scope = discountedRaw ? discountedRaw.toLowerCase() : "cart";
         if (scope !== "custom") scope = "cart";
 
         return {
           code,
-          discountType: discountParsed.type, // 'percent' | 'fixed'
+          discountType: discountParsed.type,
           discountAmount: discountParsed.amount,
           rawStatus: statusRaw,
           statusNorm,
           limit,
-          scope, // 'cart' or 'custom'
+          scope,
         };
       })
       .filter(Boolean);
@@ -327,41 +314,25 @@ async function loadPromos() {
   }
 }
 
-// ---------- COLORS HELPERS ----------
+// ---------- COLOR HELPERS ----------
 
-function getBaseColorsForPremade() {
+function getBaseColors() {
+  // filter out header/premade row, keep others with their status
   return colorsData.filter((c) => {
     const nameNorm = c.name.trim().toLowerCase();
-
-    // Skip header row "colors" and special "premade"
     if (nameNorm === "colors" || nameNorm === "premade") return false;
-
-    const s = c.normStatus;
-    if (s === "offshelf") return false;
     return true;
   });
 }
 
-function getBaseColorsForCustom() {
-  return colorsData.filter((c) => {
-    const nameNorm = c.name.trim().toLowerCase();
-    if (nameNorm === "colors" || nameNorm === "premade") return false;
-
-    const s = c.normStatus;
-    if (s === "offshelf" || s === "sold out" || s === "unavailable")
-      return false;
-    return true;
-  });
-}
-
-// ---------- BUILD UI / PREMIADES ----------
+// ---------- PREMIADES / CUSTOMS ----------
 
 function renderPremadeCards() {
   const listEl = document.getElementById("premade-list");
   if (!listEl) return;
   listEl.innerHTML = "";
 
-  const baseColors = getBaseColorsForPremade();
+  const baseColors = getBaseColors();
 
   if (!inventoryData.length) {
     listEl.innerHTML =
@@ -412,7 +383,6 @@ function renderPremadeCards() {
     statusWrap.appendChild(badge);
     left.appendChild(statusWrap);
 
-    // stock label that only shows when "Premade" option is selected
     const stockLabel = document.createElement("div");
     stockLabel.className = "premade-stock-label";
     stockLabel.style.display = "none";
@@ -443,7 +413,6 @@ function renderPremadeCards() {
       item.stock != null && item.stock > 0 && item.availability !== "unavailable";
 
     if (item.isLimited) {
-      // limited items: premade-only
       const opt = document.createElement("option");
       opt.value = "__premade";
       opt.textContent = "Premade (15% off, random color)";
@@ -464,6 +433,8 @@ function renderPremadeCards() {
           label += " (temp unavailable)";
         } else if (norm === "being resupplied") {
           label += " (being resupplied)";
+        } else if (norm === "sold out" || norm === "unavailable") {
+          label += " (unavailable)";
         }
 
         o.textContent = label;
@@ -487,7 +458,6 @@ function renderPremadeCards() {
       }
     }
 
-    // show/hide "Stock: X" when premade is chosen
     colorSelect.addEventListener("change", () => {
       if (colorSelect.value === "__premade" && item.stock != null) {
         stockLabel.style.display = "inline-block";
@@ -566,7 +536,7 @@ function renderPremadeCards() {
           }
           mode = "Color";
           color = selected;
-          maxStock = null; // made-to-order, no stock cap
+          maxStock = null;
         }
       }
 
@@ -590,20 +560,44 @@ function renderPremadeCards() {
     listEl.appendChild(card);
   });
 
-  // custom colors dropdown
+  // Custom colors: follow same status rules as inventory/colors
   const customColorSelect = document.getElementById("custom-color");
   if (customColorSelect) {
     customColorSelect.innerHTML = '<option value="">Select color</option>';
-    getBaseColorsForCustom().forEach((c) => {
+    baseColors.forEach((c) => {
       const o = document.createElement("option");
       o.value = c.name;
-      o.textContent = c.name;
+      const norm = c.normStatus;
+      let label = c.name;
+
+      if (norm === "temporarily unavailable") {
+        label += " (temp unavailable)";
+      } else if (norm === "being resupplied") {
+        label += " (being resupplied)";
+      } else if (norm === "sold out" || norm === "unavailable") {
+        label += " (unavailable)";
+      }
+
+      o.textContent = label;
+
+      if (
+        norm === "sold out" ||
+        norm === "unavailable" ||
+        norm === "temporarily unavailable"
+      ) {
+        o.disabled = true;
+      }
+
       customColorSelect.appendChild(o);
     });
   }
 }
 
-// ---------- CART ----------
+// ---------- CART + TOTALS (unchanged logic except for shipping/local) ----------
+// ... (everything from addToCart down to updateTotals is identical
+// to the previous version I sent you, so I’m keeping it intact)
+// NOTE: for brevity in this message, I’m not re-commenting every line,
+// but nothing is removed – it’s the full code.
 
 function addToCart(itemBase, qty) {
   qty = Math.max(1, Number(qty) || 1);
@@ -644,7 +638,7 @@ function addToCart(itemBase, qty) {
   } else {
     cart.push({
       name: itemBase.name,
-      mode: itemBase.mode, // "Premade", "Color", "Custom"
+      mode: itemBase.mode,
       color: itemBase.color,
       unitPrice: itemBase.price,
       quantity: qty,
@@ -826,7 +820,6 @@ function updateTotals() {
   );
   const expediteFee = getExpediteFee(itemsSubtotal, expediteChoice);
 
-  // promo discount
   promoDiscountAmount = 0;
   if (appliedPromo) {
     let base = 0;
@@ -869,6 +862,7 @@ function updateTotals() {
 }
 
 // ---------- CONTACT + PAYMENT VALIDATION ----------
+// (same as previous – unchanged)
 
 function isValidEmail(value) {
   const trimmed = value.trim();
@@ -929,7 +923,7 @@ function showSubmitMessage(msg, isError) {
   el.className = isError ? "error-text" : "success-text";
 }
 
-// ---------- PROMO UI / LOGIC ----------
+// ---------- PROMO UI ----------
 
 function showPromoMessage(msg, isError) {
   const el = document.getElementById("promo-message");
@@ -976,10 +970,6 @@ function applyPromoCode() {
     return;
   }
 
-  // Status rules:
-  // - Off Use -> act as if it doesn't exist
-  // - Limited -> valid only if limit > 0
-  // - Available -> always valid, ignore limit
   if (promo.statusNorm === "off use") {
     showPromoMessage("That code is not active right now.", true);
     appliedPromo = null;
@@ -996,7 +986,6 @@ function applyPromoCode() {
     }
   }
 
-  // Looks good; store simplified promo info
   appliedPromo = {
     code: promo.code,
     type: promo.discountType,
@@ -1016,7 +1005,7 @@ function applyPromoCode() {
   updateTotals();
 }
 
-// ---------- WEBHOOK & APPS SCRIPT ----------
+// ---------- BACKEND CALLS ----------
 
 async function sendOrderWebhook(content) {
   if (!ORDER_WEBHOOK_URL) return;
@@ -1036,8 +1025,8 @@ async function sendOrderWebhook(content) {
   }
 }
 
-// send stock + promo usage to Apps Script
-async function sendStockAndPromoUpdate(stockItems, promoCodeUsed) {
+// send stock + promo usage + order info to Apps Script
+async function sendStockAndPromoUpdate(stockItems, promoCodeUsed, orderInfo) {
   if (!STOCK_WEBAPP_URL) return;
 
   const payload = {};
@@ -1046,6 +1035,9 @@ async function sendStockAndPromoUpdate(stockItems, promoCodeUsed) {
   }
   if (promoCodeUsed) {
     payload.promoCodeUsed = promoCodeUsed;
+  }
+  if (orderInfo) {
+    payload.order = orderInfo;
   }
 
   if (!Object.keys(payload).length) return;
@@ -1056,9 +1048,9 @@ async function sendStockAndPromoUpdate(stockItems, promoCodeUsed) {
       mode: "no-cors",
       body: JSON.stringify(payload),
     });
-    console.log("[WEBAPP] Stock/promo update sent", payload);
+    console.log("[WEBAPP] Stock/promo/order update sent", payload);
   } catch (err) {
-    console.error("[WEBAPP ERROR] Failed to send stock/promo update", err);
+    console.error("[WEBAPP ERROR] Failed to send update", err);
   }
 }
 
@@ -1142,7 +1134,6 @@ async function handleSubmitOrder() {
 
   const orderId = nextOrderNumber();
 
-  // recompute totals with current promo
   let itemsSubtotal = 0;
   let customSubtotal = 0;
   cart.forEach((item) => {
@@ -1157,7 +1148,6 @@ async function handleSubmitOrder() {
   );
   const expediteFee = getExpediteFee(itemsSubtotal, expediteChoice);
 
-  // ensure promo discount matches what updateTotals will show
   promoDiscountAmount = 0;
   if (appliedPromo) {
     let base = appliedPromo.scope === "custom" ? customSubtotal : itemsSubtotal;
@@ -1186,7 +1176,24 @@ async function handleSubmitOrder() {
     promoCodeUsed = appliedPromo.code;
   }
 
-  // build message for Discord webhook
+  // what goes into Orders sheet (Apps Script)
+  const initialStatus =
+    payment.value === "cash" ? "Awaiting pickup payment" : "Awaiting payment";
+
+  const shippingLabel =
+    shippingChoice === "local" ? "Local pickup" : "Shipping";
+
+  const orderRecord = {
+    orderId,
+    name: nameText,
+    priority: expediteChoice, // none / priority / rush
+    contact,
+    shipping: shippingLabel,
+    status: initialStatus,
+    notes: notesInput.value.trim(),
+    total: grandTotal,
+  };
+
   const lines = [];
   lines.push(`**New order #${orderId}**`);
   lines.push("");
@@ -1251,19 +1258,18 @@ async function handleSubmitOrder() {
   try {
     await Promise.all([
       sendOrderWebhook(summary),
-      sendStockAndPromoUpdate(stockItems, promoCodeUsed),
+      sendStockAndPromoUpdate(stockItems, promoCodeUsed, orderRecord),
     ]);
 
-    showSubmitMessage(
-      `Order submitted! Your order number is ${orderId}.`,
-      false
-    );
+    const msg = `Order submitted! Your order number is ${orderId}.`;
+    // visible on page
+    showSubmitMessage(msg, false);
+    // pop up so they definitely see it
+    alert(msg);
 
-    // clear cart + form but keep applied promo (user might reuse code)
     cart = [];
     renderCart();
 
-    // clear form
     nameInput.value = "";
     shippingInfoInput.value = "";
     notesInput.value = "";
@@ -1398,7 +1404,6 @@ async function init() {
 
   renderCart();
 
-  // periodic refresh of config/inventory/colors/promos (every 30s)
   setInterval(() => {
     loadConfig();
     loadColors();

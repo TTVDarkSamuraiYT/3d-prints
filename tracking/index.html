@@ -68,6 +68,14 @@
       .btn-primary:hover {
         background: #16a34a;
       }
+      .btn-ghost {
+        background: transparent;
+        border: 1px solid #4b5563;
+        color: #e5e7eb;
+      }
+      .btn-ghost:hover {
+        background: #111827;
+      }
       .helper-text {
         font-size: 0.85rem;
         color: #b3b3c7;
@@ -108,18 +116,29 @@
         background: #b91c1c;
         color: #fee2e2;
       }
+      .header-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
     </style>
   </head>
   <body>
     <div class="page">
       <header>
-        <a href="../prints/" class="home-link">← Back to shop</a>
-        <h1>Track your order</h1>
-        <p class="helper-text">
-          You can track using your <strong>order number</strong> or your
-          <strong>contact</strong> (email or phone). Name is not used for
-          searching, so two different people named "John" won't collide.
-        </p>
+        <div class="header-row">
+          <div>
+            <h1>Track your order</h1>
+            <p class="helper-text">
+              Track using your <strong>order number</strong> or your
+              <strong>contact</strong> (email or phone). Name is not used for
+              searching.
+            </p>
+          </div>
+          <a href="../prints/" class="btn btn-ghost">← Back to shop</a>
+        </div>
       </header>
 
       <section class="card">
@@ -158,7 +177,9 @@
           const res = await fetch(CONFIG_PATH, { cache: "no-cache" });
           if (!res.ok) throw new Error("config fetch failed");
           const cfg = await res.json();
-          TRACKING_WEBAPP_URL = cfg.TRACKING_WEBAPP_URL || "";
+          // fallback to STOCK_WEBAPP_URL so you don't need a separate entry
+          TRACKING_WEBAPP_URL =
+            cfg.TRACKING_WEBAPP_URL || cfg.STOCK_WEBAPP_URL || "";
         } catch (err) {
           console.error("Config error", err);
         }
@@ -204,14 +225,14 @@
           }
           if (row.shipping) {
             const t = document.createElement("span");
-            t.className="tag";
-            t.textContent=row.shipping;
+            t.className = "tag";
+            t.textContent = row.shipping;
             tags.appendChild(t);
           }
           if (row.status) {
             const t = document.createElement("span");
-            t.className="tag";
-            t.textContent=row.status;
+            t.className = "tag";
+            t.textContent = row.status;
             tags.appendChild(t);
           }
           if (tags.childElementCount) {

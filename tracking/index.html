@@ -123,6 +123,13 @@
         gap: 8px;
         flex-wrap: wrap;
       }
+      .track-link {
+        color: #38bdf8;
+        text-decoration: none;
+      }
+      .track-link:hover {
+        text-decoration: underline;
+      }
     </style>
   </head>
   <body>
@@ -223,12 +230,6 @@
               row.priority.slice(1).toLowerCase();
             tags.appendChild(t);
           }
-          if (row.shipping) {
-            const t = document.createElement("span");
-            t.className = "tag";
-            t.textContent = row.shipping;
-            tags.appendChild(t);
-          }
           if (row.status) {
             const t = document.createElement("span");
             t.className = "tag";
@@ -245,6 +246,27 @@
             (row.name ? "Name: " + row.name + " • " : "") +
             (row.contact ? "Contact: " + row.contact : "");
           div.appendChild(p1);
+
+          // shipping / external tracking link from column E
+          if (row.shipping) {
+            const shipP = document.createElement("p");
+            shipP.className = "helper-text";
+
+            const val = String(row.shipping).trim();
+            if (/^https?:\/\//i.test(val)) {
+              const link = document.createElement("a");
+              link.href = val;
+              link.target = "_blank";
+              link.rel = "noopener noreferrer";
+              link.className = "track-link";
+              link.textContent = "Open tracking link";
+              shipP.textContent = "Tracking: ";
+              shipP.appendChild(link);
+            } else {
+              shipP.textContent = "Shipping / tracking: " + val;
+            }
+            div.appendChild(shipP);
+          }
 
           if (row.notes) {
             const p2 = document.createElement("p");

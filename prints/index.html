@@ -226,37 +226,36 @@
               <h3>Contact & shipping</h3>
 
               <div class="field-row">
-                <label for="customer-name">
-                  Name (optional, but required for card)
-                </label>
+                <label for="customer-name">Name (required)</label>
                 <input
                   type="text"
                   id="customer-name"
-                  placeholder="Name for the order (optional)"
+                  placeholder="Name for the order"
+                  required
                 />
               </div>
 
               <div class="field-row">
-                <label for="customer-contact">Contact info (required)</label>
+                <label for="customer-contact">Contact info (email or phone required)</label>
                 <input
                   type="text"
                   id="customer-contact"
                   placeholder="Email or phone number"
+                  required
                 />
                 <p class="helper-text">
-                  I’ll only use this to contact you about your order or send a
-                  Square invoice (if paying by card).
+                  I’ll use this to contact you about your order and send your
+                  Square invoice.
                 </p>
               </div>
 
               <div class="field-row">
-                <label for="shipping-info">
-                  Shipping address or pickup info
-                </label>
+                <label for="shipping-info">Shipping address or pickup info (required)</label>
                 <textarea
                   id="shipping-info"
                   rows="3"
                   placeholder="Full address for shipping, or write something like “local pickup in Worcester”."
+                  required
                 ></textarea>
               </div>
 
@@ -269,47 +268,12 @@
                 ></textarea>
               </div>
 
-              <!-- PAYMENT METHODS -->
-              <h3>Payment method</h3>
-              <div class="payment-options">
-                <label class="radio-row">
-                  <input
-                    type="radio"
-                    name="payment-method"
-                    value="card"
-                  />
-                  <span>Card via Square (manual invoice)</span>
-                </label>
-                <label class="radio-row">
-                  <input
-                    type="radio"
-                    name="payment-method"
-                    value="cash"
-                  />
-                  <span>Cash (local pickup only)</span>
-                </label>
-                <label class="radio-row">
-                  <input
-                    type="radio"
-                    name="payment-method"
-                    value="cashapp"
-                  />
-                  <span>
-                    Cash App to <span id="cashapp-tag-display">$CashApp</span>
-                  </span>
-                </label>
-              </div>
-
-              <div id="cashapp-extra" class="field-row hidden">
-                <label for="cashapp-reference">
-                  Cash App reference (required for Cash App)
-                </label>
-                <input
-                  type="text"
-                  id="cashapp-reference"
-                  placeholder="Your $Cashtag or a payment note so I know which payment is yours"
-                />
-              </div>
+              <!-- PAYMENT -->
+              <h3>Payment</h3>
+              <p class="helper-text">
+                After you submit the order, I’ll send a Square invoice to the
+                phone number or email you entered above.
+              </p>
 
               <button
                 id="submit-order-btn"

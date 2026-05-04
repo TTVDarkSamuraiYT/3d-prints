@@ -774,8 +774,7 @@ function renderCart() {
   updateTotals();
 }
 
-function getShippingEstimate(itemsSubtotal, shippingChoice) {
-  if (shippingChoice === "local") return 0;
+function getShippingEstimate(itemsSubtotal) {
   if (itemsSubtotal <= 0) return 0;
   if (itemsSubtotal <= 10) return 6.0;
   if (itemsSubtotal <= 40) return 9.0;
@@ -818,15 +817,7 @@ function updateTotals() {
     ? expediteChoiceEl.value
     : "none";
 
-  const shippingChoiceEl = document.getElementById("shipping-choice");
-  const shippingChoice = shippingChoiceEl
-    ? shippingChoiceEl.value
-    : "shipping";
-
-  const shippingEstimate = getShippingEstimate(
-    itemsSubtotal,
-    shippingChoice
-  );
+  const shippingEstimate = getShippingEstimate(itemsSubtotal);
   const expediteFee = getExpediteFee(itemsSubtotal, expediteChoice);
 
   promoDiscountAmount = 0;
@@ -1056,12 +1047,7 @@ async function handleSubmitOrder() {
   const shippingInfoInput = document.getElementById("shipping-info");
   const notesInput = document.getElementById("extra-notes");
   const expediteChoiceEl = document.getElementById("expedite-choice");
-  const shippingChoiceEl = document.getElementById("shipping-choice");
-
   const expediteChoice = expediteChoiceEl ? expediteChoiceEl.value : "none";
-  const shippingChoice = shippingChoiceEl
-    ? shippingChoiceEl.value
-    : "shipping";
 
   let contact = contactInput.value.trim();
   if (!contact) {
@@ -1096,7 +1082,7 @@ async function handleSubmitOrder() {
   const shipText = shippingInfoInput.value.trim();
   if (!shipText) {
     showSubmitMessage(
-      "Shipping address or pickup info is required for every order.",
+      "Shipping address is required for every order. If you want local pickup in Worcester, MA, mention it in the extra notes too.",
       true
     );
     return;
@@ -1112,10 +1098,7 @@ async function handleSubmitOrder() {
     if (item.mode === "Custom") customSubtotal += sub;
   });
 
-  const shippingEstimate = getShippingEstimate(
-    itemsSubtotal,
-    shippingChoice
-  );
+  const shippingEstimate = getShippingEstimate(itemsSubtotal);
   const expediteFee = getExpediteFee(itemsSubtotal, expediteChoice);
 
   promoDiscountAmount = 0;
@@ -1178,13 +1161,8 @@ async function handleSubmitOrder() {
   lines.push(`**Contact:** ${contact}`);
   if (nameText) lines.push(`**Name:** ${nameText}`);
 
-  if (shippingChoice === "local") {
-    lines.push(
-      "**Delivery:** Local pickup" + (shipText ? ` — ${shipText}` : "")
-    );
-  } else {
-    lines.push("**Delivery:** Shipping — " + (shipText || "address provided"));
-  }
+  lines.push("**Delivery:** Shipping by default — " + (shipText || "address provided"));
+  lines.push("**Local pickup note:** Available in Worcester, MA by appointment only if requested/approved. Check notes for any pickup request.");
 
   if (notesText) lines.push(`**Notes:** ${notesText}`);
 
@@ -1235,11 +1213,6 @@ async function init() {
   const expediteChoiceEl = document.getElementById("expedite-choice");
   if (expediteChoiceEl) {
     expediteChoiceEl.addEventListener("change", updateTotals);
-  }
-
-  const shippingChoiceEl = document.getElementById("shipping-choice");
-  if (shippingChoiceEl) {
-    shippingChoiceEl.addEventListener("change", updateTotals);
   }
 
   const addCustomBtn = document.getElementById("add-custom-btn");

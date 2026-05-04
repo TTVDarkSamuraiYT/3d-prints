@@ -131,16 +131,15 @@
             <div id="cart-summary" style="display: none;">
               <hr />
 
-              <!-- DELIVERY METHOD -->
+              <!-- SHIPPING INFO -->
               <div class="field-row">
-                <label for="shipping-choice">Delivery method</label>
-                <select id="shipping-choice">
-                  <option value="shipping">Shipping</option>
-                  <option value="local">Local pickup</option>
-                </select>
+                <label>Delivery</label>
                 <p class="helper-text">
-                  Local pickup removes the shipping fee. Shipping uses the
-                  estimate shown below (I’ll confirm exact cost with you).
+                  Shipping is available for all orders and is the default delivery method.
+                  Local pickup in Worcester, MA may be available for nearby customers by
+                  appointment only. To request local pickup, mention it in the extra notes
+                  box when submitting your order. Pickup details are provided after
+                  purchase confirmation.
                 </p>
               </div>
 
@@ -250,11 +249,11 @@
               </div>
 
               <div class="field-row">
-                <label for="shipping-info">Shipping address or pickup info (required)</label>
+                <label for="shipping-info">Shipping address (required)</label>
                 <textarea
                   id="shipping-info"
                   rows="3"
-                  placeholder="Full address for shipping, or write something like “local pickup in Worcester”."
+                  placeholder="Full shipping address"
                   required
                 ></textarea>
               </div>
@@ -264,7 +263,7 @@
                 <textarea
                   id="extra-notes"
                   rows="3"
-                  placeholder="Anything else I should know (deadlines, small tweaks, etc.)"
+                  placeholder="Anything else I should know (deadlines, small tweaks, local pickup request in Worcester, MA, etc.)"
                 ></textarea>
               </div>
 

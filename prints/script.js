@@ -899,24 +899,10 @@ function formatPhonePretty(value) {
 }
 
 function getSelectedPayment() {
-  const selected = document.querySelector(
-    'input[name="payment-method"]:checked'
-  );
-  if (!selected) return null;
-
-  let text;
-  if (selected.value === "card") {
-    text = "Card via Square (manual)";
-  } else if (selected.value === "cash") {
-    text = "Cash (local pickup)";
-  } else if (selected.value === "cashapp") {
-    const ref = document.getElementById("cashapp-reference").value.trim();
-    text = "Cash App to " + CASHAPP_TAG + (ref ? ` (ref: ${ref})` : "");
-  } else {
-    text = selected.value;
-  }
-
-  return { value: selected.value, text };
+  return {
+    value: "square_invoice",
+    text: "Square invoice sent by phone/email",
+  };
 }
 
 function showSubmitMessage(msg, isError) {
@@ -1100,36 +1086,17 @@ async function handleSubmitOrder() {
   }
 
   const nameText = nameInput.value.trim();
+  if (!nameText) {
+    showSubmitMessage("Name is required for every order.", true);
+    return;
+  }
 
   const payment = getSelectedPayment();
-  if (!payment) {
-    showSubmitMessage("Please choose a payment method.", true);
-    return;
-  }
-
-  if (payment.value === "card" && !nameText) {
-    showSubmitMessage(
-      "Name is required for card payments (for the Square invoice).",
-      true
-    );
-    return;
-  }
 
   const shipText = shippingInfoInput.value.trim();
-  if (shippingChoice === "shipping" && !shipText) {
+  if (!shipText) {
     showSubmitMessage(
-      "Please provide a shipping address for shipping orders.",
-      true
-    );
-    return;
-  }
-
-  const cashappRefInput = document.getElementById("cashapp-reference");
-  let cashappRef = cashappRefInput.value.trim();
-
-  if (payment.value === "cashapp" && !cashappRef) {
-    showSubmitMessage(
-      "Please enter your Cash App name or a payment note.",
+      "Shipping address or pickup info is required for every order.",
       true
     );
     return;
@@ -1221,19 +1188,9 @@ async function handleSubmitOrder() {
 
   if (notesText) lines.push(`**Notes:** ${notesText}`);
 
-  if (payment.value === "card") {
-    lines.push(
-      `**Payment:** Card via Square (manual) — Name: ${nameText}; Contact for Square link: ${contact}`
-    );
-  } else if (payment.value === "cash") {
-    lines.push("**Payment:** Cash (local pickup)");
-  } else if (payment.value === "cashapp") {
-    lines.push(
-      `**Payment:** Cash App to ${CASHAPP_TAG} — reference: ${cashappRef}`
-    );
-  } else {
-    lines.push(`**Payment:** ${payment.text}`);
-  }
+  lines.push(
+    `**Payment:** Square invoice needed — send invoice to ${contact}`
+  );
 
   const summary = lines.join("\n");
 
@@ -1256,12 +1213,7 @@ async function handleSubmitOrder() {
     nameInput.value = "";
     shippingInfoInput.value = "";
     notesInput.value = "";
-    cashappRefInput.value = "";
-    document
-      .querySelectorAll('input[name="payment-method"]')
-      .forEach((r) => (r.checked = false));
-    const cashappExtra = document.getElementById("cashapp-extra");
-    if (cashappExtra) cashappExtra.classList.add("hidden");
+    contactInput.value = "";
   } catch (err) {
     console.error("Submit error", err);
     showSubmitMessage("Sorry, there was an error submitting your order.", true);
@@ -1271,27 +1223,14 @@ async function handleSubmitOrder() {
 }
 
 // ---------- INIT ----------
-async function init() {
+async function refreshShopData() {
   await loadConfig();
-  await Promise.all([loadColors(), loadInventory(), loadPromos()]);
+  await loadColors();
+  await Promise.all([loadInventory(), loadPromos()]);
+}
 
-  const paymentRadios = document.querySelectorAll(
-    'input[name="payment-method"]'
-  );
-  const cashappExtra = document.getElementById("cashapp-extra");
-  const cashappRefInput = document.getElementById("cashapp-reference");
-
-  paymentRadios.forEach((radio) => {
-    radio.addEventListener("change", () => {
-      if (!radio.checked) return;
-      if (radio.value === "cashapp") {
-        cashappExtra.classList.remove("hidden");
-      } else {
-        cashappExtra.classList.add("hidden");
-        cashappRefInput.value = "";
-      }
-    });
-  });
+async function init() {
+  await refreshShopData();
 
   const expediteChoiceEl = document.getElementById("expedite-choice");
   if (expediteChoiceEl) {
@@ -1387,10 +1326,7 @@ async function init() {
   renderCart();
 
   setInterval(() => {
-    loadConfig();
-    loadColors();
-    loadInventory();
-    loadPromos();
+    refreshShopData();
   }, 30000);
 }
 

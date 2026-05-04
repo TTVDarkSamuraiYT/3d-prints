@@ -6,6 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <!-- file is in the SAME folder, so just style.css -->
     <link rel="stylesheet" href="style.css" />
+    <script src="../maintenance.js" defer></script>
   </head>
   <body>
     <div class="page">
@@ -135,12 +136,14 @@
               <div class="field-row">
                 <label>Delivery</label>
                 <p class="helper-text">
-                  Shipping is available for all orders and is the default delivery method.
-                  Local pickup in Worcester, MA may be available for nearby customers by
-                  appointment only. To request local pickup, mention it in the extra notes
-                  box when submitting your order. Pickup details are provided after
+                  Shipping is available for all orders and is the default
+                  delivery method. Local pickup in Worcester, MA may be
+                  available for nearby customers by appointment only. To request
+                  local pickup, mention it in the extra notes box when
+                  submitting your order. Pickup details are provided after
                   purchase confirmation.
                 </p>
+                <input type="hidden" id="shipping-choice" value="shipping" />
               </div>
 
               <!-- EXPEDITE CHOICE -->

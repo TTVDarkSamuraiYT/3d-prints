@@ -138,129 +138,148 @@ function slugifyPreviewName(value) {
   return String(value || "")
     .trim()
     .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")function normalizePreviewKey(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/\.[^/.]+$/, "")
+    .replace(/[-_]+[0-9]+$/, "")
+    .replace(/\s+/g, " ");
+}
+
+function slugifyPreviewName(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/\.[^/.]+$/, "")
+    .replace(/[-_]+[0-9]+$/, "")
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
 }
 
-function encodePreviewPathPart(value) {
-  return String(value || "")
-    .split("/")
-    .map((part) => encodeURIComponent(part))
-    .join("/");
-}
+function previewTypeFromFile(file) {
+  const name = String(file.name || "").toLowerCase();
+  const mime = String(file.mimeType || "").toLowerCase();
 
-function previewTypeFromUrl(url) {
-  const clean = String(url || "").split("?")[0].toLowerCase();
-  if (clean.match(/\.(mp4|webm|mov|m4v)$/)) return "video";
+  if (
+    mime.startsWith("video/") ||
+    name.endsWith(".mp4") ||
+    name.endsWith(".webm") ||
+    name.endsWith(".mov") ||
+    name.endsWith(".m4v")
+  ) {
+    return "video";
+  }
+
   return "image";
 }
 
-function getConfiguredPreviewFiles(itemName) {
-  const keysToTry = [
-    itemName,
+function getBaseNameFromPreviewFile(filename) {
+  return String(filename || "")
+    .trim()
+    .replace(/\.[^/.]+$/, "")
+    .replace(/[-_]+[0-9]+$/, "");
+}
+
+function indexPreviewFiles(files) {
+  previewFileIndex = Array.isArray(files) ? files : [];
+  previewFileMap = {};
+
+  previewFileIndex.forEach((file) => {
+    const baseName = getBaseNameFromPreviewFile(file.name);
+    const keys = [
+      normalizePreviewKey(baseName),
+      slugifyPreviewName(baseName)
+    ];
+
+    keys.forEach((key) => {
+      if (!key) return;
+      if (!previewFileMap[key]) previewFileMap[key] = [];
+
+      previewFileMap[key].push({
+        url: file.directUrl || file.downloadUrl || file.viewUrl,
+        fallbackUrl: file.downloadUrl || file.viewUrl || file.directUrl,
+        viewUrl: file.viewUrl,
+        name: file.name,
+        title: baseName,
+        type: previewTypeFromFile(file)
+      });
+    });
+  });
+
+  Object.keys(previewFileMap).forEach((key) => {
+    previewFileMap[key].sort((a, b) =>
+      String(a.name).localeCompare(String(b.name), undefined, {
+        numeric: true,
+        sensitivity: "base"
+      })
+    );
+  });
+}
+
+async function loadDrivePreviewIndex() {
+  if (!PREVIEW_WEBAPP_URL || previewsPreloaded) return;
+
+  try {
+    let url = PREVIEW_WEBAPP_URL;
+
+    if (PRINT_PREVIEW_FOLDER_ID) {
+      const joiner = url.includes("?") ? "&" : "?";
+      url += joiner + "folderId=" + encodeURIComponent(PRINT_PREVIEW_FOLDER_ID);
+    }
+
+    const res = await fetch(url, { cache: "no-cache" });
+    if (!res.ok) throw new Error("Preview index request failed");
+
+    const data = await res.json();
+
+    if (!data.ok) {
+      throw new Error(data.error || "Preview index returned an error");
+    }
+
+    indexPreviewFiles(data.files || []);
+    previewsPreloaded = true;
+
+    preloadPreviewMedia();
+    console.log("[PREVIEW] Loaded", previewFileIndex.length, "preview files");
+  } catch (err) {
+    console.warn("[PREVIEW] Could not load Drive previews:", err);
+  }
+}
+
+function preloadPreviewMedia() {
+  const loaded = new Set();
+
+  Object.values(previewFileMap).forEach((files) => {
+    files.forEach((file) => {
+      if (!file.url || loaded.has(file.url)) return;
+      loaded.add(file.url);
+
+      if (file.type === "image") {
+        const img = new Image();
+        img.src = file.url;
+      } else if (file.type === "video") {
+        const video = document.createElement("video");
+        video.preload = "metadata";
+        video.src = file.url;
+      }
+    });
+  });
+}
+
+function getPreviewFilesForItem(itemName) {
+  const keys = [
     normalizePreviewKey(itemName),
-    slugifyPreviewName(itemName),
+    slugifyPreviewName(itemName)
   ];
 
-  for (const key of keysToTry) {
-    const files = PRINT_PREVIEWS && PRINT_PREVIEWS[key];
-    if (Array.isArray(files) && files.length) {
-      return files
-        .map((entry) => {
-          if (typeof entry === "string") {
-            return {
-              url: entry,
-              type: previewTypeFromUrl(entry),
-              title: itemName,
-            };
-          }
-
-          if (entry && entry.url) {
-            return {
-              url: entry.url,
-              type: entry.type || previewTypeFromUrl(entry.url),
-              title: entry.title || itemName,
-            };
-          }
-
-          return null;
-        })
-        .filter(Boolean);
+  for (const key of keys) {
+    if (previewFileMap[key] && previewFileMap[key].length) {
+      return previewFileMap[key];
     }
   }
 
   return [];
-}
-
-function buildLocalPreviewCandidates(itemName) {
-  const folder = String(PRINT_PREVIEW_LOCAL_FOLDER || "previews").replace(/\/+$/, "");
-  const exactName = String(itemName || "").trim();
-  const slugName = slugifyPreviewName(itemName);
-  const bases = [];
-
-  if (exactName) bases.push(exactName);
-  if (slugName && slugName !== exactName.toLowerCase()) bases.push(slugName);
-
-  const exts = ["png", "jpg", "jpeg", "webp", "gif", "mp4", "webm", "mov"];
-  const candidates = [];
-
-  bases.forEach((base) => {
-    exts.forEach((ext) => {
-      candidates.push(`${folder}/${encodePreviewPathPart(base)}.${ext}`);
-    });
-
-    for (let i = 1; i <= 8; i++) {
-      exts.forEach((ext) => {
-        candidates.push(`${folder}/${encodePreviewPathPart(base)}-${i}.${ext}`);
-        candidates.push(`${folder}/${encodePreviewPathPart(base)}_${i}.${ext}`);
-      });
-    }
-  });
-
-  return [...new Set(candidates)];
-}
-
-async function urlExists(url) {
-  try {
-    const res = await fetch(url, {
-      method: "HEAD",
-      cache: "no-cache",
-    });
-    if (res.ok) return true;
-  } catch {
-    // Some hosts do not support HEAD; try a tiny GET fallback.
-  }
-
-  try {
-    const res = await fetch(url, {
-      method: "GET",
-      cache: "no-cache",
-      headers: { Range: "bytes=0-0" },
-    });
-    return res.ok || res.status === 206;
-  } catch {
-    return false;
-  }
-}
-
-async function findLocalPreviewFiles(itemName) {
-  const candidates = buildLocalPreviewCandidates(itemName);
-  const found = [];
-
-  for (const url of candidates) {
-    if (found.length >= 12) break;
-
-    // eslint-disable-next-line no-await-in-loop
-    if (await urlExists(url)) {
-      found.push({
-        url,
-        type: previewTypeFromUrl(url),
-        title: itemName,
-      });
-    }
-  }
-
-  return found;
 }
 
 let activePreviewFiles = [];
@@ -287,30 +306,45 @@ function renderPreviewMedia() {
   if (!activePreviewFiles.length) return;
 
   const file = activePreviewFiles[activePreviewIndex];
-  const fileType = file.type || previewTypeFromUrl(file.url);
 
-  if (fileType === "video") {
+  if (file.type === "video") {
     const video = document.createElement("video");
     video.src = file.url;
     video.controls = true;
     video.playsInline = true;
+    video.preload = "auto";
     video.className = "preview-main-media";
+
+    video.addEventListener("error", () => {
+      if (file.fallbackUrl && video.src !== file.fallbackUrl) {
+        video.src = file.fallbackUrl;
+      }
+    });
+
     mediaWrap.appendChild(video);
   } else {
     const img = document.createElement("img");
     img.src = file.url;
     img.alt = file.title || "Print preview";
     img.className = "preview-main-media";
+
+    img.addEventListener("error", () => {
+      if (file.fallbackUrl && img.src !== file.fallbackUrl) {
+        img.src = file.fallbackUrl;
+      }
+    });
+
     mediaWrap.appendChild(img);
   }
 
   activePreviewFiles.forEach((thumbFile, index) => {
     const thumb = document.createElement("button");
     thumb.type = "button";
-    thumb.className = "preview-thumb" + (index === activePreviewIndex ? " active" : "");
+    thumb.className =
+      "preview-thumb" + (index === activePreviewIndex ? " active" : "");
     thumb.setAttribute("aria-label", `Preview ${index + 1}`);
 
-    if ((thumbFile.type || previewTypeFromUrl(thumbFile.url)) === "video") {
+    if (thumbFile.type === "video") {
       const label = document.createElement("span");
       label.textContent = "Video";
       thumb.appendChild(label);
@@ -318,6 +352,13 @@ function renderPreviewMedia() {
       const img = document.createElement("img");
       img.src = thumbFile.url;
       img.alt = "";
+
+      img.addEventListener("error", () => {
+        if (thumbFile.fallbackUrl && img.src !== thumbFile.fallbackUrl) {
+          img.src = thumbFile.fallbackUrl;
+        }
+      });
+
       thumb.appendChild(img);
     }
 
@@ -334,15 +375,20 @@ function renderPreviewMedia() {
   if (nextBtn) nextBtn.style.display = hasMultiple ? "flex" : "none";
 
   setPreviewMessage(
-    `${activePreviewIndex + 1} of ${activePreviewFiles.length} preview file${activePreviewFiles.length === 1 ? "" : "s"}`,
+    `${activePreviewIndex + 1} of ${activePreviewFiles.length} preview file${
+      activePreviewFiles.length === 1 ? "" : "s"
+    }`,
     false
   );
 }
 
 function movePreview(step) {
   if (!activePreviewFiles.length) return;
+
   activePreviewIndex =
-    (activePreviewIndex + step + activePreviewFiles.length) % activePreviewFiles.length;
+    (activePreviewIndex + step + activePreviewFiles.length) %
+    activePreviewFiles.length;
+
   renderPreviewMedia();
 }
 
@@ -368,15 +414,17 @@ async function openPreviewModal(itemName) {
   modal.classList.remove("hidden");
   modal.setAttribute("aria-hidden", "false");
 
-  const configuredFiles = getConfiguredPreviewFiles(itemName);
-  const localFiles = configuredFiles.length ? [] : await findLocalPreviewFiles(itemName);
-  activePreviewFiles = configuredFiles.length ? configuredFiles : localFiles;
+  if (!previewsPreloaded) {
+    await loadDrivePreviewIndex();
+  }
+
+  activePreviewFiles = getPreviewFilesForItem(itemName);
 
   loading.classList.add("hidden");
 
   if (!activePreviewFiles.length) {
     setPreviewMessage(
-      `No in-site preview files were found for "${itemName}" yet. Add files in /prints/previews/ named like "${itemName}.png", "${itemName}-1.jpg", or "${itemName}.mp4". For Google Drive files, add their direct share URLs to PRINT_PREVIEWS in config.json.`,
+      `No previews were found for "${itemName}" yet. Upload files to the Drive preview folder named like "${itemName}.png", "${itemName}-1.jpg", or "${itemName}.mp4".`,
       true
     );
     return;
@@ -390,12 +438,14 @@ async function openPreviewModal(itemName) {
 function closePreviewModal() {
   const modal = document.getElementById("preview-modal");
   const mediaWrap = document.getElementById("preview-media-wrap");
+
   if (!modal) return;
 
   modal.classList.add("hidden");
   modal.setAttribute("aria-hidden", "true");
 
   if (mediaWrap) mediaWrap.innerHTML = "";
+
   activePreviewFiles = [];
   activePreviewIndex = 0;
 }
@@ -432,6 +482,8 @@ async function loadConfig() {
     PRINT_PREVIEW_LOCAL_FOLDER = cfg.PRINT_PREVIEW_LOCAL_FOLDER || "previews";
     CASHAPP_TAG = cfg.CASHAPP_TAG || "$CashApp";
     PROMOS_SHEET_NAME = cfg.PROMOS_SHEET_NAME || "Promos";
+    PREVIEW_WEBAPP_URL = cfg.PREVIEW_WEBAPP_URL || "";
+    PRINT_PREVIEW_FOLDER_ID = cfg.PRINT_PREVIEW_FOLDER_ID || "";
 
     const cashTagEl = document.getElementById("cashapp-tag-display");
     if (cashTagEl) cashTagEl.textContent = CASHAPP_TAG;
@@ -1604,7 +1656,7 @@ async function handleSubmitOrder() {
 async function refreshShopData() {
   await loadConfig();
   await loadColors();
-  await Promise.all([loadInventory(), loadPromos()]);
+  await Promise.all([loadInventory(), loadPromos(), loadDrivePreviewIndex()]);
 }
 
 async function init() {

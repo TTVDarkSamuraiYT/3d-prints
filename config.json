@@ -8,5 +8,7 @@
   "PRINT_PREVIEWS_FOLDER_URL": "https://drive.google.com/drive/folders/1rWnToiP-xf056d3UU4EwKOL-3cC6JQLD?usp=sharing",
   "STOCK_WEBAPP_URL": "https://script.google.com/macros/s/AKfycbw4T7twEzImAHF3kipxJowLnCOQWBLg5A9-33GKzsHnQcGLYMTQXDA3CdSNebr6PKUe/exec",
   "CASHAPP_TAG": "$TekniqSolutions",
-  "PROMOS_SHEET_NAME": "Promo codes"
+  "PROMOS_SHEET_NAME": "Promo codes",
+  "PRINT_PREVIEW_LOCAL_FOLDER": "previews",
+  "PRINT_PREVIEWS": {}
 }

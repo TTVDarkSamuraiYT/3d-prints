@@ -10,6 +10,11 @@ let PRINT_PREVIEWS_FOLDER_URL = "";
 let PRINT_PREVIEWS = {};
 let PRINT_PREVIEW_LOCAL_FOLDER = "previews";
 let CASHAPP_TAG = "";
+let PREVIEW_WEBAPP_URL = "";
+let PRINT_PREVIEW_FOLDER_ID = "";
+let previewFileIndex = [];
+let previewFileMap = {};
+let previewsPreloaded = false;
 
 let PROMOS_SHEET_NAME = "Promos";
 

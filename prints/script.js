@@ -5,6 +5,8 @@ let COLORS_SHEET_NAME = "";
 let ORDERS_SHEET_NAME = "";
 let ORDER_WEBHOOK_URL = "";
 let STOCK_WEBAPP_URL = "";
+let SUGGESTIONS_WEBHOOK_URL = "";
+let PRINT_PREVIEWS_FOLDER_URL = "";
 let CASHAPP_TAG = "";
 
 let PROMOS_SHEET_NAME = "Promos";
@@ -118,6 +120,51 @@ function parsePromoDiscount(raw) {
   return null;
 }
 
+function buildDriveSearchUrl(itemName) {
+  const query = `"${itemName}"`;
+  return "https://drive.google.com/drive/search?q=" + encodeURIComponent(query);
+}
+
+function openPreviewModal(itemName) {
+  const modal = document.getElementById("preview-modal");
+  const title = document.getElementById("preview-title");
+  const copy = document.getElementById("preview-copy");
+  const folderLink = document.getElementById("preview-folder-link");
+  const searchLink = document.getElementById("preview-search-link");
+
+  if (!modal || !title || !copy || !folderLink || !searchLink) return;
+
+  title.textContent = `${itemName} preview`;
+  copy.textContent =
+    `Photos or clips for "${itemName}" should be saved in the preview folder with the same item name. ` +
+    "Open the folder or search the item name to view what is available.";
+
+  const folderUrl = PRINT_PREVIEWS_FOLDER_URL || "#";
+  folderLink.href = folderUrl;
+  folderLink.style.display = PRINT_PREVIEWS_FOLDER_URL ? "inline-flex" : "none";
+  searchLink.href = buildDriveSearchUrl(itemName);
+
+  modal.classList.remove("hidden");
+  modal.setAttribute("aria-hidden", "false");
+}
+
+function closePreviewModal() {
+  const modal = document.getElementById("preview-modal");
+  if (!modal) return;
+  modal.classList.add("hidden");
+  modal.setAttribute("aria-hidden", "true");
+}
+
+function switchShopTab(tabName) {
+  document.querySelectorAll(".shop-tab").forEach((btn) => {
+    btn.classList.toggle("active", btn.dataset.tab === tabName);
+  });
+
+  document.querySelectorAll(".tab-panel").forEach((panel) => {
+    panel.classList.toggle("active", panel.dataset.panel === tabName);
+  });
+}
+
 // ---------- CONFIG / SHEET LOADING ----------
 
 const CONFIG_PATH = "../config.json";
@@ -134,6 +181,8 @@ async function loadConfig() {
     ORDERS_SHEET_NAME = cfg.ORDERS_SHEET_NAME || "Orders";
     ORDER_WEBHOOK_URL = cfg.ORDER_WEBHOOK_URL;
     STOCK_WEBAPP_URL = cfg.STOCK_WEBAPP_URL || "";
+    SUGGESTIONS_WEBHOOK_URL = cfg.SUGGESTIONS_WEBHOOK_URL || "";
+    PRINT_PREVIEWS_FOLDER_URL = cfg.PRINT_PREVIEWS_FOLDER_URL || "";
     CASHAPP_TAG = cfg.CASHAPP_TAG || "$CashApp";
     PROMOS_SHEET_NAME = cfg.PROMOS_SHEET_NAME || "Promos";
 
@@ -355,9 +404,24 @@ function renderPremadeCards() {
     const left = document.createElement("div");
     left.className = "premade-main";
 
+    const topRow = document.createElement("div");
+    topRow.className = "premade-top-row";
+
     const title = document.createElement("h3");
     title.textContent = item.name;
-    left.appendChild(title);
+    topRow.appendChild(title);
+
+    const previewBtn = document.createElement("button");
+    previewBtn.className = "btn btn-ghost btn-small preview-btn";
+    previewBtn.type = "button";
+    previewBtn.textContent = "Preview";
+    previewBtn.title = `Preview photos or clips for ${item.name}`;
+    previewBtn.addEventListener("click", () => {
+      openPreviewModal(item.name);
+    });
+    topRow.appendChild(previewBtn);
+
+    left.appendChild(topRow);
 
     const priceEl = document.createElement("div");
     priceEl.className = "premade-price";
@@ -774,7 +838,8 @@ function renderCart() {
   updateTotals();
 }
 
-function getShippingEstimate(itemsSubtotal) {
+function getShippingEstimate(itemsSubtotal, shippingChoice) {
+  if (shippingChoice === "local") return 0;
   if (itemsSubtotal <= 0) return 0;
   if (itemsSubtotal <= 10) return 6.0;
   if (itemsSubtotal <= 40) return 9.0;
@@ -817,7 +882,15 @@ function updateTotals() {
     ? expediteChoiceEl.value
     : "none";
 
-  const shippingEstimate = getShippingEstimate(itemsSubtotal);
+  const shippingChoiceEl = document.getElementById("shipping-choice");
+  const shippingChoice = shippingChoiceEl
+    ? shippingChoiceEl.value
+    : "shipping";
+
+  const shippingEstimate = getShippingEstimate(
+    itemsSubtotal,
+    shippingChoice
+  );
   const expediteFee = getExpediteFee(itemsSubtotal, expediteChoice);
 
   promoDiscountAmount = 0;
@@ -1009,6 +1082,88 @@ async function sendOrderWebhook(content) {
   }
 }
 
+async function sendSuggestionWebhook(content) {
+  if (!SUGGESTIONS_WEBHOOK_URL) {
+    throw new Error("Suggestions webhook is not configured.");
+  }
+
+  const payload = { content };
+
+  const res = await fetch(SUGGESTIONS_WEBHOOK_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+
+  if (!res.ok) {
+    throw new Error("Suggestion webhook failed.");
+  }
+}
+
+function setSuggestionMessage(msg, isError) {
+  const el = document.getElementById("suggestion-message");
+  if (!el) return;
+  if (!msg) {
+    el.textContent = "";
+    el.className = "helper-text";
+    return;
+  }
+  el.textContent = msg;
+  el.className = isError ? "error-text" : "success-text";
+}
+
+async function handleSubmitSuggestion() {
+  const nameInput = document.getElementById("suggestion-name");
+  const contactInput = document.getElementById("suggestion-contact");
+  const titleInput = document.getElementById("suggestion-title");
+  const detailsInput = document.getElementById("suggestion-details");
+  const linkInput = document.getElementById("suggestion-link");
+  const btn = document.getElementById("submit-suggestion-btn");
+
+  const name = nameInput ? nameInput.value.trim() : "";
+  const contact = contactInput ? contactInput.value.trim() : "";
+  const title = titleInput ? titleInput.value.trim() : "";
+  const details = detailsInput ? detailsInput.value.trim() : "";
+  const link = linkInput ? linkInput.value.trim() : "";
+
+  if (!title) {
+    setSuggestionMessage("Please enter a suggestion title.", true);
+    return;
+  }
+
+  if (!details) {
+    setSuggestionMessage("Please add some details for the suggestion.", true);
+    return;
+  }
+
+  const lines = [];
+  lines.push("**New website suggestion**");
+  lines.push("");
+  lines.push(`**Title:** ${title}`);
+  lines.push(`**Details:** ${details}`);
+  if (name) lines.push(`**Name:** ${name}`);
+  if (contact) lines.push(`**Contact:** ${contact}`);
+  if (link) lines.push(`**Reference link:** ${link}`);
+
+  try {
+    if (btn) btn.disabled = true;
+    setSuggestionMessage("Sending suggestion…", false);
+    await sendSuggestionWebhook(lines.join("\n"));
+    setSuggestionMessage("Suggestion sent. Thank you!", false);
+
+    if (nameInput) nameInput.value = "";
+    if (contactInput) contactInput.value = "";
+    if (titleInput) titleInput.value = "";
+    if (detailsInput) detailsInput.value = "";
+    if (linkInput) linkInput.value = "";
+  } catch (err) {
+    console.error("Suggestion error", err);
+    setSuggestionMessage("Sorry, there was an error sending the suggestion.", true);
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
 // send stock + promo usage ONLY (no order storage)
 async function sendStockAndPromoUpdate(stockItems, promoCodeUsed) {
   if (!STOCK_WEBAPP_URL) return;
@@ -1047,7 +1202,12 @@ async function handleSubmitOrder() {
   const shippingInfoInput = document.getElementById("shipping-info");
   const notesInput = document.getElementById("extra-notes");
   const expediteChoiceEl = document.getElementById("expedite-choice");
+  const shippingChoiceEl = document.getElementById("shipping-choice");
+
   const expediteChoice = expediteChoiceEl ? expediteChoiceEl.value : "none";
+  const shippingChoice = shippingChoiceEl
+    ? shippingChoiceEl.value
+    : "shipping";
 
   let contact = contactInput.value.trim();
   if (!contact) {
@@ -1082,7 +1242,7 @@ async function handleSubmitOrder() {
   const shipText = shippingInfoInput.value.trim();
   if (!shipText) {
     showSubmitMessage(
-      "Shipping address is required for every order. If you want local pickup in Worcester, MA, mention it in the extra notes too.",
+      "Shipping address or pickup info is required for every order.",
       true
     );
     return;
@@ -1098,7 +1258,10 @@ async function handleSubmitOrder() {
     if (item.mode === "Custom") customSubtotal += sub;
   });
 
-  const shippingEstimate = getShippingEstimate(itemsSubtotal);
+  const shippingEstimate = getShippingEstimate(
+    itemsSubtotal,
+    shippingChoice
+  );
   const expediteFee = getExpediteFee(itemsSubtotal, expediteChoice);
 
   promoDiscountAmount = 0;
@@ -1161,8 +1324,13 @@ async function handleSubmitOrder() {
   lines.push(`**Contact:** ${contact}`);
   if (nameText) lines.push(`**Name:** ${nameText}`);
 
-  lines.push("**Delivery:** Shipping by default — " + (shipText || "address provided"));
-  lines.push("**Local pickup note:** Available in Worcester, MA by appointment only if requested/approved. Check notes for any pickup request.");
+  if (shippingChoice === "local") {
+    lines.push(
+      "**Delivery:** Local pickup" + (shipText ? ` — ${shipText}` : "")
+    );
+  } else {
+    lines.push("**Delivery:** Shipping — " + (shipText || "address provided"));
+  }
 
   if (notesText) lines.push(`**Notes:** ${notesText}`);
 
@@ -1213,6 +1381,11 @@ async function init() {
   const expediteChoiceEl = document.getElementById("expedite-choice");
   if (expediteChoiceEl) {
     expediteChoiceEl.addEventListener("change", updateTotals);
+  }
+
+  const shippingChoiceEl = document.getElementById("shipping-choice");
+  if (shippingChoiceEl) {
+    shippingChoiceEl.addEventListener("change", updateTotals);
   }
 
   const addCustomBtn = document.getElementById("add-custom-btn");
@@ -1295,6 +1468,36 @@ async function init() {
       clearPromo();
     });
   }
+
+  document.querySelectorAll(".shop-tab").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      switchShopTab(btn.dataset.tab);
+    });
+  });
+
+  const suggestionBtn = document.getElementById("submit-suggestion-btn");
+  if (suggestionBtn) {
+    suggestionBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      handleSubmitSuggestion();
+    });
+  }
+
+  const closePreviewBtn = document.getElementById("close-preview-btn");
+  if (closePreviewBtn) {
+    closePreviewBtn.addEventListener("click", closePreviewModal);
+  }
+
+  const previewModal = document.getElementById("preview-modal");
+  if (previewModal) {
+    previewModal.addEventListener("click", (e) => {
+      if (e.target === previewModal) closePreviewModal();
+    });
+  }
+
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") closePreviewModal();
+  });
 
   renderCart();
 

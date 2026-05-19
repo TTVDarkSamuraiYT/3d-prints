@@ -178,8 +178,8 @@
                   <option value="rush">Rush – ASAP (+ ~18%)</option>
                 </select>
                 <p class="helper-text">
-                  Priority/rush fees help cover extra time, filament,
-                  maintenance, and squeezing your print into my schedule sooner.
+                  Shipping is $15 normally, $20 for priority, and $25 for rush.
+                  Priority/rush also adds a small item-price fee for faster queue handling.
                 </p>
               </div>
 
@@ -204,7 +204,7 @@
               </div>
 
               <div class="summary-row">
-                <span>Shipping (estimate)</span>
+                <span>Shipping</span>
                 <span id="shipping-estimate">$0.00</span>
               </div>
 
@@ -214,7 +214,7 @@
               </div>
 
               <div class="summary-row total">
-                <strong>Total estimate</strong>
+                <strong>Total</strong>
                 <strong id="grand-total">$0.00</strong>
               </div>
 
@@ -264,23 +264,23 @@
     </div>
 
     <div id="preview-modal" class="modal-backdrop hidden" aria-hidden="true">
-      <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="preview-title">
+      <div class="modal-card preview-modal-card" role="dialog" aria-modal="true" aria-labelledby="preview-title">
         <div class="modal-header">
           <h2 id="preview-title">Print preview</h2>
-          <button id="close-preview-btn" class="btn btn-ghost" type="button">Close</button>
+          <button id="close-preview-btn" class="modal-x-btn" type="button" aria-label="Close preview">×</button>
         </div>
+
+        <div id="preview-loading" class="helper-text">Loading preview files…</div>
+
+        <div id="preview-viewer" class="preview-viewer hidden">
+          <button id="preview-prev-btn" class="preview-nav-btn preview-nav-left" type="button" aria-label="Previous preview">‹</button>
+          <div id="preview-media-wrap" class="preview-media-wrap"></div>
+          <button id="preview-next-btn" class="preview-nav-btn preview-nav-right" type="button" aria-label="Next preview">›</button>
+        </div>
+
+        <div id="preview-thumbs" class="preview-thumbs hidden"></div>
+
         <p id="preview-copy" class="helper-text"></p>
-        <div class="preview-actions">
-          <a id="preview-folder-link" class="btn btn-primary" href="#" target="_blank" rel="noopener noreferrer">
-            Open preview folder
-          </a>
-          <a id="preview-search-link" class="btn btn-ghost" href="#" target="_blank" rel="noopener noreferrer">
-            Search item name
-          </a>
-        </div>
-        <p class="helper-text">
-          Preview photos/clips should be uploaded to the Google Drive folder using the same name as the item.
-        </p>
       </div>
     </div>
 

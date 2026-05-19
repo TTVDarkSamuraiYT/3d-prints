@@ -4,7 +4,6 @@
     <meta charset="UTF-8" />
     <title>Tekniq Solutions – 3D Prints</title>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <!-- file is in the SAME folder, so just style.css -->
     <link rel="stylesheet" href="style.css" />
   </head>
   <body>
@@ -13,7 +12,7 @@
         <div class="header-top">
           <div>
             <h1>Tekniq Solutions – 3D Printing Shop</h1>
-            <p>Choose a premade design or upload your own custom model.</p>
+            <p>Choose a premade design, upload your own custom model, or suggest something new.</p>
             <p class="helper-text small-header">
               This is a tiny one-person mini business, so the site and payment
               flow might feel a bit simpler than a big store. Thanks for your
@@ -29,22 +28,23 @@
         </div>
       </header>
 
+      <div class="shop-tabs" role="tablist" aria-label="Shop sections">
+        <button class="shop-tab active" data-tab="premade" type="button">Premade items</button>
+        <button class="shop-tab" data-tab="custom" type="button">Custom</button>
+        <button class="shop-tab" data-tab="suggestions" type="button">Suggestions</button>
+      </div>
+
       <div class="grid">
-        <!-- LEFT: Premade + Custom -->
         <main class="left-column">
-          <!-- PREMADE INVENTORY -->
-          <section class="card">
+          <section class="card tab-panel active" id="premade-panel" data-panel="premade">
             <h2>Premade prints</h2>
             <p class="helper-text">
               Premade prints are ready-made designs I already have set up. Some
-              are limited by stock, some are made on demand.
+              are limited by stock, some are made on demand. Use the preview button
+              on an item to view photos or clips when available.
             </p>
 
-            <div
-              id="inventory-error"
-              class="error-box"
-              style="display: none;"
-            >
+            <div id="inventory-error" class="error-box" style="display: none;">
               There was a problem loading premade stock. Please refresh in a
               few seconds.
             </div>
@@ -52,8 +52,7 @@
             <div id="premade-list"></div>
           </section>
 
-          <!-- CUSTOM UPLOADS -->
-          <section class="card">
+          <section class="card tab-panel" id="custom-panel" data-panel="custom">
             <h2>Custom prints</h2>
             <p class="helper-text">
               Upload your own STL/3MF model and choose size, detail, and color.
@@ -62,11 +61,7 @@
 
             <div class="field-row">
               <label for="custom-file">Model file (STL/3MF)</label>
-              <input
-                type="file"
-                id="custom-file"
-                accept=".stl,.3mf,.obj,.zip"
-              />
+              <input type="file" id="custom-file" accept=".stl,.3mf,.obj,.zip" />
             </div>
 
             <div class="field-row">
@@ -96,13 +91,7 @@
 
             <div class="field-row">
               <label for="custom-qty">Quantity</label>
-              <input
-                type="number"
-                id="custom-qty"
-                value="1"
-                min="1"
-                step="1"
-              />
+              <input type="number" id="custom-qty" value="1" min="1" step="1" />
             </div>
 
             <button id="add-custom-btn" class="btn btn-primary full-width">
@@ -111,9 +100,46 @@
 
             <p id="custom-estimate-text" class="helper-text"></p>
           </section>
+
+          <section class="card tab-panel" id="suggestions-panel" data-panel="suggestions">
+            <h2>Suggestions</h2>
+            <p class="helper-text">
+              Want me to sell a specific 3D print, color, size, or custom product idea?
+              Send it here and it will go straight to my suggestions Discord channel.
+            </p>
+
+            <div class="field-row">
+              <label for="suggestion-name">Name (optional)</label>
+              <input type="text" id="suggestion-name" placeholder="Your name" />
+            </div>
+
+            <div class="field-row">
+              <label for="suggestion-contact">Contact info (optional)</label>
+              <input type="text" id="suggestion-contact" placeholder="Email or phone if you want a reply" />
+            </div>
+
+            <div class="field-row">
+              <label for="suggestion-title">Suggestion title (required)</label>
+              <input type="text" id="suggestion-title" placeholder="Example: wall mount, car clip, desk organizer" />
+            </div>
+
+            <div class="field-row">
+              <label for="suggestion-details">Details (required)</label>
+              <textarea id="suggestion-details" rows="5" placeholder="Describe the idea, size, use, color, budget, or anything that would help me make/sell it."></textarea>
+            </div>
+
+            <div class="field-row">
+              <label for="suggestion-link">Reference link (optional)</label>
+              <input type="text" id="suggestion-link" placeholder="Link to a photo, model, product, TikTok, etc." />
+            </div>
+
+            <button id="submit-suggestion-btn" class="btn btn-primary full-width" type="button">
+              Send suggestion
+            </button>
+            <p id="suggestion-message" class="helper-text"></p>
+          </section>
         </main>
 
-        <!-- RIGHT: Cart + Contact -->
         <aside class="right-column">
           <section class="card cart-card">
             <div class="cart-header">
@@ -131,7 +157,6 @@
             <div id="cart-summary" style="display: none;">
               <hr />
 
-              <!-- SHIPPING INFO -->
               <div class="field-row">
                 <label>Delivery</label>
                 <p class="helper-text">
@@ -145,16 +170,11 @@
                 <input type="hidden" id="shipping-choice" value="shipping" />
               </div>
 
-              <!-- EXPEDITE CHOICE -->
               <div class="field-row">
                 <label for="expedite-choice">Order priority</label>
                 <select id="expedite-choice">
-                  <option value="none">
-                    None (normal queue, no extra fee)
-                  </option>
-                  <option value="priority">
-                    Priority – prints sooner (+ ~10%)
-                  </option>
+                  <option value="none">None (normal queue, no extra fee)</option>
+                  <option value="priority">Priority – prints sooner (+ ~10%)</option>
                   <option value="rush">Rush – ASAP (+ ~18%)</option>
                 </select>
                 <p class="helper-text">
@@ -163,45 +183,22 @@
                 </p>
               </div>
 
-              <!-- PROMO CODE BOX -->
               <div class="promo-box">
                 <label for="promo-code">Promo code</label>
                 <div class="promo-row">
-                  <input
-                    type="text"
-                    id="promo-code"
-                    placeholder="Enter code"
-                  />
-                  <button
-                    id="apply-promo-btn"
-                    class="btn btn-primary"
-                    type="button"
-                  >
-                    Apply
-                  </button>
-                  <button
-                    id="clear-promo-btn"
-                    class="btn btn-ghost"
-                    type="button"
-                  >
-                    Clear
-                  </button>
+                  <input type="text" id="promo-code" placeholder="Enter code" />
+                  <button id="apply-promo-btn" class="btn btn-primary" type="button">Apply</button>
+                  <button id="clear-promo-btn" class="btn btn-ghost" type="button">Clear</button>
                 </div>
-                <!-- message directly under promo box -->
                 <div id="promo-message" class="helper-text"></div>
               </div>
 
-              <!-- SUMMARY ROWS -->
               <div class="summary-row">
                 <span>Items subtotal</span>
                 <span id="items-subtotal">$0.00</span>
               </div>
 
-              <div
-                class="summary-row"
-                id="promo-row"
-                style="display: none;"
-              >
+              <div class="summary-row" id="promo-row" style="display: none;">
                 <span>Promo discount</span>
                 <span id="promo-discount-value"></span>
               </div>
@@ -223,27 +220,16 @@
 
               <hr />
 
-              <!-- CUSTOMER INFO -->
               <h3>Contact & shipping</h3>
 
               <div class="field-row">
                 <label for="customer-name">Name (required)</label>
-                <input
-                  type="text"
-                  id="customer-name"
-                  placeholder="Name for the order"
-                  required
-                />
+                <input type="text" id="customer-name" placeholder="Name for the order" required />
               </div>
 
               <div class="field-row">
                 <label for="customer-contact">Contact info (email or phone required)</label>
-                <input
-                  type="text"
-                  id="customer-contact"
-                  placeholder="Email or phone number"
-                  required
-                />
+                <input type="text" id="customer-contact" placeholder="Email or phone number" required />
                 <p class="helper-text">
                   I’ll use this to contact you about your order and send your
                   Square invoice.
@@ -252,35 +238,21 @@
 
               <div class="field-row">
                 <label for="shipping-info">Shipping address (required)</label>
-                <textarea
-                  id="shipping-info"
-                  rows="3"
-                  placeholder="Full shipping address"
-                  required
-                ></textarea>
+                <textarea id="shipping-info" rows="3" placeholder="Full shipping address" required></textarea>
               </div>
 
               <div class="field-row">
                 <label for="extra-notes">Extra notes (optional)</label>
-                <textarea
-                  id="extra-notes"
-                  rows="3"
-                  placeholder="Anything else I should know (deadlines, small tweaks, local pickup request in Worcester, MA, etc.)"
-                ></textarea>
+                <textarea id="extra-notes" rows="3" placeholder="Anything else I should know (deadlines, small tweaks, local pickup request in Worcester, MA, etc.)"></textarea>
               </div>
 
-              <!-- PAYMENT -->
               <h3>Payment</h3>
               <p class="helper-text">
                 After you submit the order, I’ll send a Square invoice to the
                 phone number or email you entered above.
               </p>
 
-              <button
-                id="submit-order-btn"
-                class="btn btn-primary full-width"
-                type="button"
-              >
+              <button id="submit-order-btn" class="btn btn-primary full-width" type="button">
                 Submit order
               </button>
 
@@ -288,6 +260,27 @@
             </div>
           </section>
         </aside>
+      </div>
+    </div>
+
+    <div id="preview-modal" class="modal-backdrop hidden" aria-hidden="true">
+      <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="preview-title">
+        <div class="modal-header">
+          <h2 id="preview-title">Print preview</h2>
+          <button id="close-preview-btn" class="btn btn-ghost" type="button">Close</button>
+        </div>
+        <p id="preview-copy" class="helper-text"></p>
+        <div class="preview-actions">
+          <a id="preview-folder-link" class="btn btn-primary" href="#" target="_blank" rel="noopener noreferrer">
+            Open preview folder
+          </a>
+          <a id="preview-search-link" class="btn btn-ghost" href="#" target="_blank" rel="noopener noreferrer">
+            Search item name
+          </a>
+        </div>
+        <p class="helper-text">
+          Preview photos/clips should be uploaded to the Google Drive folder using the same name as the item.
+        </p>
       </div>
     </div>
 

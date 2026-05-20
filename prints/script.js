@@ -27,6 +27,7 @@ let previewFileMap = {};
 let previewsPreloaded = false;
 let activePreviewFiles = [];
 let activePreviewIndex = 0;
+let previewLoadError = "";
 
 const PREMADE_DISCOUNT = 0.85;
 const CONFIG_PATH = "../config.json";
@@ -187,16 +188,25 @@ function indexPreviewFiles(files) {
   previewFileMap = {};
 
   previewFileIndex.forEach((file) => {
-    const baseName = getBaseNameFromPreviewFile(file.name);
+    const fallbackBaseName = getBaseNameFromPreviewFile(file.name);
+    const baseName = file.baseName || fallbackBaseName;
 
-    const keys = [
-      normalizePreviewKey(baseName),
-      slugifyPreviewName(baseName)
-    ];
+    const keys = [];
 
-    keys.forEach((key) => {
-      if (!key) return;
+    if (Array.isArray(file.matchKeys)) {
+      file.matchKeys.forEach((key) => {
+        if (key) keys.push(String(key));
+      });
+    }
 
+    keys.push(normalizePreviewKey(baseName));
+    keys.push(slugifyPreviewName(baseName));
+    keys.push(normalizePreviewKey(file.name));
+    keys.push(slugifyPreviewName(file.name));
+
+    const finalKeys = [...new Set(keys.filter(Boolean))];
+
+    finalKeys.forEach((key) => {
       if (!previewFileMap[key]) {
         previewFileMap[key] = [];
       }
@@ -204,10 +214,14 @@ function indexPreviewFiles(files) {
       const type = previewTypeFromFile(file);
 
       previewFileMap[key].push({
-        url: file.directUrl || file.downloadUrl || file.viewUrl,
+        url:
+          type === "video"
+            ? file.previewUrl || file.directUrl || file.downloadUrl || file.viewUrl
+            : file.directUrl || file.thumbnailUrl || file.downloadUrl || file.viewUrl,
         fallbackUrl: file.downloadUrl || file.viewUrl || file.directUrl,
         thumbnailUrl: file.thumbnailUrl || file.directUrl || file.downloadUrl,
         viewUrl: file.viewUrl,
+        previewUrl: file.previewUrl,
         name: file.name,
         title: baseName,
         type: type
@@ -253,15 +267,26 @@ function loadScriptJsonp(url) {
       reject(new Error("Preview JSONP request failed"));
     };
 
-    script.src = url + joiner + "callback=" + encodeURIComponent(callbackName);
+    script.src =
+      url +
+      joiner +
+      "callback=" +
+      encodeURIComponent(callbackName) +
+      "&cacheBust=" +
+      Date.now();
+
     document.body.appendChild(script);
   });
 }
 
 async function loadDrivePreviewIndex() {
+  previewLoadError = "";
+
   if (!PREVIEW_WEBAPP_URL || PREVIEW_WEBAPP_URL.includes("PASTE_")) {
     previewsPreloaded = true;
-    console.warn("[PREVIEW] PREVIEW_WEBAPP_URL is missing in config.json");
+    previewLoadError =
+      "PREVIEW_WEBAPP_URL is missing in config.json. Paste your deployed Apps Script /exec URL.";
+    console.warn("[PREVIEW]", previewLoadError);
     return;
   }
 
@@ -278,11 +303,19 @@ async function loadDrivePreviewIndex() {
     let data;
 
     try {
-      const res = await fetch(url, { cache: "no-cache" });
+      const res = await fetch(url + (url.includes("?") ? "&" : "?") + "cacheBust=" + Date.now(), {
+        cache: "no-cache"
+      });
+
       if (!res.ok) throw new Error("Preview fetch request failed");
+
       data = await res.json();
     } catch (fetchErr) {
-      console.warn("[PREVIEW] Normal fetch failed, trying JSONP fallback:", fetchErr);
+      console.warn(
+        "[PREVIEW] Normal fetch failed, trying JSONP fallback:",
+        fetchErr
+      );
+
       data = await loadScriptJsonp(url);
     }
 
@@ -295,10 +328,11 @@ async function loadDrivePreviewIndex() {
 
     preloadPreviewMedia();
 
-    console.log("[PREVIEW] Loaded", previewFileIndex.length, "preview files");
+    console.log("[PREVIEW] Loaded", previewFileIndex.length, "Drive files");
     console.log("[PREVIEW] Available preview map:", previewFileMap);
   } catch (err) {
     previewsPreloaded = true;
+    previewLoadError = String(err && err.message ? err.message : err);
     console.warn("[PREVIEW] Could not load Drive previews:", err);
   }
 }
@@ -315,9 +349,10 @@ function preloadPreviewMedia() {
         const img = new Image();
         img.src = file.url;
       } else if (file.type === "video") {
-        const video = document.createElement("video");
-        video.preload = "metadata";
-        video.src = file.url;
+        const iframe = document.createElement("iframe");
+        iframe.src = file.url;
+        iframe.style.display = "none";
+        iframe.loading = "lazy";
       }
     });
   });
@@ -362,20 +397,15 @@ function renderPreviewMedia() {
   const file = activePreviewFiles[activePreviewIndex];
 
   if (file.type === "video") {
-    const video = document.createElement("video");
-    video.src = file.url;
-    video.controls = true;
-    video.playsInline = true;
-    video.preload = "auto";
-    video.className = "preview-main-media";
+    const iframe = document.createElement("iframe");
+    iframe.src = file.previewUrl || file.url || file.viewUrl;
+    iframe.className = "preview-main-media preview-drive-frame";
+    iframe.allow = "autoplay; fullscreen";
+    iframe.allowFullscreen = true;
+    iframe.loading = "eager";
+    iframe.referrerPolicy = "no-referrer-when-downgrade";
 
-    video.addEventListener("error", () => {
-      if (file.fallbackUrl && video.src !== file.fallbackUrl) {
-        video.src = file.fallbackUrl;
-      }
-    });
-
-    mediaWrap.appendChild(video);
+    mediaWrap.appendChild(iframe);
   } else {
     const img = document.createElement("img");
     img.src = file.url;
@@ -479,10 +509,24 @@ async function openPreviewModal(itemName) {
   loading.classList.add("hidden");
 
   if (!activePreviewFiles.length) {
-    setPreviewMessage(
-      `No previews were found for "${itemName}" yet. Your Drive folder was checked, but no matching file was found. Make sure the file is named like "${itemName}.png", "${itemName}-1.jpg", or "${itemName}.mp4".`,
-      true
-    );
+    const availableNames = previewFileIndex
+      .map((file) => file.name)
+      .filter(Boolean)
+      .join(", ");
+
+    let msg =
+      `No previews were found for "${itemName}". ` +
+      `The site loaded ${previewFileIndex.length} file(s) from Drive.`;
+
+    if (previewLoadError) {
+      msg += ` Preview loader error: ${previewLoadError}`;
+    } else if (availableNames) {
+      msg += ` Drive files found: ${availableNames}.`;
+    } else {
+      msg += ` No files were returned by the Apps Script. Make sure the Apps Script was redeployed as a new web app version and has Drive permission.`;
+    }
+
+    setPreviewMessage(msg, true);
     return;
   }
 
@@ -1890,7 +1934,13 @@ function handleAddCustomPrint() {
 
 async function refreshShopData() {
   await loadConfig();
+
+  previewsPreloaded = false;
+  previewFileIndex = [];
+  previewFileMap = {};
+
   await loadColors();
+
   await Promise.all([
     loadInventory(),
     loadPromos(),

@@ -1,4 +1,5 @@
 // ---------- GLOBALS ----------
+
 let SHEET_ID = "";
 let INVENTORY_SHEET_NAME = "";
 let COLORS_SHEET_NAME = "";
@@ -7,14 +8,9 @@ let ORDER_WEBHOOK_URL = "";
 let STOCK_WEBAPP_URL = "";
 let SUGGESTIONS_WEBHOOK_URL = "";
 let PRINT_PREVIEWS_FOLDER_URL = "";
-let PRINT_PREVIEWS = {};
-let PRINT_PREVIEW_LOCAL_FOLDER = "previews";
-let CASHAPP_TAG = "";
-let PREVIEW_WEBAPP_URL = "";
 let PRINT_PREVIEW_FOLDER_ID = "";
-let previewFileIndex = [];
-let previewFileMap = {};
-let previewsPreloaded = false;
+let PREVIEW_WEBAPP_URL = "";
+let CASHAPP_TAG = "";
 
 let PROMOS_SHEET_NAME = "Promos";
 
@@ -23,12 +19,20 @@ let inventoryData = [];
 let promosData = [];
 let cart = [];
 
-let appliedPromo = null; // { code, type, amount, scope, statusNorm }
+let appliedPromo = null;
 let promoDiscountAmount = 0;
 
-const PREMADE_DISCOUNT = 0.85;
+let previewFileIndex = [];
+let previewFileMap = {};
+let previewsPreloaded = false;
+let activePreviewFiles = [];
+let activePreviewIndex = 0;
 
-// ---------- ORDER ID (NEVER DUPLICATE) ----------
+const PREMADE_DISCOUNT = 0.85;
+const CONFIG_PATH = "../config.json";
+
+// ---------- ORDER ID ----------
+
 function nextOrderNumber() {
   const now = new Date();
 
@@ -57,6 +61,7 @@ function nextOrderNumber() {
 
   state.key = key;
   state.seq = seq;
+
   try {
     localStorage.setItem("order_state", JSON.stringify(state));
   } catch {
@@ -71,10 +76,10 @@ function nextOrderNumber() {
   return `${datePart}-${timePart}-${seqPart}${randPart}`;
 }
 
-// ---------- HELPERS ----------
+// ---------- BASIC HELPERS ----------
 
 function formatCurrency(amount) {
-  return `$${amount.toFixed(2)}`;
+  return `$${Number(amount || 0).toFixed(2)}`;
 }
 
 function normalizeStatus(str) {
@@ -86,6 +91,9 @@ function parseSheetJSON(text) {
   const json = JSON.parse(
     text.substring(text.indexOf("{"), text.lastIndexOf("}") + 1)
   );
+
+  if (!json.table || !json.table.rows) return [];
+
   return json.table.rows;
 }
 
@@ -127,18 +135,9 @@ function parsePromoDiscount(raw) {
   return null;
 }
 
-function normalizePreviewKey(value) {
-  return String(value || "")
-    .trim()
-    .toLowerCase()
-    .replace(/\s+/g, " ");
-}
+// ---------- PREVIEW HELPERS ----------
 
-function slugifyPreviewName(value) {
-  return String(value || "")
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")function normalizePreviewKey(value) {
+function normalizePreviewKey(value) {
   return String(value || "")
     .trim()
     .toLowerCase()
@@ -187,6 +186,7 @@ function indexPreviewFiles(files) {
 
   previewFileIndex.forEach((file) => {
     const baseName = getBaseNameFromPreviewFile(file.name);
+
     const keys = [
       normalizePreviewKey(baseName),
       slugifyPreviewName(baseName)
@@ -194,7 +194,10 @@ function indexPreviewFiles(files) {
 
     keys.forEach((key) => {
       if (!key) return;
-      if (!previewFileMap[key]) previewFileMap[key] = [];
+
+      if (!previewFileMap[key]) {
+        previewFileMap[key] = [];
+      }
 
       previewFileMap[key].push({
         url: file.directUrl || file.downloadUrl || file.viewUrl,
@@ -218,7 +221,12 @@ function indexPreviewFiles(files) {
 }
 
 async function loadDrivePreviewIndex() {
-  if (!PREVIEW_WEBAPP_URL || previewsPreloaded) return;
+  if (!PREVIEW_WEBAPP_URL || PREVIEW_WEBAPP_URL.includes("PASTE_")) {
+    previewsPreloaded = true;
+    return;
+  }
+
+  if (previewsPreloaded) return;
 
   try {
     let url = PREVIEW_WEBAPP_URL;
@@ -241,8 +249,10 @@ async function loadDrivePreviewIndex() {
     previewsPreloaded = true;
 
     preloadPreviewMedia();
+
     console.log("[PREVIEW] Loaded", previewFileIndex.length, "preview files");
   } catch (err) {
+    previewsPreloaded = true;
     console.warn("[PREVIEW] Could not load Drive previews:", err);
   }
 }
@@ -282,12 +292,10 @@ function getPreviewFilesForItem(itemName) {
   return [];
 }
 
-let activePreviewFiles = [];
-let activePreviewIndex = 0;
-
 function setPreviewMessage(message, isError) {
   const copy = document.getElementById("preview-copy");
   if (!copy) return;
+
   copy.textContent = message || "";
   copy.className = isError ? "error-text" : "helper-text";
 }
@@ -371,6 +379,7 @@ function renderPreviewMedia() {
   });
 
   const hasMultiple = activePreviewFiles.length > 1;
+
   if (prevBtn) prevBtn.style.display = hasMultiple ? "flex" : "none";
   if (nextBtn) nextBtn.style.display = hasMultiple ? "flex" : "none";
 
@@ -402,6 +411,7 @@ async function openPreviewModal(itemName) {
   if (!modal || !title || !loading || !viewer || !thumbs) return;
 
   title.textContent = `${itemName} preview`;
+
   activePreviewFiles = [];
   activePreviewIndex = 0;
 
@@ -432,6 +442,7 @@ async function openPreviewModal(itemName) {
 
   viewer.classList.remove("hidden");
   thumbs.classList.remove("hidden");
+
   renderPreviewMedia();
 }
 
@@ -450,6 +461,8 @@ function closePreviewModal() {
   activePreviewIndex = 0;
 }
 
+// ---------- TABS ----------
+
 function switchShopTab(tabName) {
   document.querySelectorAll(".shop-tab").forEach((btn) => {
     btn.classList.toggle("active", btn.dataset.tab === tabName);
@@ -460,42 +473,40 @@ function switchShopTab(tabName) {
   });
 }
 
-// ---------- CONFIG / SHEET LOADING ----------
-
-const CONFIG_PATH = "../config.json";
+// ---------- CONFIG / SHEETS ----------
 
 async function loadConfig() {
   try {
     const res = await fetch(CONFIG_PATH, { cache: "no-cache" });
     if (!res.ok) throw new Error("config fetch failed");
+
     const cfg = await res.json();
 
-    SHEET_ID = cfg.SHEET_ID;
-    INVENTORY_SHEET_NAME = cfg.INVENTORY_SHEET_NAME;
-    COLORS_SHEET_NAME = cfg.COLORS_SHEET_NAME;
+    SHEET_ID = cfg.SHEET_ID || "";
+    INVENTORY_SHEET_NAME = cfg.INVENTORY_SHEET_NAME || "Inventory";
+    COLORS_SHEET_NAME = cfg.COLORS_SHEET_NAME || "Colors";
     ORDERS_SHEET_NAME = cfg.ORDERS_SHEET_NAME || "Orders";
-    ORDER_WEBHOOK_URL = cfg.ORDER_WEBHOOK_URL;
+    ORDER_WEBHOOK_URL = cfg.ORDER_WEBHOOK_URL || "";
     STOCK_WEBAPP_URL = cfg.STOCK_WEBAPP_URL || "";
     SUGGESTIONS_WEBHOOK_URL = cfg.SUGGESTIONS_WEBHOOK_URL || "";
     PRINT_PREVIEWS_FOLDER_URL = cfg.PRINT_PREVIEWS_FOLDER_URL || "";
-    PRINT_PREVIEWS = cfg.PRINT_PREVIEWS || {};
-    PRINT_PREVIEW_LOCAL_FOLDER = cfg.PRINT_PREVIEW_LOCAL_FOLDER || "previews";
+    PRINT_PREVIEW_FOLDER_ID = cfg.PRINT_PREVIEW_FOLDER_ID || "";
+    PREVIEW_WEBAPP_URL = cfg.PREVIEW_WEBAPP_URL || "";
     CASHAPP_TAG = cfg.CASHAPP_TAG || "$CashApp";
     PROMOS_SHEET_NAME = cfg.PROMOS_SHEET_NAME || "Promos";
-    PREVIEW_WEBAPP_URL = cfg.PREVIEW_WEBAPP_URL || "";
-    PRINT_PREVIEW_FOLDER_ID = cfg.PRINT_PREVIEW_FOLDER_ID || "";
 
     const cashTagEl = document.getElementById("cashapp-tag-display");
     if (cashTagEl) cashTagEl.textContent = CASHAPP_TAG;
 
-    console.log("Config loaded.");
+    console.log("[CONFIG] Loaded");
   } catch (err) {
-    console.error("Error loading config.json", err);
+    console.error("[CONFIG] Error loading config.json", err);
   }
 }
 
 async function loadColors() {
   if (!SHEET_ID || !COLORS_SHEET_NAME) return;
+
   try {
     const url =
       "https://docs.google.com/spreadsheets/d/" +
@@ -503,38 +514,43 @@ async function loadColors() {
       "/gviz/tq?tqx=out:json&sheet=" +
       encodeURIComponent(COLORS_SHEET_NAME);
 
-    const res = await fetch(url);
+    const res = await fetch(url, { cache: "no-cache" });
     if (!res.ok) throw new Error("colors fetch failed");
+
     const text = await res.text();
     const rows = parseSheetJSON(text);
 
     colorsData = rows
       .map((r) => {
         const c = r.c || [];
+
         const name = c[0]?.v ? String(c[0].v).trim() : "";
         const status = c[1]?.v ? String(c[1].v).trim() : "";
+
         if (!name) return null;
-        const normStatus = normalizeStatus(status);
+
         return {
           name,
           status,
-          normStatus,
+          normStatus: normalizeStatus(status)
         };
       })
       .filter(Boolean);
 
-    console.log("Colors from sheet:", colorsData);
+    console.log("[COLORS] Loaded", colorsData.length);
   } catch (err) {
-    console.error("Error loading colors sheet", err);
+    console.error("[COLORS] Error loading colors sheet", err);
     colorsData = [];
   }
 }
 
 async function loadInventory() {
   const inventoryError = document.getElementById("inventory-error");
+
   if (!SHEET_ID || !INVENTORY_SHEET_NAME) return;
+
   try {
-    inventoryError.style.display = "none";
+    if (inventoryError) inventoryError.style.display = "none";
 
     const url =
       "https://docs.google.com/spreadsheets/d/" +
@@ -542,23 +558,23 @@ async function loadInventory() {
       "/gviz/tq?tqx=out:json&sheet=" +
       encodeURIComponent(INVENTORY_SHEET_NAME);
 
-    const res = await fetch(url);
+    const res = await fetch(url, { cache: "no-cache" });
     if (!res.ok) throw new Error("inventory fetch failed");
+
     const text = await res.text();
     const rows = parseSheetJSON(text);
 
-    const mapped = rows
+    inventoryData = rows
       .map((r) => {
         const c = r.c || [];
+
         const name = c[0]?.v ? String(c[0].v).trim() : "";
         const priceRaw = c[1]?.v;
         const stockRaw = c[2]?.v;
         const statusRaw = c[3]?.v ? String(c[3].v).trim() : "";
         const notes = c[4]?.v ? String(c[4].v).trim() : "";
 
-        if (!name || priceRaw === null || priceRaw === "") {
-          return null;
-        }
+        if (!name || priceRaw === null || priceRaw === "") return null;
 
         const price = Number(priceRaw) || 0;
         const stock = safeNumber(stockRaw);
@@ -567,14 +583,19 @@ async function loadInventory() {
         if (statusNorm === "offshelf") return null;
 
         const isLimited = statusNorm === "limited";
+
         if (isLimited && (stock === null || stock <= 0)) {
           return null;
         }
 
         let availability = "available";
+
         if (statusNorm === "temporarily unavailable") {
           availability = "temp";
-        } else if (statusNorm === "sold out" || statusNorm === "unavailable") {
+        } else if (
+          statusNorm === "sold out" ||
+          statusNorm === "unavailable"
+        ) {
           availability = "unavailable";
         } else if (isLimited) {
           availability = "limited";
@@ -588,23 +609,23 @@ async function loadInventory() {
           statusNorm,
           notes,
           availability,
-          isLimited,
+          isLimited
         };
       })
       .filter(Boolean);
 
-    inventoryData = mapped;
-    console.log("Inventory from sheet:", inventoryData);
+    console.log("[INVENTORY] Loaded", inventoryData.length);
 
     renderPremadeCards();
   } catch (err) {
-    console.error("Error loading inventory sheet", err);
-    inventoryError.style.display = "block";
+    console.error("[INVENTORY] Error loading inventory sheet", err);
+    if (inventoryError) inventoryError.style.display = "block";
   }
 }
 
 async function loadPromos() {
   promosData = [];
+
   if (!SHEET_ID || !PROMOS_SHEET_NAME) return;
 
   try {
@@ -614,14 +635,20 @@ async function loadPromos() {
       "/gviz/tq?tqx=out:json&sheet=" +
       encodeURIComponent(PROMOS_SHEET_NAME);
 
-    const res = await fetch(url);
-    if (!res.ok) throw new Error("promos fetch failed");
+    const res = await fetch(url, { cache: "no-cache" });
+
+    if (!res.ok) {
+      console.warn("[PROMOS] Promo sheet not found or not public");
+      return;
+    }
+
     const text = await res.text();
     const rows = parseSheetJSON(text);
 
     promosData = rows
       .map((r) => {
         const c = r.c || [];
+
         const codeRaw = c[0]?.v;
         if (!codeRaw) return null;
 
@@ -632,6 +659,7 @@ async function loadPromos() {
 
         const code = String(codeRaw).trim().toUpperCase();
         const discountParsed = parsePromoDiscount(discountRaw);
+
         if (!discountParsed) return null;
 
         let limit = safeNumber(limitRaw);
@@ -650,19 +678,19 @@ async function loadPromos() {
           rawStatus: statusRaw,
           statusNorm,
           limit,
-          scope,
+          scope
         };
       })
       .filter(Boolean);
 
-    console.log("Promos loaded:", promosData);
+    console.log("[PROMOS] Loaded", promosData.length);
   } catch (err) {
-    console.error("Error loading promos sheet", err);
+    console.warn("[PROMOS] Error loading promos sheet", err);
     promosData = [];
   }
 }
 
-// ---------- COLOR HELPERS ----------
+// ---------- COLORS ----------
 
 function getBaseColors() {
   return colorsData.filter((c) => {
@@ -672,11 +700,49 @@ function getBaseColors() {
   });
 }
 
-// ---------- PREMIADES / CUSTOMS ----------
+function renderCustomColorOptions() {
+  const customColorSelect = document.getElementById("custom-color");
+  if (!customColorSelect) return;
+
+  const baseColors = getBaseColors();
+
+  customColorSelect.innerHTML = '<option value="">Select color</option>';
+
+  baseColors.forEach((c) => {
+    const o = document.createElement("option");
+    o.value = c.name;
+
+    const norm = c.normStatus;
+    let label = c.name;
+
+    if (norm === "temporarily unavailable") {
+      label += " (temp unavailable)";
+    } else if (norm === "being resupplied") {
+      label += " (being resupplied)";
+    } else if (norm === "sold out" || norm === "unavailable") {
+      label += " (unavailable)";
+    }
+
+    o.textContent = label;
+
+    if (
+      norm === "sold out" ||
+      norm === "unavailable" ||
+      norm === "temporarily unavailable"
+    ) {
+      o.disabled = true;
+    }
+
+    customColorSelect.appendChild(o);
+  });
+}
+
+// ---------- PREMADE RENDERING ----------
 
 function renderPremadeCards() {
   const listEl = document.getElementById("premade-list");
   if (!listEl) return;
+
   listEl.innerHTML = "";
 
   const baseColors = getBaseColors();
@@ -684,10 +750,18 @@ function renderPremadeCards() {
   if (!inventoryData.length) {
     listEl.innerHTML =
       '<div class="helper-text">No premade items are configured yet.</div>';
+
+    renderCustomColorOptions();
     return;
   }
 
-  const orderMap = { available: 0, limited: 1, temp: 2, unavailable: 3 };
+  const orderMap = {
+    available: 0,
+    limited: 1,
+    temp: 2,
+    unavailable: 3
+  };
+
   const sorted = [...inventoryData].sort(
     (a, b) =>
       (orderMap[a.availability] ?? 99) -
@@ -743,11 +817,10 @@ function renderPremadeCards() {
       badge.textContent = "Temporarily unavailable";
     } else if (item.availability === "limited") {
       badge.classList.add("badge-limited");
-      if (item.stock != null) {
-        badge.textContent = `Limited (${item.stock} premades)`;
-      } else {
-        badge.textContent = "Limited";
-      }
+      badge.textContent =
+        item.stock != null
+          ? `Limited (${item.stock} premades)`
+          : "Limited";
     } else {
       badge.classList.add("badge-unavailable");
       badge.textContent = "Unavailable";
@@ -759,9 +832,11 @@ function renderPremadeCards() {
     const stockLabel = document.createElement("div");
     stockLabel.className = "premade-stock-label";
     stockLabel.style.display = "none";
+
     if (item.stock != null) {
       stockLabel.textContent = `Stock: ${item.stock}`;
     }
+
     left.appendChild(stockLabel);
 
     if (item.notes) {
@@ -775,6 +850,7 @@ function renderPremadeCards() {
 
     const colorRow = document.createElement("div");
     colorRow.className = "field-row";
+
     const colorLabel = document.createElement("label");
     colorLabel.textContent = "Color";
     colorRow.appendChild(colorLabel);
@@ -783,7 +859,9 @@ function renderPremadeCards() {
     colorSelect.id = `premade-color-${index}`;
 
     const hasPremadeStock =
-      item.stock != null && item.stock > 0 && item.availability !== "unavailable";
+      item.stock != null &&
+      item.stock > 0 &&
+      item.availability !== "unavailable";
 
     if (item.isLimited) {
       const opt = document.createElement("option");
@@ -799,6 +877,7 @@ function renderPremadeCards() {
       baseColors.forEach((c) => {
         const o = document.createElement("option");
         o.value = c.name;
+
         const norm = c.normStatus;
         let label = c.name;
 
@@ -844,6 +923,7 @@ function renderPremadeCards() {
 
     const qtyRow = document.createElement("div");
     qtyRow.className = "field-row";
+
     const qtyLabel = document.createElement("label");
     qtyLabel.textContent = "Quantity";
     qtyRow.appendChild(qtyLabel);
@@ -858,7 +938,6 @@ function renderPremadeCards() {
     qtyRow.appendChild(qtyInput);
     right.appendChild(qtyRow);
 
-    const btnRow = document.createElement("div");
     const btn = document.createElement("button");
     btn.textContent = "Add to cart";
     btn.className = "btn btn-primary";
@@ -890,11 +969,13 @@ function renderPremadeCards() {
           );
           return;
         }
+
         mode = "Premade";
         color = "Premade";
         maxStock = item.stock;
       } else {
         const selected = colorSelect.value;
+
         if (selected === "__premade") {
           if (!hasPremadeStock) {
             showSubmitMessage(
@@ -903,6 +984,7 @@ function renderPremadeCards() {
             );
             return;
           }
+
           mode = "Premade";
           color = "Premade";
           maxStock = item.stock;
@@ -914,6 +996,7 @@ function renderPremadeCards() {
             );
             return;
           }
+
           mode = "Color";
           color = selected;
           maxStock = null;
@@ -925,54 +1008,27 @@ function renderPremadeCards() {
           name: item.name,
           mode,
           color,
-          price: mode === "Premade" ? item.price * PREMADE_DISCOUNT : item.price,
-          maxStock,
+          price:
+            mode === "Premade"
+              ? item.price * PREMADE_DISCOUNT
+              : item.price,
+          maxStock
         },
         qtyVal
       );
     });
 
-    btnRow.appendChild(btn);
-    right.appendChild(btnRow);
+    right.appendChild(btn);
 
     card.appendChild(left);
     card.appendChild(right);
     listEl.appendChild(card);
   });
 
-  const customColorSelect = document.getElementById("custom-color");
-  if (customColorSelect) {
-    customColorSelect.innerHTML = '<option value="">Select color</option>';
-    baseColors.forEach((c) => {
-      const o = document.createElement("option");
-      o.value = c.name;
-      const norm = c.normStatus;
-      let label = c.name;
-
-      if (norm === "temporarily unavailable") {
-        label += " (temp unavailable)";
-      } else if (norm === "being resupplied") {
-        label += " (being resupplied)";
-      } else if (norm === "sold out" || norm === "unavailable") {
-        label += " (unavailable)";
-      }
-
-      o.textContent = label;
-
-      if (
-        norm === "sold out" ||
-        norm === "unavailable" ||
-        norm === "temporarily unavailable"
-      ) {
-        o.disabled = true;
-      }
-
-      customColorSelect.appendChild(o);
-    });
-  }
+  renderCustomColorOptions();
 }
 
-// ---------- CART / TOTALS ----------
+// ---------- CART ----------
 
 function addToCart(itemBase, qty) {
   qty = Math.max(1, Number(qty) || 1);
@@ -986,7 +1042,9 @@ function addToCart(itemBase, qty) {
           c.color === itemBase.color
       )
       .reduce((sum, c) => sum + c.quantity, 0);
+
     const remaining = itemBase.maxStock - existingQty;
+
     if (remaining <= 0) {
       showSubmitMessage(
         `Sorry, "${itemBase.name}" premades are sold out.`,
@@ -994,6 +1052,7 @@ function addToCart(itemBase, qty) {
       );
       return;
     }
+
     if (qty > remaining) qty = remaining;
   }
 
@@ -1006,9 +1065,11 @@ function addToCart(itemBase, qty) {
 
   if (existing) {
     let newQty = existing.quantity + qty;
+
     if (itemBase.maxStock != null && newQty > itemBase.maxStock) {
       newQty = itemBase.maxStock;
     }
+
     existing.quantity = newQty;
   } else {
     cart.push({
@@ -1017,7 +1078,7 @@ function addToCart(itemBase, qty) {
       color: itemBase.color,
       unitPrice: itemBase.price,
       quantity: qty,
-      maxStock: itemBase.maxStock,
+      maxStock: itemBase.maxStock
     });
   }
 
@@ -1063,16 +1124,15 @@ function renderCart() {
     row.className = "cart-item";
 
     const left = document.createElement("div");
+
     const title = document.createElement("div");
     title.className = "cart-item-title";
 
     const detail = detailLabelForItem(item);
-    const displayName = detail ? `${item.name} (${detail})` : item.name;
-    title.textContent = displayName;
+    title.textContent = detail ? `${item.name} (${detail})` : item.name;
 
     const sub = document.createElement("div");
     sub.className = "cart-item-sub";
-    sub.textContent = "";
 
     left.appendChild(title);
     left.appendChild(sub);
@@ -1083,12 +1143,14 @@ function renderCart() {
     const minusBtn = document.createElement("button");
     minusBtn.className = "btn-circle";
     minusBtn.textContent = "–";
+    minusBtn.type = "button";
     minusBtn.addEventListener("click", () => {
       if (item.quantity > 1) {
         item.quantity -= 1;
       } else {
         cart.splice(idx, 1);
       }
+
       renderCart();
     });
 
@@ -1098,23 +1160,27 @@ function renderCart() {
     const plusBtn = document.createElement("button");
     plusBtn.className = "btn-circle";
     plusBtn.textContent = "+";
+    plusBtn.type = "button";
     plusBtn.addEventListener("click", () => {
       let newQty = item.quantity + 1;
+
       if (item.maxStock != null && newQty > item.maxStock) {
         newQty = item.maxStock;
       }
+
       item.quantity = newQty;
+
       renderCart();
     });
 
     const price = document.createElement("div");
     price.className = "cart-item-price";
-    const subtotal = item.unitPrice * item.quantity;
-    price.textContent = formatCurrency(subtotal);
+    price.textContent = formatCurrency(item.unitPrice * item.quantity);
 
     const removeBtn = document.createElement("button");
     removeBtn.className = "btn btn-danger";
     removeBtn.textContent = "Remove";
+    removeBtn.type = "button";
     removeBtn.addEventListener("click", () => {
       cart.splice(idx, 1);
       renderCart();
@@ -1137,6 +1203,8 @@ function renderCart() {
   updateTotals();
 }
 
+// ---------- TOTALS ----------
+
 function getShippingCharge(expediteChoice) {
   if (expediteChoice === "priority") return 20;
   if (expediteChoice === "rush") return 25;
@@ -1145,12 +1213,15 @@ function getShippingCharge(expediteChoice) {
 
 function getExpediteFee(itemsSubtotal, expediteChoice) {
   if (itemsSubtotal <= 0) return 0;
+
   if (expediteChoice === "priority") {
     return itemsSubtotal * 0.1;
   }
+
   if (expediteChoice === "rush") {
     return itemsSubtotal * 0.18;
   }
+
   return 0;
 }
 
@@ -1170,27 +1241,22 @@ function updateTotals() {
   cart.forEach((item) => {
     const sub = item.unitPrice * item.quantity;
     itemsSubtotal += sub;
+
     if (item.mode === "Custom") {
       customSubtotal += sub;
     }
   });
 
   const expediteChoiceEl = document.getElementById("expedite-choice");
-  const expediteChoice = expediteChoiceEl
-    ? expediteChoiceEl.value
-    : "none";
+  const expediteChoice = expediteChoiceEl ? expediteChoiceEl.value : "none";
 
-  const shippingEstimate = cart.length ? getShippingCharge(expediteChoice) : 0;
+  const shippingCharge = cart.length ? getShippingCharge(expediteChoice) : 0;
   const expediteFee = getExpediteFee(itemsSubtotal, expediteChoice);
 
   promoDiscountAmount = 0;
+
   if (appliedPromo) {
-    let base = 0;
-    if (appliedPromo.scope === "custom") {
-      base = customSubtotal;
-    } else {
-      base = itemsSubtotal;
-    }
+    const base = appliedPromo.scope === "custom" ? customSubtotal : itemsSubtotal;
 
     if (base > 0) {
       if (appliedPromo.type === "percent") {
@@ -1206,10 +1272,10 @@ function updateTotals() {
   }
 
   const itemsAfterPromo = Math.max(itemsSubtotal - promoDiscountAmount, 0);
-  const grandTotal = itemsAfterPromo + shippingEstimate + expediteFee;
+  const grandTotal = itemsAfterPromo + shippingCharge + expediteFee;
 
   itemsSubtotalEl.textContent = formatCurrency(itemsSubtotal);
-  shippingEl.textContent = formatCurrency(shippingEstimate);
+  shippingEl.textContent = formatCurrency(shippingCharge);
   expediteEl.textContent = formatCurrency(expediteFee);
   grandEl.textContent = formatCurrency(grandTotal);
 
@@ -1224,72 +1290,99 @@ function updateTotals() {
   }
 }
 
-// ---------- CONTACT + PAYMENT ----------
+// ---------- VALIDATION ----------
 
 function isValidEmail(value) {
   const trimmed = value.trim();
+
   if (!trimmed.includes("@") || !trimmed.includes(".")) return false;
   if (trimmed.length < 6) return false;
   if (trimmed.startsWith("@")) return false;
+
   const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   return re.test(trimmed.toLowerCase());
 }
 
 function isValidPhone(value) {
   const digits = value.replace(/\D/g, "");
+
   if (digits.length < 10 || digits.length > 11) return false;
+
   const forbidden = ["0000000000", "1111111111", "1234567890"];
+
   if (forbidden.includes(digits.slice(-10))) return false;
+
   return true;
 }
 
 function formatPhonePretty(value) {
   const digits = value.replace(/\D/g, "").slice(-10);
+
   if (digits.length !== 10) return value;
+
   const area = digits.slice(0, 3);
   const mid = digits.slice(3, 6);
   const last = digits.slice(6);
+
   return `(${area})-${mid}-${last}`;
 }
 
-function getSelectedPayment() {
-  return {
-    value: "square_invoice",
-    text: "Square invoice sent by phone/email",
-  };
-}
+// ---------- UI MESSAGES ----------
 
 function showSubmitMessage(msg, isError) {
   const el = document.getElementById("submit-message");
+
   if (!el) return;
+
   if (!msg) {
     el.textContent = "";
     el.className = "helper-text";
     return;
   }
+
   el.textContent = msg;
   el.className = isError ? "error-text" : "success-text";
 }
-
-// ---------- PROMO UI ----------
 
 function showPromoMessage(msg, isError) {
   const el = document.getElementById("promo-message");
+
   if (!el) return;
+
   if (!msg) {
     el.textContent = "";
     el.className = "helper-text";
     return;
   }
+
   el.textContent = msg;
   el.className = isError ? "error-text" : "success-text";
 }
+
+function showSuggestionMessage(msg, isError) {
+  const el = document.getElementById("suggestion-message");
+
+  if (!el) return;
+
+  if (!msg) {
+    el.textContent = "";
+    el.className = "helper-text";
+    return;
+  }
+
+  el.textContent = msg;
+  el.className = isError ? "error-text" : "success-text";
+}
+
+// ---------- PROMOS ----------
 
 function clearPromo() {
   appliedPromo = null;
   promoDiscountAmount = 0;
+
   const input = document.getElementById("promo-code");
   if (input) input.value = "";
+
   showPromoMessage("", false);
   updateTotals();
 }
@@ -1302,7 +1395,9 @@ function applyPromoCode() {
 
   const input = document.getElementById("promo-code");
   if (!input) return;
+
   const raw = input.value.trim();
+
   if (!raw) {
     showPromoMessage("Enter a promo code first.", true);
     return;
@@ -1339,11 +1434,11 @@ function applyPromoCode() {
     type: promo.discountType,
     amount: promo.discountAmount,
     scope: promo.scope,
-    statusNorm: promo.statusNorm,
+    statusNorm: promo.statusNorm
   };
 
-  const scopeText =
-    promo.scope === "custom" ? "custom prints" : "cart total";
+  const scopeText = promo.scope === "custom" ? "custom prints" : "cart total";
+
   const discountText =
     promo.discountType === "percent"
       ? `${promo.discountAmount}% off ${scopeText}`
@@ -1353,18 +1448,56 @@ function applyPromoCode() {
   updateTotals();
 }
 
-// ---------- SUGGESTIONS ----------
+// ---------- WEBHOOKS ----------
 
-function showSuggestionMessage(msg, isError) {
-  const el = document.getElementById("suggestion-message");
-  if (!el) return;
-  if (!msg) {
-    el.textContent = "";
-    el.className = "helper-text";
-    return;
+async function sendOrderWebhook(content) {
+  if (!ORDER_WEBHOOK_URL) return;
+
+  const payload = { content };
+
+  try {
+    const res = await fetch(ORDER_WEBHOOK_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(payload)
+    });
+
+    if (!res.ok) {
+      console.error("[ORDER WEBHOOK] Failed", await res.text());
+    }
+  } catch (err) {
+    console.error("[ORDER WEBHOOK] Error", err);
   }
-  el.textContent = msg;
-  el.className = isError ? "error-text" : "success-text";
+}
+
+async function sendStockAndPromoUpdate(stockItems, promoCodeUsed) {
+  if (!STOCK_WEBAPP_URL) return;
+
+  const payload = {};
+
+  if (Array.isArray(stockItems) && stockItems.length) {
+    payload.items = stockItems;
+  }
+
+  if (promoCodeUsed) {
+    payload.promoCodeUsed = promoCodeUsed;
+  }
+
+  if (!Object.keys(payload).length) return;
+
+  try {
+    await fetch(STOCK_WEBAPP_URL, {
+      method: "POST",
+      mode: "no-cors",
+      body: JSON.stringify(payload)
+    });
+
+    console.log("[WEBAPP] Stock/promo update sent", payload);
+  } catch (err) {
+    console.error("[WEBAPP] Failed to send update", err);
+  }
 }
 
 async function sendSuggestionWebhook(content) {
@@ -1376,14 +1509,18 @@ async function sendSuggestionWebhook(content) {
 
   const res = await fetch(SUGGESTIONS_WEBHOOK_URL, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify(payload)
   });
 
   if (!res.ok) {
     throw new Error("Suggestions webhook failed.");
   }
 }
+
+// ---------- SUGGESTIONS ----------
 
 async function handleSubmitSuggestion() {
   const nameInput = document.getElementById("suggestion-name");
@@ -1410,10 +1547,12 @@ async function handleSubmitSuggestion() {
   }
 
   const lines = [];
+
   lines.push("**New website suggestion**");
   lines.push("");
   lines.push(`**Title:** ${title}`);
   lines.push(`**Details:** ${details}`);
+
   if (name) lines.push(`**Name:** ${name}`);
   if (contact) lines.push(`**Contact:** ${contact}`);
   if (link) lines.push(`**Reference link:** ${link}`);
@@ -1442,51 +1581,15 @@ async function handleSubmitSuggestion() {
   }
 }
 
-// ---------- BACKEND CALLS ----------
-async function sendOrderWebhook(content) {
-  if (!ORDER_WEBHOOK_URL) return;
-  const payload = { content };
-
-  try {
-    const res = await fetch(ORDER_WEBHOOK_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-    if (!res.ok) {
-      console.error("Order webhook failed", await res.text());
-    }
-  } catch (err) {
-    console.error("Order webhook error", err);
-  }
-}
-
-async function sendStockAndPromoUpdate(stockItems, promoCodeUsed) {
-  if (!STOCK_WEBAPP_URL) return;
-
-  const payload = {};
-  if (Array.isArray(stockItems) && stockItems.length) {
-    payload.items = stockItems;
-  }
-  if (promoCodeUsed) {
-    payload.promoCodeUsed = promoCodeUsed;
-  }
-
-  if (!Object.keys(payload).length) return;
-
-  try {
-    await fetch(STOCK_WEBAPP_URL, {
-      method: "POST",
-      mode: "no-cors",
-      body: JSON.stringify(payload),
-    });
-    console.log("[WEBAPP] Stock/promo update sent", payload);
-  } catch (err) {
-    console.error("[WEBAPP ERROR] Failed to send update", err);
-  }
-}
-
 // ---------- ORDER SUBMISSION ----------
+
+function getSelectedPayment() {
+  return {
+    value: "square_invoice",
+    text: "Square invoice sent by phone/email"
+  };
+}
+
 async function handleSubmitOrder() {
   if (!cart.length) {
     showSubmitMessage("Your cart is empty.", true);
@@ -1502,6 +1605,7 @@ async function handleSubmitOrder() {
   const expediteChoice = expediteChoiceEl ? expediteChoiceEl.value : "none";
 
   let contact = contactInput.value.trim();
+
   if (!contact) {
     showSubmitMessage("Contact info is required (phone or email).", true);
     return;
@@ -1524,6 +1628,7 @@ async function handleSubmitOrder() {
   }
 
   const nameText = nameInput.value.trim();
+
   if (!nameText) {
     showSubmitMessage("Name is required for every order.", true);
     return;
@@ -1532,6 +1637,7 @@ async function handleSubmitOrder() {
   const payment = getSelectedPayment();
 
   const shipText = shippingInfoInput.value.trim();
+
   if (!shipText) {
     showSubmitMessage(
       "Shipping address is required for every order. If you want local pickup in Worcester, MA, mention it in the extra notes.",
@@ -1544,58 +1650,72 @@ async function handleSubmitOrder() {
 
   let itemsSubtotal = 0;
   let customSubtotal = 0;
+
   cart.forEach((item) => {
     const sub = item.unitPrice * item.quantity;
     itemsSubtotal += sub;
-    if (item.mode === "Custom") customSubtotal += sub;
+
+    if (item.mode === "Custom") {
+      customSubtotal += sub;
+    }
   });
 
-  const shippingEstimate = getShippingCharge(expediteChoice);
+  const shippingCharge = getShippingCharge(expediteChoice);
   const expediteFee = getExpediteFee(itemsSubtotal, expediteChoice);
 
   promoDiscountAmount = 0;
+
   if (appliedPromo) {
-    let base = appliedPromo.scope === "custom" ? customSubtotal : itemsSubtotal;
+    const base = appliedPromo.scope === "custom" ? customSubtotal : itemsSubtotal;
+
     if (base > 0) {
       if (appliedPromo.type === "percent") {
         promoDiscountAmount = (base * appliedPromo.amount) / 100;
       } else if (appliedPromo.type === "fixed") {
         promoDiscountAmount = appliedPromo.amount;
       }
-      if (promoDiscountAmount > base) promoDiscountAmount = base;
+
+      if (promoDiscountAmount > base) {
+        promoDiscountAmount = base;
+      }
     }
   }
 
   const itemsAfterPromo = Math.max(itemsSubtotal - promoDiscountAmount, 0);
-  const grandTotal = itemsAfterPromo + shippingEstimate + expediteFee;
+  const grandTotal = itemsAfterPromo + shippingCharge + expediteFee;
 
   const stockItems = cart
     .filter((item) => item.mode === "Premade" && item.maxStock != null)
     .map((item) => ({
       name: item.name,
-      qty: item.quantity,
+      qty: item.quantity
     }));
 
   let promoCodeUsed = null;
+
   if (appliedPromo && appliedPromo.statusNorm === "limited") {
     promoCodeUsed = appliedPromo.code;
   }
 
   const lines = [];
+
   lines.push(`**New order #${orderId}**`);
   lines.push("");
   lines.push("**Items:**");
+
   cart.forEach((item) => {
     const subtotal = item.unitPrice * item.quantity;
     const detail = detailLabelForItem(item);
     const displayName = detail ? `${item.name} (${detail})` : item.name;
+
     lines.push(
       `• ${displayName} x${item.quantity} — ${formatCurrency(subtotal)}`
     );
   });
-  lines.push("");
 
+  lines.push("");
   lines.push(`Items subtotal: ${formatCurrency(itemsSubtotal)}`);
+
   if (promoDiscountAmount > 0) {
     lines.push(
       `Promo discount: -${formatCurrency(promoDiscountAmount)}${
@@ -1603,60 +1723,133 @@ async function handleSubmitOrder() {
       }`
     );
   }
-  lines.push(`Shipping: ${formatCurrency(shippingEstimate)}`);
+
+  lines.push(`Shipping: ${formatCurrency(shippingCharge)}`);
   lines.push(`Expedite fee: ${formatCurrency(expediteFee)}`);
   lines.push(`**Total: ${formatCurrency(grandTotal)}**`);
   lines.push("");
+  lines.push(`**Contact:** ${contact}`);
+  lines.push(`**Name:** ${nameText}`);
+  lines.push("**Delivery:** Shipping by default — " + shipText);
+  lines.push(
+    "**Local pickup note:** Worcester, MA pickup is by appointment only if requested in notes and approved after purchase confirmation."
+  );
 
   const notesText = notesInput.value.trim();
 
-  lines.push(`**Contact:** ${contact}`);
-  if (nameText) lines.push(`**Name:** ${nameText}`);
-
-  lines.push("**Delivery:** Shipping by default — " + (shipText || "address provided"));
-  lines.push("**Local pickup note:** Worcester, MA pickup is by appointment only if requested in notes and approved after purchase confirmation.");
-
-  if (notesText) lines.push(`**Notes:** ${notesText}`);
+  if (notesText) {
+    lines.push(`**Notes:** ${notesText}`);
+  }
 
   lines.push(
-    `**Payment:** Square invoice needed — send invoice to ${contact}`
+    `**Payment:** ${payment.text} — send invoice to ${contact}`
   );
 
   const summary = lines.join("\n");
 
   showSubmitMessage("Submitting order…", false);
-  document.getElementById("submit-order-btn").disabled = true;
+
+  const submitBtn = document.getElementById("submit-order-btn");
+  if (submitBtn) submitBtn.disabled = true;
 
   try {
     await Promise.all([
       sendOrderWebhook(summary),
-      sendStockAndPromoUpdate(stockItems, promoCodeUsed),
+      sendStockAndPromoUpdate(stockItems, promoCodeUsed)
     ]);
 
     const msg = `Order submitted! Your order number is ${orderId}.`;
+
     showSubmitMessage(msg, false);
     alert(msg);
 
     cart = [];
+    appliedPromo = null;
+    promoDiscountAmount = 0;
+
     renderCart();
 
     nameInput.value = "";
     shippingInfoInput.value = "";
     notesInput.value = "";
     contactInput.value = "";
+
+    const promoInput = document.getElementById("promo-code");
+    if (promoInput) promoInput.value = "";
+
+    showPromoMessage("", false);
   } catch (err) {
-    console.error("Submit error", err);
+    console.error("[ORDER] Submit error", err);
     showSubmitMessage("Sorry, there was an error submitting your order.", true);
   } finally {
-    document.getElementById("submit-order-btn").disabled = false;
+    if (submitBtn) submitBtn.disabled = false;
   }
 }
 
-// ---------- INIT ----------
+// ---------- CUSTOM PRINT ----------
+
+function handleAddCustomPrint() {
+  const fileInput = document.getElementById("custom-file");
+  const sizeSelect = document.getElementById("custom-size");
+  const detailSelect = document.getElementById("custom-detail");
+  const colorSelect = document.getElementById("custom-color");
+  const qtyInput = document.getElementById("custom-qty");
+
+  const file = fileInput.files[0];
+
+  if (!file) {
+    showSubmitMessage("Please upload a file for custom prints.", true);
+    switchShopTab("custom");
+    return;
+  }
+
+  const color = colorSelect.value;
+
+  if (!color) {
+    showSubmitMessage("Please choose a color for the custom print.", true);
+    switchShopTab("custom");
+    return;
+  }
+
+  const qty = Math.max(1, Number(qtyInput.value) || 1);
+
+  let basePrice = 5;
+
+  const size = sizeSelect.value;
+  const detail = detailSelect.value;
+
+  if (size === "medium") basePrice += 3;
+  if (size === "large") basePrice += 7;
+  if (detail === "high") basePrice += 2;
+  if (detail === "ultra") basePrice += 5;
+
+  addToCart(
+    {
+      name: file.name,
+      mode: "Custom",
+      color,
+      price: basePrice,
+      maxStock: null
+    },
+    qty
+  );
+
+  const estText = document.getElementById("custom-estimate-text");
+  if (estText) {
+    estText.textContent = "Custom print estimate added to cart.";
+  }
+}
+
+// ---------- REFRESH / INIT ----------
+
 async function refreshShopData() {
   await loadConfig();
   await loadColors();
-  await Promise.all([loadInventory(), loadPromos(), loadDrivePreviewIndex()]);
+  await Promise.all([
+    loadInventory(),
+    loadPromos(),
+    loadDrivePreviewIndex()
+  ]);
 }
 
 async function init() {
@@ -1669,51 +1862,9 @@ async function init() {
 
   const addCustomBtn = document.getElementById("add-custom-btn");
   if (addCustomBtn) {
-    addCustomBtn.addEventListener("click", () => {
-      const fileInput = document.getElementById("custom-file");
-      const sizeSelect = document.getElementById("custom-size");
-      const detailSelect = document.getElementById("custom-detail");
-      const colorSelect = document.getElementById("custom-color");
-      const qtyInput = document.getElementById("custom-qty");
-
-      const file = fileInput.files[0];
-      if (!file) {
-        showSubmitMessage("Please upload a file for custom prints.", true);
-        return;
-      }
-
-      const color = colorSelect.value;
-      if (!color) {
-        showSubmitMessage("Please choose a color for the custom print.", true);
-        return;
-      }
-
-      let qty = Math.max(1, Number(qtyInput.value) || 1);
-
-      let basePrice = 5;
-      const size = sizeSelect.value;
-      const detail = detailSelect.value;
-
-      if (size === "medium") basePrice += 3;
-      if (size === "large") basePrice += 7;
-      if (detail === "high") basePrice += 2;
-      if (detail === "ultra") basePrice += 5;
-
-      addToCart(
-        {
-          name: file.name,
-          mode: "Custom",
-          color,
-          price: basePrice,
-          maxStock: null,
-        },
-        qty
-      );
-
-      const estText = document.getElementById("custom-estimate-text");
-      if (estText) {
-        estText.textContent = "Custom print estimate added to cart.";
-      }
+    addCustomBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      handleAddCustomPrint();
     });
   }
 
@@ -1786,17 +1937,28 @@ async function init() {
   const previewModal = document.getElementById("preview-modal");
   if (previewModal) {
     previewModal.addEventListener("click", (e) => {
-      if (e.target === previewModal) closePreviewModal();
+      if (e.target === previewModal) {
+        closePreviewModal();
+      }
     });
   }
 
   document.addEventListener("keydown", (e) => {
-    const previewModal = document.getElementById("preview-modal");
-    const previewOpen = previewModal && !previewModal.classList.contains("hidden");
+    const previewModalEl = document.getElementById("preview-modal");
+    const previewOpen =
+      previewModalEl && !previewModalEl.classList.contains("hidden");
 
-    if (e.key === "Escape") closePreviewModal();
-    if (previewOpen && e.key === "ArrowLeft") movePreview(-1);
-    if (previewOpen && e.key === "ArrowRight") movePreview(1);
+    if (e.key === "Escape") {
+      closePreviewModal();
+    }
+
+    if (previewOpen && e.key === "ArrowLeft") {
+      movePreview(-1);
+    }
+
+    if (previewOpen && e.key === "ArrowRight") {
+      movePreview(1);
+    }
   });
 
   renderCart();

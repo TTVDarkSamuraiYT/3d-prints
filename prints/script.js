@@ -157,10 +157,12 @@ function slugifyPreviewName(value) {
 }
 
 function previewTypeFromFile(file) {
+  const explicitType = String(file.type || "").toLowerCase();
   const name = String(file.name || "").toLowerCase();
   const mime = String(file.mimeType || "").toLowerCase();
 
   if (
+    explicitType === "video" ||
     mime.startsWith("video/") ||
     name.endsWith(".mp4") ||
     name.endsWith(".webm") ||
@@ -199,13 +201,16 @@ function indexPreviewFiles(files) {
         previewFileMap[key] = [];
       }
 
+      const type = previewTypeFromFile(file);
+
       previewFileMap[key].push({
         url: file.directUrl || file.downloadUrl || file.viewUrl,
         fallbackUrl: file.downloadUrl || file.viewUrl || file.directUrl,
+        thumbnailUrl: file.thumbnailUrl || file.directUrl || file.downloadUrl,
         viewUrl: file.viewUrl,
         name: file.name,
         title: baseName,
-        type: previewTypeFromFile(file)
+        type: type
       });
     });
   });
@@ -220,9 +225,43 @@ function indexPreviewFiles(files) {
   });
 }
 
+function loadScriptJsonp(url) {
+  return new Promise((resolve, reject) => {
+    const callbackName =
+      "previewCallback_" +
+      Date.now().toString(36) +
+      "_" +
+      Math.random().toString(36).slice(2);
+
+    const joiner = url.includes("?") ? "&" : "?";
+    const script = document.createElement("script");
+
+    window[callbackName] = function (data) {
+      cleanup();
+      resolve(data);
+    };
+
+    function cleanup() {
+      delete window[callbackName];
+      if (script.parentNode) {
+        script.parentNode.removeChild(script);
+      }
+    }
+
+    script.onerror = function () {
+      cleanup();
+      reject(new Error("Preview JSONP request failed"));
+    };
+
+    script.src = url + joiner + "callback=" + encodeURIComponent(callbackName);
+    document.body.appendChild(script);
+  });
+}
+
 async function loadDrivePreviewIndex() {
   if (!PREVIEW_WEBAPP_URL || PREVIEW_WEBAPP_URL.includes("PASTE_")) {
     previewsPreloaded = true;
+    console.warn("[PREVIEW] PREVIEW_WEBAPP_URL is missing in config.json");
     return;
   }
 
@@ -236,13 +275,19 @@ async function loadDrivePreviewIndex() {
       url += joiner + "folderId=" + encodeURIComponent(PRINT_PREVIEW_FOLDER_ID);
     }
 
-    const res = await fetch(url, { cache: "no-cache" });
-    if (!res.ok) throw new Error("Preview index request failed");
+    let data;
 
-    const data = await res.json();
+    try {
+      const res = await fetch(url, { cache: "no-cache" });
+      if (!res.ok) throw new Error("Preview fetch request failed");
+      data = await res.json();
+    } catch (fetchErr) {
+      console.warn("[PREVIEW] Normal fetch failed, trying JSONP fallback:", fetchErr);
+      data = await loadScriptJsonp(url);
+    }
 
-    if (!data.ok) {
-      throw new Error(data.error || "Preview index returned an error");
+    if (!data || !data.ok) {
+      throw new Error((data && data.error) || "Preview index returned an error");
     }
 
     indexPreviewFiles(data.files || []);
@@ -251,6 +296,7 @@ async function loadDrivePreviewIndex() {
     preloadPreviewMedia();
 
     console.log("[PREVIEW] Loaded", previewFileIndex.length, "preview files");
+    console.log("[PREVIEW] Available preview map:", previewFileMap);
   } catch (err) {
     previewsPreloaded = true;
     console.warn("[PREVIEW] Could not load Drive previews:", err);
@@ -358,7 +404,7 @@ function renderPreviewMedia() {
       thumb.appendChild(label);
     } else {
       const img = document.createElement("img");
-      img.src = thumbFile.url;
+      img.src = thumbFile.thumbnailUrl || thumbFile.url;
       img.alt = "";
 
       img.addEventListener("error", () => {
@@ -434,7 +480,7 @@ async function openPreviewModal(itemName) {
 
   if (!activePreviewFiles.length) {
     setPreviewMessage(
-      `No previews were found for "${itemName}" yet. Upload files to the Drive preview folder named like "${itemName}.png", "${itemName}-1.jpg", or "${itemName}.mp4".`,
+      `No previews were found for "${itemName}" yet. Your Drive folder was checked, but no matching file was found. Make sure the file is named like "${itemName}.png", "${itemName}-1.jpg", or "${itemName}.mp4".`,
       true
     );
     return;

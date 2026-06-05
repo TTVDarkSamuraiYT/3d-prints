@@ -3,7 +3,6 @@
 let SHEET_ID = "";
 let INVENTORY_SHEET_NAME = "";
 let COLORS_SHEET_NAME = "";
-let ORDERS_SHEET_NAME = "";
 let ORDER_WEBHOOK_URL = "";
 let STOCK_WEBAPP_URL = "";
 let SUGGESTIONS_WEBHOOK_URL = "";
@@ -11,7 +10,6 @@ let PRINT_PREVIEWS_FOLDER_URL = "";
 let PRINT_PREVIEW_FOLDER_ID = "";
 let PREVIEW_WEBAPP_URL = "";
 let CASHAPP_TAG = "";
-
 let PROMOS_SHEET_NAME = "Promos";
 
 let colorsData = [];
@@ -83,6 +81,12 @@ function formatCurrency(amount) {
   return `$${Number(amount || 0).toFixed(2)}`;
 }
 
+function formatKg(amount) {
+  const n = Number(amount || 0);
+  if (!Number.isFinite(n)) return "0kg";
+  return `${n.toFixed(3).replace(/0+$/, "").replace(/\.$/, "")}kg`;
+}
+
 function normalizeStatus(str) {
   if (!str) return "";
   return String(str).trim().toLowerCase();
@@ -110,9 +114,7 @@ function parsePromoDiscount(raw) {
   if (typeof raw === "number") {
     const n = raw;
     if (!Number.isFinite(n)) return null;
-    if (n > 0 && n <= 1) {
-      return { type: "percent", amount: n * 100 };
-    }
+    if (n > 0 && n <= 1) return { type: "percent", amount: n * 100 };
     return { type: "percent", amount: n };
   }
 
@@ -134,6 +136,23 @@ function parsePromoDiscount(raw) {
   if (!isNaN(num)) return { type: "percent", amount: num };
 
   return null;
+}
+
+function getColorByName(colorName) {
+  const target = String(colorName || "").trim().toLowerCase();
+  return colorsData.find((c) => c.name.trim().toLowerCase() === target) || null;
+}
+
+function colorHasEnoughFilament(colorName, kgNeeded, qty) {
+  const color = getColorByName(colorName);
+  if (!color) return false;
+
+  const remaining = Number(color.kgRemaining || 0);
+  const need = Number(kgNeeded || 0) * Number(qty || 1);
+
+  if (!kgNeeded || need <= 0) return true;
+
+  return remaining >= need;
 }
 
 // ---------- PREVIEW HELPERS ----------
@@ -204,12 +223,8 @@ function indexPreviewFiles(files) {
     keys.push(normalizePreviewKey(file.name));
     keys.push(slugifyPreviewName(file.name));
 
-    const finalKeys = [...new Set(keys.filter(Boolean))];
-
-    finalKeys.forEach((key) => {
-      if (!previewFileMap[key]) {
-        previewFileMap[key] = [];
-      }
+    [...new Set(keys.filter(Boolean))].forEach((key) => {
+      if (!previewFileMap[key]) previewFileMap[key] = [];
 
       const type = previewTypeFromFile(file);
 
@@ -257,9 +272,7 @@ function loadScriptJsonp(url) {
 
     function cleanup() {
       delete window[callbackName];
-      if (script.parentNode) {
-        script.parentNode.removeChild(script);
-      }
+      if (script.parentNode) script.parentNode.removeChild(script);
     }
 
     script.onerror = function () {
@@ -286,7 +299,6 @@ async function loadDrivePreviewIndex() {
     previewsPreloaded = true;
     previewLoadError =
       "PREVIEW_WEBAPP_URL is missing in config.json. Paste your deployed Apps Script /exec URL.";
-    console.warn("[PREVIEW]", previewLoadError);
     return;
   }
 
@@ -303,19 +315,14 @@ async function loadDrivePreviewIndex() {
     let data;
 
     try {
-      const res = await fetch(url + (url.includes("?") ? "&" : "?") + "cacheBust=" + Date.now(), {
-        cache: "no-cache"
-      });
-
-      if (!res.ok) throw new Error("Preview fetch request failed");
-
-      data = await res.json();
-    } catch (fetchErr) {
-      console.warn(
-        "[PREVIEW] Normal fetch failed, trying JSONP fallback:",
-        fetchErr
+      const res = await fetch(
+        url + (url.includes("?") ? "&" : "?") + "cacheBust=" + Date.now(),
+        { cache: "no-cache" }
       );
 
+      if (!res.ok) throw new Error("Preview fetch request failed");
+      data = await res.json();
+    } catch (fetchErr) {
       data = await loadScriptJsonp(url);
     }
 
@@ -325,15 +332,10 @@ async function loadDrivePreviewIndex() {
 
     indexPreviewFiles(data.files || []);
     previewsPreloaded = true;
-
     preloadPreviewMedia();
-
-    console.log("[PREVIEW] Loaded", previewFileIndex.length, "Drive files");
-    console.log("[PREVIEW] Available preview map:", previewFileMap);
   } catch (err) {
     previewsPreloaded = true;
     previewLoadError = String(err && err.message ? err.message : err);
-    console.warn("[PREVIEW] Could not load Drive previews:", err);
   }
 }
 
@@ -348,21 +350,13 @@ function preloadPreviewMedia() {
       if (file.type === "image") {
         const img = new Image();
         img.src = file.url;
-      } else if (file.type === "video") {
-        const iframe = document.createElement("iframe");
-        iframe.src = file.url;
-        iframe.style.display = "none";
-        iframe.loading = "lazy";
       }
     });
   });
 }
 
 function getPreviewFilesForItem(itemName) {
-  const keys = [
-    normalizePreviewKey(itemName),
-    slugifyPreviewName(itemName)
-  ];
+  const keys = [normalizePreviewKey(itemName), slugifyPreviewName(itemName)];
 
   for (const key of keys) {
     if (previewFileMap[key] && previewFileMap[key].length) {
@@ -403,8 +397,6 @@ function renderPreviewMedia() {
     iframe.allow = "autoplay; fullscreen";
     iframe.allowFullscreen = true;
     iframe.loading = "eager";
-    iframe.referrerPolicy = "no-referrer-when-downgrade";
-
     mediaWrap.appendChild(iframe);
   } else {
     const img = document.createElement("img");
@@ -436,13 +428,6 @@ function renderPreviewMedia() {
       const img = document.createElement("img");
       img.src = thumbFile.thumbnailUrl || thumbFile.url;
       img.alt = "";
-
-      img.addEventListener("error", () => {
-        if (thumbFile.fallbackUrl && img.src !== thumbFile.fallbackUrl) {
-          img.src = thumbFile.fallbackUrl;
-        }
-      });
-
       thumb.appendChild(img);
     }
 
@@ -500,30 +485,21 @@ async function openPreviewModal(itemName) {
   modal.classList.remove("hidden");
   modal.setAttribute("aria-hidden", "false");
 
-  if (!previewsPreloaded) {
-    await loadDrivePreviewIndex();
-  }
+  if (!previewsPreloaded) await loadDrivePreviewIndex();
 
   activePreviewFiles = getPreviewFilesForItem(itemName);
 
   loading.classList.add("hidden");
 
   if (!activePreviewFiles.length) {
-    const availableNames = previewFileIndex
-      .map((file) => file.name)
-      .filter(Boolean)
-      .join(", ");
-
-    let msg =
-      `No previews were found for "${itemName}". ` +
-      `The site loaded ${previewFileIndex.length} file(s) from Drive.`;
+    let msg = `No previews were found for "${itemName}". The site loaded ${previewFileIndex.length} file(s) from Drive.`;
 
     if (previewLoadError) {
       msg += ` Preview loader error: ${previewLoadError}`;
-    } else if (availableNames) {
-      msg += ` Drive files found: ${availableNames}.`;
-    } else {
-      msg += ` No files were returned by the Apps Script. Make sure the Apps Script was redeployed as a new web app version and has Drive permission.`;
+    } else if (previewFileIndex.length) {
+      msg += ` Drive files found: ${previewFileIndex
+        .map((file) => file.name)
+        .join(", ")}.`;
     }
 
     setPreviewMessage(msg, true);
@@ -575,7 +551,6 @@ async function loadConfig() {
     SHEET_ID = cfg.SHEET_ID || "";
     INVENTORY_SHEET_NAME = cfg.INVENTORY_SHEET_NAME || "Inventory";
     COLORS_SHEET_NAME = cfg.COLORS_SHEET_NAME || "Colors";
-    ORDERS_SHEET_NAME = cfg.ORDERS_SHEET_NAME || "Orders";
     ORDER_WEBHOOK_URL = cfg.ORDER_WEBHOOK_URL || "";
     STOCK_WEBAPP_URL = cfg.STOCK_WEBAPP_URL || "";
     SUGGESTIONS_WEBHOOK_URL = cfg.SUGGESTIONS_WEBHOOK_URL || "";
@@ -584,11 +559,6 @@ async function loadConfig() {
     PREVIEW_WEBAPP_URL = cfg.PREVIEW_WEBAPP_URL || "";
     CASHAPP_TAG = cfg.CASHAPP_TAG || "$CashApp";
     PROMOS_SHEET_NAME = cfg.PROMOS_SHEET_NAME || "Promos";
-
-    const cashTagEl = document.getElementById("cashapp-tag-display");
-    if (cashTagEl) cashTagEl.textContent = CASHAPP_TAG;
-
-    console.log("[CONFIG] Loaded");
   } catch (err) {
     console.error("[CONFIG] Error loading config.json", err);
   }
@@ -607,8 +577,7 @@ async function loadColors() {
     const res = await fetch(url, { cache: "no-cache" });
     if (!res.ok) throw new Error("colors fetch failed");
 
-    const text = await res.text();
-    const rows = parseSheetJSON(text);
+    const rows = parseSheetJSON(await res.text());
 
     colorsData = rows
       .map((r) => {
@@ -616,18 +585,18 @@ async function loadColors() {
 
         const name = c[0]?.v ? String(c[0].v).trim() : "";
         const status = c[1]?.v ? String(c[1].v).trim() : "";
+        const kgRemaining = safeNumber(c[2]?.v);
 
         if (!name) return null;
 
         return {
           name,
           status,
-          normStatus: normalizeStatus(status)
+          normStatus: normalizeStatus(status),
+          kgRemaining: kgRemaining == null ? 0 : kgRemaining
         };
       })
       .filter(Boolean);
-
-    console.log("[COLORS] Loaded", colorsData.length);
   } catch (err) {
     console.error("[COLORS] Error loading colors sheet", err);
     colorsData = [];
@@ -651,8 +620,7 @@ async function loadInventory() {
     const res = await fetch(url, { cache: "no-cache" });
     if (!res.ok) throw new Error("inventory fetch failed");
 
-    const text = await res.text();
-    const rows = parseSheetJSON(text);
+    const rows = parseSheetJSON(await res.text());
 
     inventoryData = rows
       .map((r) => {
@@ -663,6 +631,7 @@ async function loadInventory() {
         const stockRaw = c[2]?.v;
         const statusRaw = c[3]?.v ? String(c[3].v).trim() : "";
         const notes = c[4]?.v ? String(c[4].v).trim() : "";
+        const filamentKgNeeded = safeNumber(c[5]?.v);
 
         if (!name || priceRaw === null || priceRaw === "") return null;
 
@@ -674,18 +643,13 @@ async function loadInventory() {
 
         const isLimited = statusNorm === "limited";
 
-        if (isLimited && (stock === null || stock <= 0)) {
-          return null;
-        }
+        if (isLimited && (stock === null || stock <= 0)) return null;
 
         let availability = "available";
 
         if (statusNorm === "temporarily unavailable") {
           availability = "temp";
-        } else if (
-          statusNorm === "sold out" ||
-          statusNorm === "unavailable"
-        ) {
+        } else if (statusNorm === "sold out" || statusNorm === "unavailable") {
           availability = "unavailable";
         } else if (isLimited) {
           availability = "limited";
@@ -699,12 +663,11 @@ async function loadInventory() {
           statusNorm,
           notes,
           availability,
-          isLimited
+          isLimited,
+          filamentKgNeeded: filamentKgNeeded == null ? 0 : filamentKgNeeded
         };
       })
       .filter(Boolean);
-
-    console.log("[INVENTORY] Loaded", inventoryData.length);
 
     renderPremadeCards();
   } catch (err) {
@@ -727,13 +690,9 @@ async function loadPromos() {
 
     const res = await fetch(url, { cache: "no-cache" });
 
-    if (!res.ok) {
-      console.warn("[PROMOS] Promo sheet not found or not public");
-      return;
-    }
+    if (!res.ok) return;
 
-    const text = await res.text();
-    const rows = parseSheetJSON(text);
+    const rows = parseSheetJSON(await res.text());
 
     promosData = rows
       .map((r) => {
@@ -742,15 +701,14 @@ async function loadPromos() {
         const codeRaw = c[0]?.v;
         if (!codeRaw) return null;
 
-        const discountRaw = c[1]?.v;
+        const discountParsed = parsePromoDiscount(c[1]?.v);
+        if (!discountParsed) return null;
+
         const statusRaw = c[2]?.v ? String(c[2].v).trim() : "";
         const limitRaw = c[3]?.v;
         const discountedRaw = c[4]?.v ? String(c[4].v).trim() : "";
 
         const code = String(codeRaw).trim().toUpperCase();
-        const discountParsed = parsePromoDiscount(discountRaw);
-
-        if (!discountParsed) return null;
 
         let limit = safeNumber(limitRaw);
         if (limit == null) limit = null;
@@ -772,10 +730,7 @@ async function loadPromos() {
         };
       })
       .filter(Boolean);
-
-    console.log("[PROMOS] Loaded", promosData.length);
   } catch (err) {
-    console.warn("[PROMOS] Error loading promos sheet", err);
     promosData = [];
   }
 }
@@ -790,37 +745,59 @@ function getBaseColors() {
   });
 }
 
+function buildColorOptionLabel(color, requiredKg) {
+  const norm = color.normStatus;
+  let label = `${color.name} (${formatKg(color.kgRemaining)} left)`;
+
+  if (norm === "temporarily unavailable") {
+    label += " — temp unavailable";
+  } else if (norm === "being resupplied") {
+    label += " — being resupplied";
+  } else if (norm === "sold out" || norm === "unavailable") {
+    label += " — unavailable";
+  } else if (requiredKg > 0 && color.kgRemaining < requiredKg) {
+    label += " — insufficient filament";
+  }
+
+  return label;
+}
+
+function shouldDisableColor(color, requiredKg) {
+  const norm = color.normStatus;
+
+  if (
+    norm === "sold out" ||
+    norm === "unavailable" ||
+    norm === "temporarily unavailable"
+  ) {
+    return true;
+  }
+
+  if (requiredKg > 0 && color.kgRemaining < requiredKg) return true;
+
+  return false;
+}
+
 function renderCustomColorOptions() {
   const customColorSelect = document.getElementById("custom-color");
   if (!customColorSelect) return;
 
   const baseColors = getBaseColors();
 
-  customColorSelect.innerHTML = '<option value="">Select color</option>';
+  customColorSelect.innerHTML = '<option value="">Select preferred color</option>';
 
-  baseColors.forEach((c) => {
+  baseColors.forEach((color) => {
     const o = document.createElement("option");
-    o.value = c.name;
-
-    const norm = c.normStatus;
-    let label = c.name;
-
-    if (norm === "temporarily unavailable") {
-      label += " (temp unavailable)";
-    } else if (norm === "being resupplied") {
-      label += " (being resupplied)";
-    } else if (norm === "sold out" || norm === "unavailable") {
-      label += " (unavailable)";
-    }
-
-    o.textContent = label;
+    o.value = color.name;
+    o.textContent = `${color.name} (${formatKg(color.kgRemaining)} left)`;
 
     if (
-      norm === "sold out" ||
-      norm === "unavailable" ||
-      norm === "temporarily unavailable"
+      color.normStatus === "sold out" ||
+      color.normStatus === "unavailable" ||
+      color.normStatus === "temporarily unavailable"
     ) {
       o.disabled = true;
+      o.textContent += " — unavailable";
     }
 
     customColorSelect.appendChild(o);
@@ -885,10 +862,7 @@ function renderPremadeCards() {
     previewBtn.className = "btn btn-ghost btn-small preview-btn";
     previewBtn.type = "button";
     previewBtn.textContent = "Preview";
-    previewBtn.title = `Preview photos or clips for ${item.name}`;
-    previewBtn.addEventListener("click", () => {
-      openPreviewModal(item.name);
-    });
+    previewBtn.addEventListener("click", () => openPreviewModal(item.name));
     topRow.appendChild(previewBtn);
 
     left.appendChild(topRow);
@@ -908,9 +882,7 @@ function renderPremadeCards() {
     } else if (item.availability === "limited") {
       badge.classList.add("badge-limited");
       badge.textContent =
-        item.stock != null
-          ? `Limited (${item.stock} premades)`
-          : "Limited";
+        item.stock != null ? `Limited (${item.stock} premades)` : "Limited";
     } else {
       badge.classList.add("badge-unavailable");
       badge.textContent = "Unavailable";
@@ -919,13 +891,20 @@ function renderPremadeCards() {
     statusWrap.appendChild(badge);
     left.appendChild(statusWrap);
 
+    if (item.filamentKgNeeded > 0) {
+      const filamentNote = document.createElement("div");
+      filamentNote.className = "premade-note";
+      filamentNote.textContent = `Uses about ${formatKg(
+        item.filamentKgNeeded
+      )} filament each.`;
+      left.appendChild(filamentNote);
+    }
+
     const stockLabel = document.createElement("div");
     stockLabel.className = "premade-stock-label";
     stockLabel.style.display = "none";
 
-    if (item.stock != null) {
-      stockLabel.textContent = `Stock: ${item.stock}`;
-    }
+    if (item.stock != null) stockLabel.textContent = `Stock: ${item.stock}`;
 
     left.appendChild(stockLabel);
 
@@ -964,32 +943,19 @@ function renderPremadeCards() {
       placeholder.textContent = "Select color";
       colorSelect.appendChild(placeholder);
 
-      baseColors.forEach((c) => {
-        const o = document.createElement("option");
-        o.value = c.name;
+      baseColors.forEach((color) => {
+        const option = document.createElement("option");
+        option.value = color.name;
+        option.textContent = buildColorOptionLabel(
+          color,
+          item.filamentKgNeeded
+        );
 
-        const norm = c.normStatus;
-        let label = c.name;
-
-        if (norm === "temporarily unavailable") {
-          label += " (temp unavailable)";
-        } else if (norm === "being resupplied") {
-          label += " (being resupplied)";
-        } else if (norm === "sold out" || norm === "unavailable") {
-          label += " (unavailable)";
+        if (shouldDisableColor(color, item.filamentKgNeeded)) {
+          option.disabled = true;
         }
 
-        o.textContent = label;
-
-        if (
-          norm === "sold out" ||
-          norm === "unavailable" ||
-          norm === "temporarily unavailable"
-        ) {
-          o.disabled = true;
-        }
-
-        colorSelect.appendChild(o);
+        colorSelect.appendChild(option);
       });
 
       if (hasPremadeStock) {
@@ -1050,38 +1016,48 @@ function renderPremadeCards() {
       let mode;
       let color;
       let maxStock = null;
+      let subtractFilament = false;
 
       if (item.isLimited) {
         if (!hasPremadeStock) {
-          showSubmitMessage(
-            `Sorry, "${item.name}" premades are sold out.`,
-            true
-          );
+          showSubmitMessage(`Sorry, "${item.name}" premades are sold out.`, true);
           return;
         }
 
         mode = "Premade";
         color = "Premade";
         maxStock = item.stock;
+        subtractFilament = false;
       } else {
         const selected = colorSelect.value;
 
         if (selected === "__premade") {
           if (!hasPremadeStock) {
-            showSubmitMessage(
-              `Sorry, "${item.name}" premades are sold out.`,
-              true
-            );
+            showSubmitMessage(`Sorry, "${item.name}" premades are sold out.`, true);
             return;
           }
 
           mode = "Premade";
           color = "Premade";
           maxStock = item.stock;
+          subtractFilament = false;
         } else {
           if (!selected) {
+            showSubmitMessage("Please choose a color or the premade option.", true);
+            return;
+          }
+
+          const neededTotal = item.filamentKgNeeded * qtyVal;
+
+          if (
+            item.filamentKgNeeded > 0 &&
+            !colorHasEnoughFilament(selected, item.filamentKgNeeded, qtyVal)
+          ) {
+            const selectedColor = getColorByName(selected);
             showSubmitMessage(
-              "Please choose a color or the premade option.",
+              `${selected} does not have enough filament for ${qtyVal}x "${item.name}". Needed: ${formatKg(
+                neededTotal
+              )}, available: ${formatKg(selectedColor ? selectedColor.kgRemaining : 0)}.`,
               true
             );
             return;
@@ -1090,6 +1066,7 @@ function renderPremadeCards() {
           mode = "Color";
           color = selected;
           maxStock = null;
+          subtractFilament = item.filamentKgNeeded > 0;
         }
       }
 
@@ -1099,10 +1076,10 @@ function renderPremadeCards() {
           mode,
           color,
           price:
-            mode === "Premade"
-              ? item.price * PREMADE_DISCOUNT
-              : item.price,
-          maxStock
+            mode === "Premade" ? item.price * PREMADE_DISCOUNT : item.price,
+          maxStock,
+          filamentKgNeeded: item.filamentKgNeeded,
+          subtractFilament
         },
         qtyVal
       );
@@ -1136,10 +1113,7 @@ function addToCart(itemBase, qty) {
     const remaining = itemBase.maxStock - existingQty;
 
     if (remaining <= 0) {
-      showSubmitMessage(
-        `Sorry, "${itemBase.name}" premades are sold out.`,
-        true
-      );
+      showSubmitMessage(`Sorry, "${itemBase.name}" premades are sold out.`, true);
       return;
     }
 
@@ -1168,7 +1142,9 @@ function addToCart(itemBase, qty) {
       color: itemBase.color,
       unitPrice: itemBase.price,
       quantity: qty,
-      maxStock: itemBase.maxStock
+      maxStock: itemBase.maxStock,
+      filamentKgNeeded: itemBase.filamentKgNeeded || 0,
+      subtractFilament: Boolean(itemBase.subtractFilament)
     });
   }
 
@@ -1180,7 +1156,7 @@ function addToCart(itemBase, qty) {
 function detailLabelForItem(item) {
   if (item.mode === "Premade") return "Premade";
   if (item.mode === "Color") return item.color || "Color";
-  if (item.mode === "Custom") return `Custom / ${item.color || "N/A"}`;
+  if (item.mode === "Custom") return `Custom quote / ${item.color || "N/A"}`;
   return item.color || item.mode || "";
 }
 
@@ -1224,6 +1200,14 @@ function renderCart() {
     const sub = document.createElement("div");
     sub.className = "cart-item-sub";
 
+    if (item.mode === "Custom") {
+      sub.textContent = "Manual quote/review — filament not auto-subtracted";
+    } else if (item.subtractFilament && item.filamentKgNeeded > 0) {
+      sub.textContent = `Filament use: ${formatKg(
+        item.filamentKgNeeded * item.quantity
+      )}`;
+    }
+
     left.appendChild(title);
     left.appendChild(sub);
 
@@ -1252,14 +1236,28 @@ function renderCart() {
     plusBtn.textContent = "+";
     plusBtn.type = "button";
     plusBtn.addEventListener("click", () => {
-      let newQty = item.quantity + 1;
+      const newQty = item.quantity + 1;
 
       if (item.maxStock != null && newQty > item.maxStock) {
-        newQty = item.maxStock;
+        return;
+      }
+
+      if (
+        item.subtractFilament &&
+        item.filamentKgNeeded > 0 &&
+        !colorHasEnoughFilament(item.color, item.filamentKgNeeded, newQty)
+      ) {
+        const selectedColor = getColorByName(item.color);
+        showSubmitMessage(
+          `${item.color} does not have enough filament for ${newQty}x "${item.name}". Needed: ${formatKg(
+            item.filamentKgNeeded * newQty
+          )}, available: ${formatKg(selectedColor ? selectedColor.kgRemaining : 0)}.`,
+          true
+        );
+        return;
       }
 
       item.quantity = newQty;
-
       renderCart();
     });
 
@@ -1303,15 +1301,8 @@ function getShippingCharge(expediteChoice) {
 
 function getExpediteFee(itemsSubtotal, expediteChoice) {
   if (itemsSubtotal <= 0) return 0;
-
-  if (expediteChoice === "priority") {
-    return itemsSubtotal * 0.1;
-  }
-
-  if (expediteChoice === "rush") {
-    return itemsSubtotal * 0.18;
-  }
-
+  if (expediteChoice === "priority") return itemsSubtotal * 0.1;
+  if (expediteChoice === "rush") return itemsSubtotal * 0.18;
   return 0;
 }
 
@@ -1331,10 +1322,7 @@ function updateTotals() {
   cart.forEach((item) => {
     const sub = item.unitPrice * item.quantity;
     itemsSubtotal += sub;
-
-    if (item.mode === "Custom") {
-      customSubtotal += sub;
-    }
+    if (item.mode === "Custom") customSubtotal += sub;
   });
 
   const expediteChoiceEl = document.getElementById("expedite-choice");
@@ -1346,7 +1334,8 @@ function updateTotals() {
   promoDiscountAmount = 0;
 
   if (appliedPromo) {
-    const base = appliedPromo.scope === "custom" ? customSubtotal : itemsSubtotal;
+    const base =
+      appliedPromo.scope === "custom" ? customSubtotal : itemsSubtotal;
 
     if (base > 0) {
       if (appliedPromo.type === "percent") {
@@ -1355,9 +1344,7 @@ function updateTotals() {
         promoDiscountAmount = appliedPromo.amount;
       }
 
-      if (promoDiscountAmount > base) {
-        promoDiscountAmount = base;
-      }
+      if (promoDiscountAmount > base) promoDiscountAmount = base;
     }
   }
 
@@ -1380,48 +1367,32 @@ function updateTotals() {
   }
 }
 
-// ---------- VALIDATION ----------
+// ---------- VALIDATION / MESSAGES ----------
 
 function isValidEmail(value) {
   const trimmed = value.trim();
-
   if (!trimmed.includes("@") || !trimmed.includes(".")) return false;
   if (trimmed.length < 6) return false;
   if (trimmed.startsWith("@")) return false;
-
   const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   return re.test(trimmed.toLowerCase());
 }
 
 function isValidPhone(value) {
   const digits = value.replace(/\D/g, "");
-
   if (digits.length < 10 || digits.length > 11) return false;
-
   const forbidden = ["0000000000", "1111111111", "1234567890"];
-
-  if (forbidden.includes(digits.slice(-10))) return false;
-
-  return true;
+  return !forbidden.includes(digits.slice(-10));
 }
 
 function formatPhonePretty(value) {
   const digits = value.replace(/\D/g, "").slice(-10);
-
   if (digits.length !== 10) return value;
-
-  const area = digits.slice(0, 3);
-  const mid = digits.slice(3, 6);
-  const last = digits.slice(6);
-
-  return `(${area})-${mid}-${last}`;
+  return `(${digits.slice(0, 3)})-${digits.slice(3, 6)}-${digits.slice(6)}`;
 }
-
-// ---------- UI MESSAGES ----------
 
 function showSubmitMessage(msg, isError) {
   const el = document.getElementById("submit-message");
-
   if (!el) return;
 
   if (!msg) {
@@ -1436,7 +1407,6 @@ function showSubmitMessage(msg, isError) {
 
 function showPromoMessage(msg, isError) {
   const el = document.getElementById("promo-message");
-
   if (!el) return;
 
   if (!msg) {
@@ -1451,7 +1421,6 @@ function showPromoMessage(msg, isError) {
 
 function showSuggestionMessage(msg, isError) {
   const el = document.getElementById("suggestion-message");
-
   if (!el) return;
 
   if (!msg) {
@@ -1538,7 +1507,7 @@ function applyPromoCode() {
   updateTotals();
 }
 
-// ---------- WEBHOOKS ----------
+// ---------- WEBHOOKS / SHEET UPDATES ----------
 
 async function sendOrderWebhook(content) {
   if (!ORDER_WEBHOOK_URL) return;
@@ -1548,9 +1517,7 @@ async function sendOrderWebhook(content) {
   try {
     const res = await fetch(ORDER_WEBHOOK_URL, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload)
     });
 
@@ -1562,18 +1529,52 @@ async function sendOrderWebhook(content) {
   }
 }
 
-async function sendStockAndPromoUpdate(stockItems, promoCodeUsed) {
-  if (!STOCK_WEBAPP_URL) return;
+function buildFilamentPayload() {
+  const inventoryUpdates = [];
+  const filamentUsageByColor = {};
+
+  cart.forEach((item) => {
+    if (item.mode === "Premade" && item.maxStock != null) {
+      inventoryUpdates.push({
+        name: item.name,
+        qty: item.quantity
+      });
+    }
+
+    if (
+      item.subtractFilament &&
+      item.mode === "Color" &&
+      item.color &&
+      item.color !== "Premade" &&
+      item.filamentKgNeeded > 0
+    ) {
+      const key = item.color.trim();
+      if (!filamentUsageByColor[key]) filamentUsageByColor[key] = 0;
+      filamentUsageByColor[key] += item.filamentKgNeeded * item.quantity;
+    }
+  });
+
+  const filamentUsage = Object.keys(filamentUsageByColor).map((color) => ({
+    color,
+    kg: Number(filamentUsageByColor[color].toFixed(6))
+  }));
 
   const payload = {};
 
-  if (Array.isArray(stockItems) && stockItems.length) {
-    payload.items = stockItems;
+  if (inventoryUpdates.length) payload.items = inventoryUpdates;
+  if (filamentUsage.length) payload.filamentUsage = filamentUsage;
+
+  if (appliedPromo && appliedPromo.statusNorm === "limited") {
+    payload.promoCodeUsed = appliedPromo.code;
   }
 
-  if (promoCodeUsed) {
-    payload.promoCodeUsed = promoCodeUsed;
-  }
+  return payload;
+}
+
+async function sendStockAndFilamentUpdate() {
+  if (!STOCK_WEBAPP_URL || STOCK_WEBAPP_URL.includes("PASTE_")) return;
+
+  const payload = buildFilamentPayload();
 
   if (!Object.keys(payload).length) return;
 
@@ -1583,8 +1584,6 @@ async function sendStockAndPromoUpdate(stockItems, promoCodeUsed) {
       mode: "no-cors",
       body: JSON.stringify(payload)
     });
-
-    console.log("[WEBAPP] Stock/promo update sent", payload);
   } catch (err) {
     console.error("[WEBAPP] Failed to send update", err);
   }
@@ -1599,15 +1598,11 @@ async function sendSuggestionWebhook(content) {
 
   const res = await fetch(SUGGESTIONS_WEBHOOK_URL, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json"
-    },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload)
   });
 
-  if (!res.ok) {
-    throw new Error("Suggestions webhook failed.");
-  }
+  if (!res.ok) throw new Error("Suggestions webhook failed.");
 }
 
 // ---------- SUGGESTIONS ----------
@@ -1637,12 +1632,10 @@ async function handleSubmitSuggestion() {
   }
 
   const lines = [];
-
   lines.push("**New website suggestion**");
   lines.push("");
   lines.push(`**Title:** ${title}`);
   lines.push(`**Details:** ${details}`);
-
   if (name) lines.push(`**Name:** ${name}`);
   if (contact) lines.push(`**Contact:** ${contact}`);
   if (link) lines.push(`**Reference link:** ${link}`);
@@ -1662,10 +1655,7 @@ async function handleSubmitSuggestion() {
     if (linkInput) linkInput.value = "";
   } catch (err) {
     console.error(err);
-    showSuggestionMessage(
-      "Sorry, there was an error sending the suggestion.",
-      true
-    );
+    showSuggestionMessage("Sorry, there was an error sending the suggestion.", true);
   } finally {
     if (btn) btn.disabled = false;
   }
@@ -1673,16 +1663,48 @@ async function handleSubmitSuggestion() {
 
 // ---------- ORDER SUBMISSION ----------
 
-function getSelectedPayment() {
-  return {
-    value: "square_invoice",
-    text: "Square invoice sent by phone/email"
-  };
+function validateFilamentBeforeSubmit() {
+  const usage = {};
+
+  cart.forEach((item) => {
+    if (
+      item.subtractFilament &&
+      item.mode === "Color" &&
+      item.color &&
+      item.filamentKgNeeded > 0
+    ) {
+      if (!usage[item.color]) usage[item.color] = 0;
+      usage[item.color] += item.filamentKgNeeded * item.quantity;
+    }
+  });
+
+  for (const colorName of Object.keys(usage)) {
+    const color = getColorByName(colorName);
+    const available = color ? color.kgRemaining : 0;
+    const needed = usage[colorName];
+
+    if (available < needed) {
+      return {
+        ok: false,
+        message: `${colorName} does not have enough filament. Needed: ${formatKg(
+          needed
+        )}, available: ${formatKg(available)}.`
+      };
+    }
+  }
+
+  return { ok: true, message: "" };
 }
 
 async function handleSubmitOrder() {
   if (!cart.length) {
     showSubmitMessage("Your cart is empty.", true);
+    return;
+  }
+
+  const filamentCheck = validateFilamentBeforeSubmit();
+  if (!filamentCheck.ok) {
+    showSubmitMessage(filamentCheck.message, true);
     return;
   }
 
@@ -1705,10 +1727,7 @@ async function handleSubmitOrder() {
   const isPhone = isValidPhone(contact);
 
   if (!isEmail && !isPhone) {
-    showSubmitMessage(
-      "Contact must be a real-looking email or phone number.",
-      true
-    );
+    showSubmitMessage("Contact must be a real-looking email or phone number.", true);
     return;
   }
 
@@ -1723,8 +1742,6 @@ async function handleSubmitOrder() {
     showSubmitMessage("Name is required for every order.", true);
     return;
   }
-
-  const payment = getSelectedPayment();
 
   const shipText = shippingInfoInput.value.trim();
 
@@ -1744,10 +1761,7 @@ async function handleSubmitOrder() {
   cart.forEach((item) => {
     const sub = item.unitPrice * item.quantity;
     itemsSubtotal += sub;
-
-    if (item.mode === "Custom") {
-      customSubtotal += sub;
-    }
+    if (item.mode === "Custom") customSubtotal += sub;
   });
 
   const shippingCharge = getShippingCharge(expediteChoice);
@@ -1756,7 +1770,8 @@ async function handleSubmitOrder() {
   promoDiscountAmount = 0;
 
   if (appliedPromo) {
-    const base = appliedPromo.scope === "custom" ? customSubtotal : itemsSubtotal;
+    const base =
+      appliedPromo.scope === "custom" ? customSubtotal : itemsSubtotal;
 
     if (base > 0) {
       if (appliedPromo.type === "percent") {
@@ -1765,27 +1780,12 @@ async function handleSubmitOrder() {
         promoDiscountAmount = appliedPromo.amount;
       }
 
-      if (promoDiscountAmount > base) {
-        promoDiscountAmount = base;
-      }
+      if (promoDiscountAmount > base) promoDiscountAmount = base;
     }
   }
 
   const itemsAfterPromo = Math.max(itemsSubtotal - promoDiscountAmount, 0);
   const grandTotal = itemsAfterPromo + shippingCharge + expediteFee;
-
-  const stockItems = cart
-    .filter((item) => item.mode === "Premade" && item.maxStock != null)
-    .map((item) => ({
-      name: item.name,
-      qty: item.quantity
-    }));
-
-  let promoCodeUsed = null;
-
-  if (appliedPromo && appliedPromo.statusNorm === "limited") {
-    promoCodeUsed = appliedPromo.code;
-  }
 
   const lines = [];
 
@@ -1798,9 +1798,17 @@ async function handleSubmitOrder() {
     const detail = detailLabelForItem(item);
     const displayName = detail ? `${item.name} (${detail})` : item.name;
 
-    lines.push(
-      `• ${displayName} x${item.quantity} — ${formatCurrency(subtotal)}`
-    );
+    let line = `• ${displayName} x${item.quantity} — ${formatCurrency(subtotal)}`;
+
+    if (item.mode === "Custom") {
+      line += " — manual quote/review";
+    } else if (item.subtractFilament && item.filamentKgNeeded > 0) {
+      line += ` — filament used: ${formatKg(
+        item.filamentKgNeeded * item.quantity
+      )}`;
+    }
+
+    lines.push(line);
   });
 
   lines.push("");
@@ -1827,13 +1835,9 @@ async function handleSubmitOrder() {
 
   const notesText = notesInput.value.trim();
 
-  if (notesText) {
-    lines.push(`**Notes:** ${notesText}`);
-  }
+  if (notesText) lines.push(`**Notes:** ${notesText}`);
 
-  lines.push(
-    `**Payment:** ${payment.text} — send invoice to ${contact}`
-  );
+  lines.push(`**Payment:** Square invoice needed — send invoice to ${contact}`);
 
   const summary = lines.join("\n");
 
@@ -1843,10 +1847,7 @@ async function handleSubmitOrder() {
   if (submitBtn) submitBtn.disabled = true;
 
   try {
-    await Promise.all([
-      sendOrderWebhook(summary),
-      sendStockAndPromoUpdate(stockItems, promoCodeUsed)
-    ]);
+    await Promise.all([sendOrderWebhook(summary), sendStockAndFilamentUpdate()]);
 
     const msg = `Order submitted! Your order number is ${orderId}.`;
 
@@ -1868,6 +1869,8 @@ async function handleSubmitOrder() {
     if (promoInput) promoInput.value = "";
 
     showPromoMessage("", false);
+
+    await refreshShopData();
   } catch (err) {
     console.error("[ORDER] Submit error", err);
     showSubmitMessage("Sorry, there was an error submitting your order.", true);
@@ -1896,7 +1899,7 @@ function handleAddCustomPrint() {
   const color = colorSelect.value;
 
   if (!color) {
-    showSubmitMessage("Please choose a color for the custom print.", true);
+    showSubmitMessage("Please choose a preferred color for the custom print.", true);
     switchShopTab("custom");
     return;
   }
@@ -1919,14 +1922,17 @@ function handleAddCustomPrint() {
       mode: "Custom",
       color,
       price: basePrice,
-      maxStock: null
+      maxStock: null,
+      filamentKgNeeded: 0,
+      subtractFilament: false
     },
     qty
   );
 
   const estText = document.getElementById("custom-estimate-text");
   if (estText) {
-    estText.textContent = "Custom print estimate added to cart.";
+    estText.textContent =
+      "Custom quote request added to cart. Final price and filament use will be reviewed manually.";
   }
 }
 
@@ -1941,11 +1947,7 @@ async function refreshShopData() {
 
   await loadColors();
 
-  await Promise.all([
-    loadInventory(),
-    loadPromos(),
-    loadDrivePreviewIndex()
-  ]);
+  await Promise.all([loadInventory(), loadPromos(), loadDrivePreviewIndex()]);
 }
 
 async function init() {
@@ -1969,13 +1971,6 @@ async function init() {
     submitBtn.addEventListener("click", (e) => {
       e.preventDefault();
       handleSubmitOrder();
-    });
-  }
-
-  const trackingBtn = document.getElementById("open-tracking-btn");
-  if (trackingBtn) {
-    trackingBtn.addEventListener("click", () => {
-      window.location.href = "../tracking/";
     });
   }
 
@@ -2033,9 +2028,7 @@ async function init() {
   const previewModal = document.getElementById("preview-modal");
   if (previewModal) {
     previewModal.addEventListener("click", (e) => {
-      if (e.target === previewModal) {
-        closePreviewModal();
-      }
+      if (e.target === previewModal) closePreviewModal();
     });
   }
 
@@ -2044,17 +2037,9 @@ async function init() {
     const previewOpen =
       previewModalEl && !previewModalEl.classList.contains("hidden");
 
-    if (e.key === "Escape") {
-      closePreviewModal();
-    }
-
-    if (previewOpen && e.key === "ArrowLeft") {
-      movePreview(-1);
-    }
-
-    if (previewOpen && e.key === "ArrowRight") {
-      movePreview(1);
-    }
+    if (e.key === "Escape") closePreviewModal();
+    if (previewOpen && e.key === "ArrowLeft") movePreview(-1);
+    if (previewOpen && e.key === "ArrowRight") movePreview(1);
   });
 
   renderCart();

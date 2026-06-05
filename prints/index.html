@@ -26,19 +26,12 @@
 
           <div class="header-actions">
             <a href="../" class="home-link">Home</a>
-            <button id="open-tracking-btn" class="btn btn-ghost" type="button">
-              Track an order
-            </button>
           </div>
         </div>
       </header>
 
       <div class="shop-tabs" role="tablist" aria-label="Shop sections">
-        <button
-          class="shop-tab active"
-          data-tab="premade"
-          type="button"
-        >
+        <button class="shop-tab active" data-tab="premade" type="button">
           Premade items
         </button>
         <button class="shop-tab" data-tab="custom" type="button">
@@ -59,8 +52,8 @@
             <h2>Premade prints</h2>
             <p class="helper-text">
               Premade prints are ready-made designs I already have set up. Some
-              are limited by stock, some are made on demand. Use the preview
-              button on an item to view photos or clips when available.
+              are limited by stock, some are made on demand. Color options are
+              checked against available filament before ordering.
             </p>
 
             <div
@@ -83,7 +76,8 @@
             <h2>Custom prints</h2>
             <p class="helper-text">
               Upload your own STL/3MF model and choose size, detail, and color.
-              I’ll print it just for you.
+              Custom prints are quote/manual review only, so filament stock is
+              not automatically subtracted until I review the file.
             </p>
 
             <div class="field-row">
@@ -96,18 +90,21 @@
             </div>
 
             <div class="field-row">
-              <label for="custom-color">Color</label>
+              <label for="custom-color">Preferred color</label>
               <select id="custom-color">
                 <option value="">Loading colors…</option>
               </select>
+              <p class="helper-text">
+                Custom color is treated as a preference until I review the print.
+              </p>
             </div>
 
             <div class="field-row">
               <label for="custom-size">Size</label>
               <select id="custom-size">
                 <option value="small">Small</option>
-                <option value="medium">Medium (+$3)</option>
-                <option value="large">Large (+$7)</option>
+                <option value="medium">Medium (+$3 estimate)</option>
+                <option value="large">Large (+$7 estimate)</option>
               </select>
             </div>
 
@@ -115,8 +112,8 @@
               <label for="custom-detail">Detail level</label>
               <select id="custom-detail">
                 <option value="standard">Standard</option>
-                <option value="high">High (+$2)</option>
-                <option value="ultra">Ultra (+$5)</option>
+                <option value="high">High (+$2 estimate)</option>
+                <option value="ultra">Ultra (+$5 estimate)</option>
               </select>
             </div>
 
@@ -132,7 +129,7 @@
             </div>
 
             <button id="add-custom-btn" class="btn btn-primary full-width">
-              Add custom print to cart
+              Add custom quote request to cart
             </button>
 
             <p id="custom-estimate-text" class="helper-text"></p>
@@ -231,8 +228,7 @@
                   delivery method. Local pickup in Worcester, MA may be
                   available for nearby customers by appointment only. To request
                   local pickup, mention it in the extra notes box when
-                  submitting your order. Pickup details are provided after
-                  purchase confirmation.
+                  submitting your order.
                 </p>
                 <input type="hidden" id="shipping-choice" value="shipping" />
               </div>

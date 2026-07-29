@@ -1,1 +1,142 @@
-tst
+.shippo-address-card {
+  margin: 10px 0 14px;
+  padding: 10px;
+  border: 1px solid #1f2937;
+  border-radius: 14px;
+  background: #020617;
+}
+
+.shippo-address-card label {
+  display: block;
+  font-size: 0.8rem;
+  margin-bottom: 4px;
+}
+
+.shippo-search-box {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: #020617;
+  border: 1px solid #1e293b;
+  border-radius: 12px;
+  padding: 4px 8px;
+}
+
+.shippo-search-box input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  padding: 8px 4px;
+  outline: none;
+}
+
+#shippo-clear-address {
+  border: none;
+  background: transparent;
+  color: #9ca3af;
+  font-size: 1.4rem;
+  cursor: pointer;
+  line-height: 1;
+}
+
+#shippo-clear-address:hover {
+  color: #fff;
+}
+
+.shippo-suggestion-list {
+  margin: 8px 0;
+  border: 1px solid #1f2937;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #050b18;
+}
+
+.shippo-suggestion {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: none;
+  background: transparent;
+  color: #e5e7eb;
+  text-align: left;
+  padding: 10px;
+  cursor: pointer;
+}
+
+.shippo-suggestion:hover {
+  background: #111827;
+}
+
+.shippo-pin {
+  display: inline-flex;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  align-items: center;
+  justify-content: center;
+  background: #052e16;
+}
+
+.shippo-grid-2,
+.shippo-grid-3 {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.shippo-grid-2 {
+  grid-template-columns: 1fr 1fr;
+}
+
+.shippo-grid-3 {
+  grid-template-columns: 0.75fr 1fr 0.75fr;
+}
+
+.shippo-rates-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.shippo-rate-card {
+  border: 1px solid #1f2937;
+  border-radius: 12px;
+  padding: 10px;
+  background: #050b18;
+  cursor: pointer;
+}
+
+.shippo-rate-card:hover {
+  border-color: #22c55e;
+}
+
+.shippo-rate-card.selected {
+  border-color: #22c55e;
+  background: #052e16;
+}
+
+.shippo-rate-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font-weight: 700;
+}
+
+.shippo-rate-sub {
+  margin-top: 4px;
+  font-size: 0.8rem;
+  color: #9ca3af;
+}
+
+.shippo-rate-price {
+  white-space: nowrap;
+}
+
+@media (max-width: 600px) {
+  .shippo-grid-2,
+  .shippo-grid-3 {
+    grid-template-columns: 1fr;
+  }
+}

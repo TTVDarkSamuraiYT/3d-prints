@@ -74,65 +74,75 @@
             data-panel="custom"
           >
             <h2>Custom prints</h2>
-            <p class="helper-text">
-              Upload your own STL/3MF model and choose size, detail, and color.
-              Custom prints are quote/manual review only, so filament stock is
-              not automatically subtracted until I review the file.
-            </p>
 
-            <div class="field-row">
-              <label for="custom-file">Model file (STL/3MF)</label>
-              <input
-                type="file"
-                id="custom-file"
-                accept=".stl,.3mf,.obj,.zip"
-              />
-            </div>
+            <div
+              id="custom-unavailable-box"
+              class="error-box"
+              style="display: none;"
+            ></div>
 
-            <div class="field-row">
-              <label for="custom-color">Preferred color</label>
-              <select id="custom-color">
-                <option value="">Loading colors…</option>
-              </select>
+            <div id="custom-form-wrap">
               <p class="helper-text">
-                Custom color is treated as a preference until I review the print.
+                Upload your own STL/3MF model and choose size, detail, and
+                color. Custom prints are quote/manual review only, so filament
+                stock is not automatically subtracted until I review the file.
               </p>
+
+              <div class="field-row">
+                <label for="custom-file">Model file (STL/3MF)</label>
+                <input
+                  type="file"
+                  id="custom-file"
+                  accept=".stl,.3mf,.obj,.zip"
+                />
+              </div>
+
+              <div class="field-row">
+                <label for="custom-color">Preferred color</label>
+                <select id="custom-color">
+                  <option value="">Loading colors…</option>
+                </select>
+                <p class="helper-text">
+                  Custom color is treated as a preference until I review the
+                  print.
+                </p>
+              </div>
+
+              <div class="field-row">
+                <label for="custom-size">Size</label>
+                <select id="custom-size">
+                  <option value="small">Small</option>
+                  <option value="medium">Medium (+$3 estimate)</option>
+                  <option value="large">Large (+$7 estimate)</option>
+                </select>
+              </div>
+
+              <div class="field-row">
+                <label for="custom-detail">Detail level</label>
+                <select id="custom-detail">
+                  <option value="standard">Standard</option>
+                  <option value="high">High (+$2 estimate)</option>
+                  <option value="ultra">Ultra (+$5 estimate)</option>
+                </select>
+              </div>
+
+              <div class="field-row">
+                <label for="custom-qty">Quantity</label>
+                <input
+                  type="number"
+                  id="custom-qty"
+                  value="1"
+                  min="1"
+                  step="1"
+                />
+              </div>
+
+              <button id="add-custom-btn" class="btn btn-primary full-width">
+                Add custom quote request to cart
+              </button>
+
+              <p id="custom-estimate-text" class="helper-text"></p>
             </div>
-
-            <div class="field-row">
-              <label for="custom-size">Size</label>
-              <select id="custom-size">
-                <option value="small">Small</option>
-                <option value="medium">Medium (+$3 estimate)</option>
-                <option value="large">Large (+$7 estimate)</option>
-              </select>
-            </div>
-
-            <div class="field-row">
-              <label for="custom-detail">Detail level</label>
-              <select id="custom-detail">
-                <option value="standard">Standard</option>
-                <option value="high">High (+$2 estimate)</option>
-                <option value="ultra">Ultra (+$5 estimate)</option>
-              </select>
-            </div>
-
-            <div class="field-row">
-              <label for="custom-qty">Quantity</label>
-              <input
-                type="number"
-                id="custom-qty"
-                value="1"
-                min="1"
-                step="1"
-              />
-            </div>
-
-            <button id="add-custom-btn" class="btn btn-primary full-width">
-              Add custom quote request to cart
-            </button>
-
-            <p id="custom-estimate-text" class="helper-text"></p>
           </section>
 
           <section

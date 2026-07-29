@@ -30,6 +30,7 @@ let promoDiscountAmount = 0;
 let previewFileIndex = [];
 let previewFileMap = {};
 let previewsPreloaded = false;
+let previewLoadInProgress = false;
 let activePreviewFiles = [];
 let activePreviewIndex = 0;
 let previewLoadError = "";
@@ -304,14 +305,27 @@ function loadScriptJsonp(url) {
     const joiner = url.includes("?") ? "&" : "?";
     const script = document.createElement("script");
 
+    const timeout = setTimeout(() => {
+      cleanup();
+      reject(new Error("Preview JSONP request timed out"));
+    }, 15000);
+
     window[callbackName] = function (data) {
       cleanup();
       resolve(data);
     };
 
     function cleanup() {
-      delete window[callbackName];
-      if (script.parentNode) script.parentNode.removeChild(script);
+      clearTimeout(timeout);
+      try {
+        delete window[callbackName];
+      } catch {
+        window[callbackName] = undefined;
+      }
+
+      if (script.parentNode) {
+        script.parentNode.removeChild(script);
+      }
     }
 
     script.onerror = function () {
@@ -336,15 +350,18 @@ async function loadDrivePreviewIndex() {
 
   if (!PREVIEW_WEBAPP_URL || PREVIEW_WEBAPP_URL.includes("PASTE_")) {
     previewsPreloaded = true;
+    previewLoadInProgress = false;
     previewLoadError =
       "PREVIEW_WEBAPP_URL is missing in config.json. Paste your deployed preview Apps Script /exec URL.";
     return;
   }
 
-  if (previewsPreloaded) return;
+  if (previewsPreloaded || previewLoadInProgress) return;
+
+  previewLoadInProgress = true;
 
   try {
-    let url = PREVIEW_WEBAPP_URL;
+    let url = PREVIEW_WEBAPP_URL.trim();
 
     const folderId =
       PRINT_PREVIEW_FOLDER_ID || extractDriveFolderId(PRINT_PREVIEWS_FOLDER_URL);
@@ -360,19 +377,7 @@ async function loadDrivePreviewIndex() {
         encodeURIComponent(PRINT_PREVIEWS_FOLDER_URL);
     }
 
-    let data;
-
-    try {
-      const res = await fetch(
-        url + (url.includes("?") ? "&" : "?") + "cacheBust=" + Date.now(),
-        { cache: "no-cache" }
-      );
-
-      if (!res.ok) throw new Error("Preview fetch request failed");
-      data = await res.json();
-    } catch (fetchErr) {
-      data = await loadScriptJsonp(url);
-    }
+    const data = await loadScriptJsonp(url);
 
     if (!data || !data.ok) {
       throw new Error((data && data.error) || "Preview index returned an error");
@@ -380,10 +385,15 @@ async function loadDrivePreviewIndex() {
 
     indexPreviewFiles(data.files || []);
     previewsPreloaded = true;
+    previewLoadInProgress = false;
     preloadPreviewMedia();
+
+    console.log("[PREVIEW] Loaded", previewFileIndex.length, "Drive preview file(s).");
   } catch (err) {
     previewsPreloaded = true;
+    previewLoadInProgress = false;
     previewLoadError = String(err && err.message ? err.message : err);
+    console.warn("[PREVIEW] Could not load Drive previews:", err);
   }
 }
 
@@ -2054,9 +2064,10 @@ async function refreshShopData() {
 
   applyAvailabilitySettings();
 
-  previewsPreloaded = false;
   previewFileIndex = [];
   previewFileMap = {};
+  previewsPreloaded = false;
+  previewLoadInProgress = false;
 
   await loadColors();
 
@@ -2159,7 +2170,7 @@ async function init() {
 
   setInterval(() => {
     refreshShopData();
-  }, 30000);
+  }, 120000);
 }
 
 window.addEventListener("DOMContentLoaded", init);

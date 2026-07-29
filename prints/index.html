@@ -5,6 +5,7 @@
     <title>Tekniq Solutions – 3D Prints</title>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="shippo-shipping.css" />
   </head>
 
   <body>
@@ -234,11 +235,9 @@
               <div class="field-row">
                 <label>Delivery</label>
                 <p class="helper-text">
-                  Shipping is available for all orders and is the default
-                  delivery method. Local pickup in Worcester, MA may be
-                  available for nearby customers by appointment only. To request
-                  local pickup, mention it in the extra notes box when
-                  submitting your order.
+                  Enter your shipping address, get live Shippo test rates, and
+                  choose one of the available options. Local pickup in Worcester,
+                  MA may be available by appointment only if requested in notes.
                 </p>
                 <input type="hidden" id="shipping-choice" value="shipping" />
               </div>
@@ -247,19 +246,18 @@
                 <label for="expedite-choice">Order priority</label>
                 <select id="expedite-choice">
                   <option value="none">
-                    None — normal queue, $15 shipping
+                    None — normal queue
                   </option>
                   <option value="priority">
-                    Priority — prints sooner, $20 shipping + 10%
+                    Priority — prints sooner + 10%
                   </option>
                   <option value="rush">
-                    Rush — ASAP, $25 shipping + 18%
+                    Rush — ASAP + 18%
                   </option>
                 </select>
                 <p class="helper-text">
-                  Shipping is $15 normally, $20 for priority, and $25 for rush.
-                  Priority/rush also adds a small item-price fee for faster
-                  queue handling.
+                  Priority/rush affects the item fee. Shipping price comes from
+                  the selected Shippo rate.
                 </p>
               </div>
 
@@ -344,13 +342,87 @@
                 </p>
               </div>
 
-              <div class="field-row">
-                <label for="shipping-info">Shipping address (required)</label>
+              <div class="shippo-address-card">
+                <label for="shippo-street1">Shipping address</label>
+
+                <div class="shippo-search-box">
+                  <input
+                    type="text"
+                    id="shippo-street1"
+                    placeholder="Street address"
+                    autocomplete="address-line1"
+                  />
+                  <button
+                    id="shippo-clear-address"
+                    type="button"
+                    aria-label="Clear address"
+                  >
+                    ×
+                  </button>
+                </div>
+
+                <div id="shippo-suggestion-list" class="shippo-suggestion-list">
+                  <button type="button" class="shippo-suggestion" id="shippo-main-suggestion">
+                    <span class="shippo-pin">📍</span>
+                    <span id="shippo-suggestion-text">Start typing your address</span>
+                  </button>
+                </div>
+
+                <div class="shippo-grid-2">
+                  <input
+                    type="text"
+                    id="shippo-street2"
+                    placeholder="Apartment/unit optional"
+                    autocomplete="address-line2"
+                  />
+                  <input
+                    type="text"
+                    id="shippo-city"
+                    placeholder="City"
+                    autocomplete="address-level2"
+                  />
+                </div>
+
+                <div class="shippo-grid-3">
+                  <input
+                    type="text"
+                    id="shippo-state"
+                    placeholder="State"
+                    maxlength="2"
+                    autocomplete="address-level1"
+                  />
+                  <input
+                    type="text"
+                    id="shippo-zip"
+                    placeholder="ZIP"
+                    autocomplete="postal-code"
+                  />
+                  <input
+                    type="text"
+                    id="shippo-country"
+                    placeholder="US"
+                    value="US"
+                    autocomplete="country"
+                  />
+                </div>
+
+                <button
+                  id="shippo-get-rates-btn"
+                  class="btn btn-primary full-width"
+                  type="button"
+                >
+                  Get shipping rates
+                </button>
+
+                <p id="shippo-rate-message" class="helper-text"></p>
+
+                <div id="shippo-rates-list" class="shippo-rates-list"></div>
+
                 <textarea
                   id="shipping-info"
                   rows="3"
-                  placeholder="Full shipping address"
                   required
+                  class="hidden"
                 ></textarea>
               </div>
 
@@ -366,7 +438,8 @@
               <h3>Payment</h3>
               <p class="helper-text">
                 After you submit the order, I’ll send a Square invoice to the
-                phone number or email you entered above.
+                phone number or email you entered above. Shipping labels are not
+                purchased automatically.
               </p>
 
               <button
@@ -436,5 +509,6 @@
     </div>
 
     <script src="script.js"></script>
+    <script src="shippo-shipping.js"></script>
   </body>
 </html>

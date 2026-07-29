@@ -11,7 +11,7 @@
   "ORDER_WEBHOOK_URL": "https://discordapp.com/api/webhooks/1442759890031480892/qhFThJwZrQTrFXYTnAVRa69SDF4fFMd4UFwOO2a87YeuI9Qkn8_lxF88XKhwWTL9kv7_",
   "SUGGESTIONS_WEBHOOK_URL": "https://discord.com/api/webhooks/1506146750564532345/e4rl-6KwH7SrxdbMfmLvRzmr4ec3JVUIEFq2edW5b1bryXez_VWoouUfb67eTAnJSfO7",
 
-  "PREVIEWS_JSON_URL": "previews.json",
+  "PREVIEWS_JSON_URL": "previews.jsons",
 
   "SHIPPO_RATES_WEBAPP_URL": "https://script.google.com/macros/s/AKfycbxNzv4S50NKplSHskMvV850ctDUbNQBpk3SoLfwTlbPiRhXCQH6U_bHlzR58daKSAo/exec",
 

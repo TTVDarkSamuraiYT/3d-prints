@@ -13,7 +13,7 @@
 
   "PREVIEWS_JSON_URL": "previews.json",
 
-  "SHIPPO_RATES_WEBAPP_URL": "PASTE_YOUR_SHIPPO_RATES_APPS_SCRIPT_EXEC_URL_HERE",
+  "SHIPPO_RATES_WEBAPP_URL": "https://script.google.com/macros/s/AKfycbxNzv4S50NKplSHskMvV850ctDUbNQBpk3SoLfwTlbPiRhXCQH6U_bHlzR58daKSAo/exec",
 
   "STOCK_WEBAPP_URL": "https://script.google.com/macros/s/AKfycbyCW4xXX84FQw8FErw-RWk9e6Wws46vSHHWShd03N4tx6tozvvT2F0RGsgxKzSg1Sva/exec",
   "CASHAPP_TAG": "$TekniqSolutions",

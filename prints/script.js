@@ -12,6 +12,13 @@ let PREVIEW_WEBAPP_URL = "";
 let CASHAPP_TAG = "";
 let PROMOS_SHEET_NAME = "Promos";
 
+let PRINTING_AVAILABLE = true;
+let CUSTOM_PRINTS_AVAILABLE = true;
+let PRINTING_UNAVAILABLE_MESSAGE =
+  "Sorry for the inconvenience, printing is currently unavailable.";
+let CUSTOM_PRINTS_UNAVAILABLE_MESSAGE =
+  "Sorry for the inconvenience, custom prints are currently unavailable.";
+
 let colorsData = [];
 let inventoryData = [];
 let promosData = [];
@@ -108,6 +115,18 @@ function safeNumber(v) {
   return Number.isFinite(n) ? n : null;
 }
 
+function boolFromConfig(value, fallback) {
+  if (typeof value === "boolean") return value;
+
+  if (typeof value === "string") {
+    const v = value.trim().toLowerCase();
+    if (v === "true" || v === "yes" || v === "on" || v === "1") return true;
+    if (v === "false" || v === "no" || v === "off" || v === "0") return false;
+  }
+
+  return fallback;
+}
+
 function parsePromoDiscount(raw) {
   if (raw == null || raw === "") return null;
 
@@ -153,6 +172,20 @@ function colorHasEnoughFilament(colorName, kgNeeded, qty) {
   if (!kgNeeded || need <= 0) return true;
 
   return remaining >= need;
+}
+
+function extractDriveFolderId(urlOrId) {
+  const text = String(urlOrId || "").trim();
+
+  const folderMatch = text.match(/\/folders\/([a-zA-Z0-9_-]+)/);
+  if (folderMatch && folderMatch[1]) return folderMatch[1];
+
+  const idMatch = text.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+  if (idMatch && idMatch[1]) return idMatch[1];
+
+  if (/^[a-zA-Z0-9_-]{20,}$/.test(text)) return text;
+
+  return "";
 }
 
 // ---------- PREVIEW HELPERS ----------
@@ -231,8 +264,14 @@ function indexPreviewFiles(files) {
       previewFileMap[key].push({
         url:
           type === "video"
-            ? file.previewUrl || file.directUrl || file.downloadUrl || file.viewUrl
-            : file.directUrl || file.thumbnailUrl || file.downloadUrl || file.viewUrl,
+            ? file.previewUrl ||
+              file.directUrl ||
+              file.downloadUrl ||
+              file.viewUrl
+            : file.directUrl ||
+              file.thumbnailUrl ||
+              file.downloadUrl ||
+              file.viewUrl,
         fallbackUrl: file.downloadUrl || file.viewUrl || file.directUrl,
         thumbnailUrl: file.thumbnailUrl || file.directUrl || file.downloadUrl,
         viewUrl: file.viewUrl,
@@ -298,7 +337,7 @@ async function loadDrivePreviewIndex() {
   if (!PREVIEW_WEBAPP_URL || PREVIEW_WEBAPP_URL.includes("PASTE_")) {
     previewsPreloaded = true;
     previewLoadError =
-      "PREVIEW_WEBAPP_URL is missing in config.json. Paste your deployed Apps Script /exec URL.";
+      "PREVIEW_WEBAPP_URL is missing in config.json. Paste your deployed preview Apps Script /exec URL.";
     return;
   }
 
@@ -307,9 +346,18 @@ async function loadDrivePreviewIndex() {
   try {
     let url = PREVIEW_WEBAPP_URL;
 
-    if (PRINT_PREVIEW_FOLDER_ID) {
+    const folderId =
+      PRINT_PREVIEW_FOLDER_ID || extractDriveFolderId(PRINT_PREVIEWS_FOLDER_URL);
+
+    if (folderId) {
       const joiner = url.includes("?") ? "&" : "?";
-      url += joiner + "folderId=" + encodeURIComponent(PRINT_PREVIEW_FOLDER_ID);
+      url += joiner + "folderId=" + encodeURIComponent(folderId);
+    } else if (PRINT_PREVIEWS_FOLDER_URL) {
+      const joiner = url.includes("?") ? "&" : "?";
+      url +=
+        joiner +
+        "folderUrl=" +
+        encodeURIComponent(PRINT_PREVIEWS_FOLDER_URL);
     }
 
     let data;
@@ -551,11 +599,28 @@ async function loadConfig() {
     SHEET_ID = cfg.SHEET_ID || "";
     INVENTORY_SHEET_NAME = cfg.INVENTORY_SHEET_NAME || "Inventory";
     COLORS_SHEET_NAME = cfg.COLORS_SHEET_NAME || "Colors";
+
+    PRINTING_AVAILABLE = boolFromConfig(cfg.PRINTING_AVAILABLE, true);
+    CUSTOM_PRINTS_AVAILABLE = boolFromConfig(
+      cfg.CUSTOM_PRINTS_AVAILABLE,
+      true
+    );
+
+    PRINTING_UNAVAILABLE_MESSAGE =
+      cfg.PRINTING_UNAVAILABLE_MESSAGE ||
+      "Sorry for the inconvenience, printing is currently unavailable.";
+
+    CUSTOM_PRINTS_UNAVAILABLE_MESSAGE =
+      cfg.CUSTOM_PRINTS_UNAVAILABLE_MESSAGE ||
+      "Sorry for the inconvenience, custom prints are currently unavailable.";
+
     ORDER_WEBHOOK_URL = cfg.ORDER_WEBHOOK_URL || "";
     STOCK_WEBAPP_URL = cfg.STOCK_WEBAPP_URL || "";
     SUGGESTIONS_WEBHOOK_URL = cfg.SUGGESTIONS_WEBHOOK_URL || "";
     PRINT_PREVIEWS_FOLDER_URL = cfg.PRINT_PREVIEWS_FOLDER_URL || "";
-    PRINT_PREVIEW_FOLDER_ID = cfg.PRINT_PREVIEW_FOLDER_ID || "";
+    PRINT_PREVIEW_FOLDER_ID =
+      cfg.PRINT_PREVIEW_FOLDER_ID ||
+      extractDriveFolderId(PRINT_PREVIEWS_FOLDER_URL);
     PREVIEW_WEBAPP_URL = cfg.PREVIEW_WEBAPP_URL || "";
     CASHAPP_TAG = cfg.CASHAPP_TAG || "$CashApp";
     PROMOS_SHEET_NAME = cfg.PROMOS_SHEET_NAME || "Promos";
@@ -607,6 +672,11 @@ async function loadInventory() {
   const inventoryError = document.getElementById("inventory-error");
 
   if (!SHEET_ID || !INVENTORY_SHEET_NAME) return;
+
+  if (!PRINTING_AVAILABLE) {
+    renderPremadeUnavailable();
+    return;
+  }
 
   try {
     if (inventoryError) inventoryError.style.display = "none";
@@ -735,6 +805,36 @@ async function loadPromos() {
   }
 }
 
+// ---------- AVAILABILITY UI ----------
+
+function applyAvailabilitySettings() {
+  const customBox = document.getElementById("custom-unavailable-box");
+  const customWrap = document.getElementById("custom-form-wrap");
+
+  if (customBox && customWrap) {
+    if (!CUSTOM_PRINTS_AVAILABLE) {
+      customBox.textContent = CUSTOM_PRINTS_UNAVAILABLE_MESSAGE;
+      customBox.style.display = "block";
+      customWrap.style.display = "none";
+    } else {
+      customBox.textContent = "";
+      customBox.style.display = "none";
+      customWrap.style.display = "block";
+    }
+  }
+}
+
+function renderPremadeUnavailable() {
+  const listEl = document.getElementById("premade-list");
+  if (!listEl) return;
+
+  listEl.innerHTML = `
+    <div class="error-box" style="display:block;">
+      ${PRINTING_UNAVAILABLE_MESSAGE}
+    </div>
+  `;
+}
+
 // ---------- COLORS ----------
 
 function getBaseColors() {
@@ -809,6 +909,11 @@ function renderCustomColorOptions() {
 function renderPremadeCards() {
   const listEl = document.getElementById("premade-list");
   if (!listEl) return;
+
+  if (!PRINTING_AVAILABLE) {
+    renderPremadeUnavailable();
+    return;
+  }
 
   listEl.innerHTML = "";
 
@@ -1882,6 +1987,12 @@ async function handleSubmitOrder() {
 // ---------- CUSTOM PRINT ----------
 
 function handleAddCustomPrint() {
+  if (!CUSTOM_PRINTS_AVAILABLE) {
+    showSubmitMessage(CUSTOM_PRINTS_UNAVAILABLE_MESSAGE, true);
+    switchShopTab("custom");
+    return;
+  }
+
   const fileInput = document.getElementById("custom-file");
   const sizeSelect = document.getElementById("custom-size");
   const detailSelect = document.getElementById("custom-detail");
@@ -1940,6 +2051,8 @@ function handleAddCustomPrint() {
 
 async function refreshShopData() {
   await loadConfig();
+
+  applyAvailabilitySettings();
 
   previewsPreloaded = false;
   previewFileIndex = [];

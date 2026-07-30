@@ -1,0 +1,25 @@
+{
+  "Flexi Shark": [
+    {
+      "type": "image",
+      "url": "https://drive.google.com/thumbnail?id=PASTE_FLEXI_SHARK_IMAGE_FILE_ID_HERE&sz=w1600"
+    },
+    {
+      "type": "video",
+      "url": "https://drive.google.com/file/d/PASTE_FLEXI_SHARK_VIDEO_FILE_ID_HERE/preview",
+      "thumbnail": "https://drive.google.com/thumbnail?id=PASTE_FLEXI_SHARK_VIDEO_FILE_ID_HERE&sz=w600"
+    }
+  ],
+  "Dragon": [
+    {
+      "type": "image",
+      "url": "https://drive.google.com/thumbnail?id=PASTE_DRAGON_IMAGE_FILE_ID_HERE&sz=w1600"
+    }
+  ],
+  "ad": [
+    {
+      "type": "image",
+      "url": "https://drive.google.com/thumbnail?id=PASTE_AD_IMAGE_FILE_ID_HERE&sz=w1600"
+    }
+  ]
+}

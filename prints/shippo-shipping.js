@@ -1,6 +1,9 @@
 let SHIPPO_RATES_WEBAPP_URL = "";
 let selectedShippoRate = null;
 let lastShippoRates = [];
+let lastShippoOrder = null;
+let shippoSuggestTimer = null;
+let shippoSuggestionResults = [];
 
 function shippoMoney(amount) {
   return `$${Number(amount || 0).toFixed(2)}`;
@@ -56,23 +59,6 @@ function validateShippoAddressFields(address) {
   return "";
 }
 
-function updateShippoSuggestion() {
-  const suggestionText = document.getElementById("shippo-suggestion-text");
-  if (!suggestionText) return;
-
-  const address = buildShippoAddress();
-
-  const parts = [
-    address.street1,
-    address.city,
-    address.state,
-    address.zip
-  ].filter(Boolean);
-
-  suggestionText.textContent =
-    parts.length > 0 ? parts.join(" ") : "Start typing your address";
-}
-
 function loadShippoConfig() {
   return fetch("../config.json?cacheBust=" + Date.now(), {
     cache: "no-cache"
@@ -99,8 +85,8 @@ function shippoJsonp(url, payload) {
 
     const timeout = setTimeout(() => {
       cleanup();
-      reject(new Error("Shippo rates request timed out."));
-    }, 25000);
+      reject(new Error("Shippo request timed out."));
+    }, 30000);
 
     window[callbackName] = function (data) {
       cleanup();
@@ -123,7 +109,7 @@ function shippoJsonp(url, payload) {
 
     script.onerror = function () {
       cleanup();
-      reject(new Error("Shippo rates request failed."));
+      reject(new Error("Shippo request failed."));
     };
 
     script.src =
@@ -138,6 +124,41 @@ function shippoJsonp(url, payload) {
 
     document.body.appendChild(script);
   });
+}
+
+function getCartShippingItemsForShippo() {
+  if (!Array.isArray(window.cart)) return [];
+
+  return window.cart.map((item) => ({
+    title: item.name || "3D print",
+    quantity: Number(item.quantity || 1),
+    total_price: Number((item.unitPrice || 0) * (item.quantity || 1)).toFixed(2),
+    currency: "USD",
+    weight: item.mode === "Custom" ? "0.2" : "0.2",
+    weight_unit: "lb",
+    sku: item.mode || "print",
+    variant_title: item.color || ""
+  }));
+}
+
+function getCartTotalsForShippo() {
+  let subtotal = 0;
+
+  if (Array.isArray(window.cart)) {
+    window.cart.forEach((item) => {
+      subtotal += Number(item.unitPrice || 0) * Number(item.quantity || 1);
+    });
+  }
+
+  const shipping = selectedShippoRate
+    ? Number(selectedShippoRate.customerCharge || 0)
+    : 0;
+
+  return {
+    subtotal,
+    shipping,
+    total: subtotal + shipping
+  };
 }
 
 async function getShippoRates() {
@@ -159,9 +180,10 @@ async function getShippoRates() {
 
   selectedShippoRate = null;
   lastShippoRates = [];
+  lastShippoOrder = null;
   renderShippoRates([]);
 
-  setShippoMessage("Getting Shippo test rates…", false);
+  setShippoMessage("Getting Shippo rates…", false);
 
   const payload = {
     action: "rates",
@@ -247,12 +269,141 @@ function renderShippoRates(rates) {
       );
     });
 
+    list.appendChild(card);
+
     if (index === 0) {
       card.click();
     }
-
-    list.appendChild(card);
   });
+}
+
+function renderAddressSuggestions(suggestions) {
+  const list = document.getElementById("shippo-suggestion-list");
+  if (!list) return;
+
+  list.innerHTML = "";
+  shippoSuggestionResults = suggestions || [];
+
+  if (!shippoSuggestionResults.length) {
+    list.classList.remove("visible");
+    return;
+  }
+
+  shippoSuggestionResults.forEach((suggestion, index) => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "shippo-suggestion";
+
+    const pin = document.createElement("span");
+    pin.className = "shippo-pin";
+    pin.textContent = "📍";
+
+    const textWrap = document.createElement("span");
+
+    const main = document.createElement("span");
+    main.className = "shippo-suggestion-main";
+    main.textContent = suggestion.street1 || suggestion.display || "Suggested address";
+
+    const sub = document.createElement("span");
+    sub.className = "shippo-suggestion-sub";
+    sub.textContent = [
+      suggestion.city,
+      suggestion.state,
+      suggestion.zip,
+      suggestion.country
+    ]
+      .filter(Boolean)
+      .join(" ");
+
+    textWrap.appendChild(main);
+    textWrap.appendChild(sub);
+
+    btn.appendChild(pin);
+    btn.appendChild(textWrap);
+
+    btn.addEventListener("click", () => {
+      applyShippoSuggestion(index);
+    });
+
+    list.appendChild(btn);
+  });
+
+  list.classList.add("visible");
+}
+
+function applyShippoSuggestion(index) {
+  const suggestion = shippoSuggestionResults[index];
+  if (!suggestion) return;
+
+  const street1 = document.getElementById("shippo-street1");
+  const city = document.getElementById("shippo-city");
+  const state = document.getElementById("shippo-state");
+  const zip = document.getElementById("shippo-zip");
+  const country = document.getElementById("shippo-country");
+
+  if (street1) street1.value = suggestion.street1 || street1.value;
+  if (city) city.value = suggestion.city || city.value;
+  if (state) state.value = suggestion.state || state.value;
+  if (zip) zip.value = suggestion.zip || zip.value;
+  if (country) country.value = suggestion.country || "US";
+
+  renderAddressSuggestions([]);
+  resetSelectedRateBecauseAddressChanged(false);
+}
+
+async function suggestShippoAddress() {
+  const street = shippoText("shippo-street1");
+
+  if (!street || street.length < 4) {
+    renderAddressSuggestions([]);
+    return;
+  }
+
+  if (!SHIPPO_RATES_WEBAPP_URL || SHIPPO_RATES_WEBAPP_URL.includes("PASTE_")) {
+    renderAddressSuggestions([]);
+    return;
+  }
+
+  const payload = {
+    action: "suggest",
+    query: street,
+    city: shippoText("shippo-city"),
+    state: shippoText("shippo-state"),
+    zip: shippoText("shippo-zip"),
+    country: shippoText("shippo-country") || "US"
+  };
+
+  try {
+    const data = await shippoJsonp(SHIPPO_RATES_WEBAPP_URL, payload);
+
+    if (!data || !data.ok) {
+      renderAddressSuggestions([]);
+      return;
+    }
+
+    renderAddressSuggestions(Array.isArray(data.suggestions) ? data.suggestions : []);
+  } catch {
+    renderAddressSuggestions([]);
+  }
+}
+
+function queueShippoSuggest() {
+  clearTimeout(shippoSuggestTimer);
+  shippoSuggestTimer = setTimeout(suggestShippoAddress, 450);
+}
+
+function resetSelectedRateBecauseAddressChanged(showMessage) {
+  selectedShippoRate = null;
+  lastShippoOrder = null;
+  renderShippoRates([]);
+
+  if (showMessage) {
+    setShippoMessage("Address changed. Get shipping rates again.", false);
+  }
+
+  if (typeof updateTotals === "function") {
+    updateTotals();
+  }
 }
 
 function buildShippoDiscordNote() {
@@ -272,33 +423,69 @@ function buildShippoDiscordNote() {
     selectedShippoRate.estimatedDays
       ? `Estimated delivery: ${selectedShippoRate.estimatedDays} business day(s)`
       : "",
+    `Shippo shipment ID: ${selectedShippoRate.shipmentId || "N/A"}`,
     `Shippo rate ID: ${selectedShippoRate.rateId || "N/A"}`,
+    lastShippoOrder && lastShippoOrder.orderId
+      ? `Shippo order ID: ${lastShippoOrder.orderId}`
+      : "",
     "Label purchase: manual after Square invoice payment"
   ]
     .filter(Boolean)
     .join("\n");
 }
 
-function installShippoShippingOverride() {
-  const originalGetShippingCharge =
-    typeof window.getShippingCharge === "function"
-      ? window.getShippingCharge
-      : null;
+async function createShippoOrderDraft() {
+  if (!selectedShippoRate) return null;
+  if (!SHIPPO_RATES_WEBAPP_URL || SHIPPO_RATES_WEBAPP_URL.includes("PASTE_")) return null;
 
-  window.getShippingCharge = function (expediteChoice) {
-    if (selectedShippoRate) {
-      return Number(selectedShippoRate.customerCharge || 0);
+  const address = buildShippoAddress();
+  const totals = getCartTotalsForShippo();
+
+  const payload = {
+    action: "create_order",
+    addressTo: address,
+    selectedRate: selectedShippoRate,
+    orderNumber:
+      typeof nextOrderNumber === "function"
+        ? "pending-" + Date.now()
+        : "pending-" + Date.now(),
+    lineItems: getCartShippingItemsForShippo(),
+    subtotal: totals.subtotal,
+    shipping: totals.shipping,
+    total: totals.total,
+    notes: "Created from Tekniq Solutions website. Awaiting Square invoice payment."
+  };
+
+  try {
+    const data = await shippoJsonp(SHIPPO_RATES_WEBAPP_URL, payload);
+
+    if (data && data.ok) {
+      lastShippoOrder = {
+        orderId: data.orderId || "",
+        orderNumber: data.orderNumber || ""
+      };
+
+      return lastShippoOrder;
     }
 
-    if (originalGetShippingCharge) {
-      return originalGetShippingCharge(expediteChoice);
+    return null;
+  } catch (err) {
+    console.warn("[SHIPPO] Could not create Shippo order draft:", err);
+    return null;
+  }
+}
+
+function installShippoShippingOverride() {
+  window.getShippingCharge = function () {
+    if (selectedShippoRate) {
+      return Number(selectedShippoRate.customerCharge || 0);
     }
 
     return 0;
   };
 }
 
-function prepareShippoBeforeOrderSubmit(event) {
+async function prepareShippoBeforeOrderSubmit(event) {
   const submitBtn = event.target.closest("#submit-order-btn");
   if (!submitBtn) return;
 
@@ -326,6 +513,25 @@ function prepareShippoBeforeOrderSubmit(event) {
       showSubmitMessage("Please select a Shippo shipping rate before submitting.", true);
     }
 
+    return;
+  }
+
+  if (!lastShippoOrder) {
+    event.preventDefault();
+    event.stopImmediatePropagation();
+
+    setShippoMessage("Creating Shippo order draft…", false);
+
+    await createShippoOrderDraft();
+
+    setShippoMessage(
+      selectedShippoRate
+        ? `Selected ${selectedShippoRate.service} for ${shippoMoney(selectedShippoRate.customerCharge)}.`
+        : "",
+      false
+    );
+
+    submitBtn.click();
     return;
   }
 
@@ -366,13 +572,10 @@ function initShippoShipping() {
 
     if (el) {
       el.addEventListener("input", () => {
-        selectedShippoRate = null;
-        renderShippoRates([]);
-        updateShippoSuggestion();
-        setShippoMessage("Address changed. Get shipping rates again.", false);
+        resetSelectedRateBecauseAddressChanged(true);
 
-        if (typeof updateTotals === "function") {
-          updateTotals();
+        if (id === "shippo-street1" || id === "shippo-city" || id === "shippo-state" || id === "shippo-zip") {
+          queueShippoSuggest();
         }
       });
     }
@@ -392,22 +595,9 @@ function initShippoShipping() {
         if (el) el.value = "";
       });
 
-      selectedShippoRate = null;
-      renderShippoRates([]);
-      updateShippoSuggestion();
+      renderAddressSuggestions([]);
+      resetSelectedRateBecauseAddressChanged(false);
       setShippoMessage("", false);
-
-      if (typeof updateTotals === "function") {
-        updateTotals();
-      }
-    });
-  }
-
-  const suggestionBtn = document.getElementById("shippo-main-suggestion");
-  if (suggestionBtn) {
-    suggestionBtn.addEventListener("click", () => {
-      const street = document.getElementById("shippo-street1");
-      if (street) street.focus();
     });
   }
 
@@ -420,7 +610,6 @@ function initShippoShipping() {
   }
 
   document.addEventListener("click", prepareShippoBeforeOrderSubmit, true);
-  updateShippoSuggestion();
 }
 
 window.addEventListener("DOMContentLoaded", initShippoShipping);

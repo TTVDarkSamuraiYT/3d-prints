@@ -4,14 +4,14 @@
   "COLORS_SHEET_NAME": "Colors",
 
   "PRINTING_AVAILABLE": true,
-  "CUSTOM_PRINTS_AVAILABLE": true,
+  "CUSTOM_PRINTS_AVAILABLE": false,
   "PRINTING_UNAVAILABLE_MESSAGE": "Sorry for the inconvenience, printing is currently unavailable.",
   "CUSTOM_PRINTS_UNAVAILABLE_MESSAGE": "Sorry for the inconvenience, custom prints are currently unavailable.",
 
   "ORDER_WEBHOOK_URL": "https://discord.com/api/webhooks/1508662002988351580/AuUo4P34Ux2rXWpQgusXkU90saUoOlLu6RGy_FwzJRC16CiRBGMaXUKG29YVWXH8bFxn",
   "SUGGESTIONS_WEBHOOK_URL": "https://discord.com/api/webhooks/1506146750564532345/e4rl-6KwH7SrxdbMfmLvRzmr4ec3JVUIEFq2edW5b1bryXez_VWoouUfb67eTAnJSfO7",
 
-  "PREVIEWS_JSON_URL": "previews.jsons",
+  "PREVIEWS_JSON_URL": "https://github.com/TTVDarkSamuraiYT/3d-prints/tree/main/prints/previews",
 
   "SHIPPO_RATES_WEBAPP_URL": "https://script.google.com/macros/s/AKfycbxNzv4S50NKplSHskMvV850ctDUbNQBpk3SoLfwTlbPiRhXCQH6U_bHlzR58daKSAo/exec",
 

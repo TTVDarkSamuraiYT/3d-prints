@@ -14,6 +14,18 @@ function shippoText(id) {
   return el ? el.value.trim() : "";
 }
 
+function getTekniqCart() {
+  try {
+    if (typeof cart !== "undefined" && Array.isArray(cart)) {
+      return cart;
+    }
+  } catch {
+    // ignore
+  }
+
+  return [];
+}
+
 function setShippoMessage(message, isError) {
   const el = document.getElementById("shippo-rate-message");
   if (!el) return;
@@ -127,28 +139,38 @@ function shippoJsonp(url, payload) {
 }
 
 function getCartShippingItemsForShippo() {
-  if (!Array.isArray(window.cart)) return [];
+  const currentCart = getTekniqCart();
 
-  return window.cart.map((item) => ({
-    title: item.name || "3D print",
-    quantity: Number(item.quantity || 1),
-    total_price: Number((item.unitPrice || 0) * (item.quantity || 1)).toFixed(2),
-    currency: "USD",
-    weight: item.mode === "Custom" ? "0.2" : "0.2",
-    weight_unit: "lb",
-    sku: item.mode || "print",
-    variant_title: item.color || ""
-  }));
+  return currentCart.map((item) => {
+    const quantity = Number(item.quantity || 1);
+    const filamentKgEach = Number(item.filamentKgNeeded || 0);
+
+    return {
+      title: item.name || "3D print",
+      quantity: quantity,
+      total_price: Number((item.unitPrice || 0) * quantity).toFixed(2),
+      currency: "USD",
+      mode: item.mode || "print",
+      color: item.color || "",
+      filamentKgEach: filamentKgEach,
+      estimatedWeightLbEach:
+        filamentKgEach > 0
+          ? Math.max(0.15, filamentKgEach * 2.20462 + 0.05)
+          : item.mode === "Custom"
+          ? 0.3
+          : 0.2,
+      sku: item.mode || "print",
+      variant_title: item.color || ""
+    };
+  });
 }
 
 function getCartTotalsForShippo() {
   let subtotal = 0;
 
-  if (Array.isArray(window.cart)) {
-    window.cart.forEach((item) => {
-      subtotal += Number(item.unitPrice || 0) * Number(item.quantity || 1);
-    });
-  }
+  getTekniqCart().forEach((item) => {
+    subtotal += Number(item.unitPrice || 0) * Number(item.quantity || 1);
+  });
 
   const shipping = selectedShippoRate
     ? Number(selectedShippoRate.customerCharge || 0)
@@ -187,7 +209,8 @@ async function getShippoRates() {
 
   const payload = {
     action: "rates",
-    addressTo: address
+    addressTo: address,
+    cartItems: getCartShippingItemsForShippo()
   };
 
   try {
@@ -204,7 +227,15 @@ async function getShippoRates() {
       return;
     }
 
-    setShippoMessage("Choose one shipping option.", false);
+    if (data.parcel) {
+      setShippoMessage(
+        `Choose one shipping option. Package estimate: ${data.parcel.length}×${data.parcel.width}×${data.parcel.height} in, ${data.parcel.weight} lb.`,
+        false
+      );
+    } else {
+      setShippoMessage("Choose one shipping option.", false);
+    }
+
     renderShippoRates(lastShippoRates);
   } catch (err) {
     setShippoMessage(String(err.message || err), true);
@@ -398,7 +429,7 @@ function resetSelectedRateBecauseAddressChanged(showMessage) {
   renderShippoRates([]);
 
   if (showMessage) {
-    setShippoMessage("Address changed. Get shipping rates again.", false);
+    setShippoMessage("Address/order changed. Get shipping rates again.", false);
   }
 
   if (typeof updateTotals === "function") {
@@ -423,6 +454,9 @@ function buildShippoDiscordNote() {
     selectedShippoRate.estimatedDays
       ? `Estimated delivery: ${selectedShippoRate.estimatedDays} business day(s)`
       : "",
+    selectedShippoRate.parcelSummary
+      ? `Package: ${selectedShippoRate.parcelSummary}`
+      : "",
     `Shippo shipment ID: ${selectedShippoRate.shipmentId || "N/A"}`,
     `Shippo rate ID: ${selectedShippoRate.rateId || "N/A"}`,
     lastShippoOrder && lastShippoOrder.orderId
@@ -445,10 +479,7 @@ async function createShippoOrderDraft() {
     action: "create_order",
     addressTo: address,
     selectedRate: selectedShippoRate,
-    orderNumber:
-      typeof nextOrderNumber === "function"
-        ? "pending-" + Date.now()
-        : "pending-" + Date.now(),
+    orderNumber: "pending-" + Date.now(),
     lineItems: getCartShippingItemsForShippo(),
     subtotal: totals.subtotal,
     shipping: totals.shipping,
@@ -574,7 +605,12 @@ function initShippoShipping() {
       el.addEventListener("input", () => {
         resetSelectedRateBecauseAddressChanged(true);
 
-        if (id === "shippo-street1" || id === "shippo-city" || id === "shippo-state" || id === "shippo-zip") {
+        if (
+          id === "shippo-street1" ||
+          id === "shippo-city" ||
+          id === "shippo-state" ||
+          id === "shippo-zip"
+        ) {
           queueShippoSuggest();
         }
       });

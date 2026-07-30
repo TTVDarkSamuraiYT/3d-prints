@@ -1,18 +1,35 @@
 .shippo-address-card {
+  width: 100%;
+  max-width: 100%;
   margin: 10px 0 14px;
   padding: 10px;
   border: 1px solid #1f2937;
   border-radius: 14px;
   background: #020617;
+  overflow: hidden;
 }
 
 .shippo-address-card label {
   display: block;
   font-size: 0.8rem;
   margin-bottom: 4px;
+  color: #d1fae5;
+}
+
+.shippo-address-card input,
+.shippo-address-card textarea {
+  color: #67e8f9 !important;
+  background: #020617 !important;
+  border-color: #1e293b !important;
+}
+
+.shippo-address-card input::placeholder,
+.shippo-address-card textarea::placeholder {
+  color: #64748b !important;
 }
 
 .shippo-search-box {
+  width: 100%;
   display: flex;
   align-items: center;
   gap: 6px;
@@ -24,31 +41,38 @@
 
 .shippo-search-box input {
   flex: 1;
-  border: none;
-  background: transparent;
+  min-width: 0;
+  border: none !important;
+  background: transparent !important;
   padding: 8px 4px;
   outline: none;
 }
 
 #shippo-clear-address {
+  flex: 0 0 auto;
   border: none;
   background: transparent;
-  color: #9ca3af;
+  color: #67e8f9;
   font-size: 1.4rem;
   cursor: pointer;
   line-height: 1;
 }
 
 #shippo-clear-address:hover {
-  color: #fff;
+  color: #ffffff;
 }
 
 .shippo-suggestion-list {
+  display: none;
   margin: 8px 0;
   border: 1px solid #1f2937;
   border-radius: 12px;
   overflow: hidden;
   background: #050b18;
+}
+
+.shippo-suggestion-list.visible {
+  display: block;
 }
 
 .shippo-suggestion {
@@ -57,19 +81,38 @@
   align-items: center;
   gap: 10px;
   border: none;
+  border-bottom: 1px solid #111827;
   background: transparent;
-  color: #e5e7eb;
+  color: #67e8f9;
   text-align: left;
   padding: 10px;
   cursor: pointer;
+}
+
+.shippo-suggestion:last-child {
+  border-bottom: none;
 }
 
 .shippo-suggestion:hover {
   background: #111827;
 }
 
+.shippo-suggestion-main {
+  display: block;
+  font-weight: 700;
+  color: #a5f3fc;
+}
+
+.shippo-suggestion-sub {
+  display: block;
+  margin-top: 2px;
+  font-size: 0.78rem;
+  color: #94a3b8;
+}
+
 .shippo-pin {
   display: inline-flex;
+  flex: 0 0 auto;
   width: 32px;
   height: 32px;
   border-radius: 8px;
@@ -80,17 +123,24 @@
 
 .shippo-grid-2,
 .shippo-grid-3 {
+  width: 100%;
   display: grid;
   gap: 8px;
   margin-bottom: 8px;
 }
 
 .shippo-grid-2 {
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
 }
 
 .shippo-grid-3 {
-  grid-template-columns: 0.75fr 1fr 0.75fr;
+  grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr) minmax(0, 0.75fr);
+}
+
+.shippo-grid-2 input,
+.shippo-grid-3 input {
+  min-width: 0;
+  width: 100%;
 }
 
 .shippo-rates-list {
@@ -101,11 +151,14 @@
 }
 
 .shippo-rate-card {
+  width: 100%;
   border: 1px solid #1f2937;
   border-radius: 12px;
   padding: 10px;
   background: #050b18;
+  color: #67e8f9;
   cursor: pointer;
+  text-align: left;
 }
 
 .shippo-rate-card:hover {
@@ -122,21 +175,34 @@
   justify-content: space-between;
   gap: 10px;
   font-weight: 700;
+  color: #a5f3fc;
 }
 
 .shippo-rate-sub {
   margin-top: 4px;
   font-size: 0.8rem;
-  color: #9ca3af;
+  color: #cbd5e1;
 }
 
 .shippo-rate-price {
   white-space: nowrap;
+  color: #bbf7d0;
 }
 
-@media (max-width: 600px) {
+@media (max-width: 1050px) {
   .shippo-grid-2,
   .shippo-grid-3 {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 600px) {
+  .shippo-address-card {
+    padding: 8px;
+  }
+
+  .shippo-rate-top {
+    flex-direction: column;
+    gap: 4px;
   }
 }

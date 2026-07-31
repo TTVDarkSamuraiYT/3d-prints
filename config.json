@@ -12,10 +12,10 @@
   "SUGGESTIONS_WEBHOOK_URL": "https://discord.com/api/webhooks/1506146750564532345/e4rl-6KwH7SrxdbMfmLvRzmr4ec3JVUIEFq2edW5b1bryXez_VWoouUfb67eTAnJSfO7",
 
   "DRIVE_PREVIEW_FOLDER_ID": "1rWnToiP-xf056d3UU4EwKOL-3cC6JQLD",
-  "DRIVE_PREVIEW_WEBAPP_URL": "PASTE_PREVIEW_PROJECT_EXEC_URL_HERE",
+  "DRIVE_PREVIEW_WEBAPP_URL": "https://script.google.com/macros/s/AKfycbxJ0EUPrIYRc7MpFv9YWcjVqq5yqhoVQfbTW1rXUN6LsYPdgfaHiVb1qCFczvM28xrQ/exec",
 
-  "SHIPPO_RATES_WEBAPP_URL": "PASTE_SHIPPO_PROJECT_EXEC_URL_HERE",
-  "STOCK_WEBAPP_URL": "PASTE_FILAMENT_PROJECT_EXEC_URL_HERE",
+  "SHIPPO_RATES_WEBAPP_URL": "https://script.google.com/macros/s/AKfycbxPleL4xuKiHXB9JHkNU827IoD16jOUo6a9sbCIuQXN5EeVky8gr7y8VaXNRJv-RSqS/exec",
+  "STOCK_WEBAPP_URL": "https://script.google.com/macros/s/AKfycbyfd_aVsBmoIYnBjK0aMH6y9-BS2ZjFAwR7Fr2W8Jd7AZeGJ8ibxb8evYF17oVan5AF/exec",
 
   "CASHAPP_TAG": "$TekniqSolutions",
   "PROMOS_SHEET_NAME": "Promo codes"

@@ -501,19 +501,45 @@ function buildShippoDiscordNote() {
   if (isLocalRate(selectedShippoRate)) {
     return [
       "",
-      "--- Local delivery / pickup selected ---",
-      `Customer address: ${formatShippoAddress(address).replace(/\n/g, ", ")}`,
-      `Service: ${selectedShippoRate.service}`,
-      `Customer charged: ${shippoMoney(selectedShippoRate.customerCharge)}`,
+      "**Delivery option:** Local Worcester",
+      `**Address:** ${formatShippoAddress(address).replace(/\n/g, ", ")}`,
+      `**Fee:** ${shippoMoney(selectedShippoRate.customerCharge)}`,
       selectedShippoRate.localDistanceMiles != null
-        ? `Distance estimate: ${Number(selectedShippoRate.localDistanceMiles).toFixed(1)} miles`
+        ? `**Distance:** ${Number(selectedShippoRate.localDistanceMiles).toFixed(1)} miles`
         : "",
-      "Local timing: local delivery timing varies",
-      "Local option: arrange after Square invoice payment"
+      "**Timing:** Local delivery timing varies"
     ]
       .filter(Boolean)
       .join("\n");
   }
+
+  const label = lastShippoOrder && lastShippoOrder.label ? lastShippoOrder.label : null;
+
+  return [
+    "",
+    "**Shipping:** " +
+      `${selectedShippoRate.carrier || "Carrier"} ${selectedShippoRate.service || ""}`.trim(),
+    `**Customer shipping charge:** ${shippoMoney(selectedShippoRate.customerCharge)}`,
+    selectedShippoRate.estimatedDays
+      ? `**ETA:** ${selectedShippoRate.estimatedDays} business day(s)`
+      : "",
+    selectedShippoRate.parcelSummary
+      ? `**Package:** ${selectedShippoRate.parcelSummary}`
+      : "",
+    `**Shippo shipment ID:** ${selectedShippoRate.shipmentId || "N/A"}`,
+    `**Shippo rate ID:** ${selectedShippoRate.rateId || "N/A"}`,
+    lastShippoOrder && lastShippoOrder.orderId
+      ? `**Shippo order ID:** ${lastShippoOrder.orderId}`
+      : "",
+    label && label.labelUrl ? `**Label PDF:** ${label.labelUrl}` : "",
+    label && label.trackingNumber ? `**Tracking:** ${label.trackingNumber}` : "",
+    lastShippoOrder && lastShippoOrder.error
+      ? `**Shippo order note:** Order draft not created. Use shipment/rate ID manually.`
+      : ""
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
 
   return [
     "",

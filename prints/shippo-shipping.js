@@ -386,7 +386,8 @@ function renderAddressSuggestions(suggestions) {
 
     const main = document.createElement("span");
     main.className = "shippo-suggestion-main";
-    main.textContent = suggestion.street1 || suggestion.display || "Suggested address";
+    main.textContent =
+      suggestion.street1 || suggestion.display || "Suggested address";
 
     const sub = document.createElement("span");
     sub.className = "shippo-suggestion-sub";
@@ -467,7 +468,9 @@ async function suggestShippoAddress() {
       return;
     }
 
-    renderAddressSuggestions(Array.isArray(data.suggestions) ? data.suggestions : []);
+    renderAddressSuggestions(
+      Array.isArray(data.suggestions) ? data.suggestions : []
+    );
   } catch {
     renderAddressSuggestions([]);
   }
@@ -513,7 +516,8 @@ function buildShippoDiscordNote() {
       .join("\n");
   }
 
-  const label = lastShippoOrder && lastShippoOrder.label ? lastShippoOrder.label : null;
+  const label =
+    lastShippoOrder && lastShippoOrder.label ? lastShippoOrder.label : null;
 
   return [
     "",
@@ -534,37 +538,8 @@ function buildShippoDiscordNote() {
     label && label.labelUrl ? `**Label PDF:** ${label.labelUrl}` : "",
     label && label.trackingNumber ? `**Tracking:** ${label.trackingNumber}` : "",
     lastShippoOrder && lastShippoOrder.error
-      ? `**Shippo order note:** Order draft not created. Use shipment/rate ID manually.`
+      ? "**Shippo order note:** Order draft not created. Use shipment/rate ID manually."
       : ""
-  ]
-    .filter(Boolean)
-    .join("\n");
-}
-
-  return [
-    "",
-    "--- Shippo shipping selected ---",
-    `Customer address: ${formatShippoAddress(address).replace(/\n/g, ", ")}`,
-    `Carrier: ${selectedShippoRate.carrier}`,
-    `Service: ${selectedShippoRate.service}`,
-    `Shippo base rate: ${shippoMoney(selectedShippoRate.baseRate)}`,
-    `Customer charged shipping: ${shippoMoney(selectedShippoRate.customerCharge)}`,
-    `Shipping reserve: ${shippoMoney(selectedShippoRate.reserve)}`,
-    selectedShippoRate.estimatedDays
-      ? `Estimated delivery: ${selectedShippoRate.estimatedDays} business day(s)`
-      : "",
-    selectedShippoRate.parcelSummary
-      ? `Package: ${selectedShippoRate.parcelSummary}`
-      : "",
-    `Shippo shipment ID: ${selectedShippoRate.shipmentId || "N/A"}`,
-    `Shippo rate ID: ${selectedShippoRate.rateId || "N/A"}`,
-    lastShippoOrder && lastShippoOrder.orderId
-      ? `Shippo order ID: ${lastShippoOrder.orderId}`
-      : "",
-    lastShippoOrder && lastShippoOrder.error
-      ? `Shippo order draft error: ${lastShippoOrder.error}`
-      : "",
-    "Label purchase: manual after Square invoice payment"
   ]
     .filter(Boolean)
     .join("\n");
@@ -649,65 +624,6 @@ async function createShippoOrderDraft() {
   }
 }
 
-  await ensureShippoConfigLoaded();
-
-  if (!SHIPPO_RATES_WEBAPP_URL || SHIPPO_RATES_WEBAPP_URL.includes("PASTE_")) {
-    lastShippoOrder = {
-      orderId: "NOT_CREATED",
-      orderNumber: "",
-      error: "Shippo web app URL missing"
-    };
-
-    return lastShippoOrder;
-  }
-
-  const address = buildShippoAddress();
-  const totals = getCartTotalsForShippo();
-
-  const payload = {
-    action: "create_order",
-    addressTo: address,
-    selectedRate: selectedShippoRate,
-    orderNumber: "pending-" + Date.now(),
-    lineItems: getCartShippingItemsForShippo(),
-    subtotal: totals.subtotal,
-    shipping: totals.shipping,
-    total: totals.total,
-    notes: "Created from Tekniq Solutions website. Awaiting Square invoice payment."
-  };
-
-  try {
-    const data = await shippoJsonp(SHIPPO_RATES_WEBAPP_URL, payload);
-
-    if (data && data.ok) {
-      lastShippoOrder = {
-        orderId: data.orderId || "",
-        orderNumber: data.orderNumber || ""
-      };
-
-      return lastShippoOrder;
-    }
-
-    lastShippoOrder = {
-      orderId: "NOT_CREATED",
-      orderNumber: "",
-      error: (data && data.error) || "Shippo order draft was not created"
-    };
-
-    console.warn("[SHIPPO] Order draft failed:", data);
-    return lastShippoOrder;
-  } catch (err) {
-    lastShippoOrder = {
-      orderId: "NOT_CREATED",
-      orderNumber: "",
-      error: String(err && err.message ? err.message : err)
-    };
-
-    console.warn("[SHIPPO] Could not create Shippo order draft:", err);
-    return lastShippoOrder;
-  }
-}
-
 function installShippoShippingOverride() {
   window.getShippingCharge = function () {
     if (selectedShippoRate) {
@@ -764,7 +680,7 @@ async function prepareShippoBeforeOrderSubmit(event) {
 
     if (lastShippoOrder && lastShippoOrder.error) {
       setShippoMessage(
-        "Shipping rate is selected, but Shippo order draft was not created. Submitting order to Discord anyway.",
+        "Shipping rate is selected. Submitting order to Discord anyway.",
         false
       );
     } else {
@@ -791,8 +707,8 @@ async function prepareShippoBeforeOrderSubmit(event) {
     const note = buildShippoDiscordNote();
 
     if (
-      !extraNotes.value.includes("--- Shippo shipping selected ---") &&
-      !extraNotes.value.includes("--- Local delivery / pickup selected ---")
+      !extraNotes.value.includes("**Shipping:**") &&
+      !extraNotes.value.includes("**Delivery option:**")
     ) {
       extraNotes.value = extraNotes.value
         ? extraNotes.value + "\n" + note

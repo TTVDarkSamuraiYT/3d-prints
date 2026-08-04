@@ -553,11 +553,75 @@ async function createShippoOrderDraft() {
     lastShippoOrder = {
       orderId: "LOCAL",
       orderNumber: "local-" + Date.now(),
-      local: true
+      local: true,
+      label: null
     };
 
     return lastShippoOrder;
   }
+
+  await ensureShippoConfigLoaded();
+
+  if (!SHIPPO_RATES_WEBAPP_URL || SHIPPO_RATES_WEBAPP_URL.includes("PASTE_")) {
+    lastShippoOrder = {
+      orderId: "NOT_CREATED",
+      orderNumber: "",
+      error: "Shippo web app URL missing",
+      label: null
+    };
+
+    return lastShippoOrder;
+  }
+
+  const address = buildShippoAddress();
+  const totals = getCartTotalsForShippo();
+
+  const payload = {
+    action: "create_order",
+    addressTo: address,
+    selectedRate: selectedShippoRate,
+    orderNumber: "pending-" + Date.now(),
+    lineItems: getCartShippingItemsForShippo(),
+    subtotal: totals.subtotal,
+    shipping: totals.shipping,
+    total: totals.total,
+    notes: "Tekniq website order. Await Square payment."
+  };
+
+  try {
+    const data = await shippoJsonp(SHIPPO_RATES_WEBAPP_URL, payload);
+
+    if (data && data.ok) {
+      lastShippoOrder = {
+        orderId: data.orderId || "",
+        orderNumber: data.orderNumber || "",
+        label: data.label || null
+      };
+
+      return lastShippoOrder;
+    }
+
+    lastShippoOrder = {
+      orderId: "NOT_CREATED",
+      orderNumber: "",
+      error: (data && data.error) || "Shippo order draft was not created",
+      label: null
+    };
+
+    console.warn("[SHIPPO] Order draft failed:", data);
+    return lastShippoOrder;
+  } catch (err) {
+    lastShippoOrder = {
+      orderId: "NOT_CREATED",
+      orderNumber: "",
+      error: String(err && err.message ? err.message : err),
+      label: null
+    };
+
+    console.warn("[SHIPPO] Could not create Shippo order draft:", err);
+    return lastShippoOrder;
+  }
+}
 
   await ensureShippoConfigLoaded();
 

@@ -4,7 +4,7 @@
   "COLORS_SHEET_NAME": "Colors",
 
   "PRINTING_AVAILABLE": true,
-  "CUSTOM_PRINTS_AVAILABLE": true,
+  "CUSTOM_PRINTS_AVAILABLE": false,
   "PRINTING_UNAVAILABLE_MESSAGE": "Sorry for the inconvenience, printing is currently unavailable.",
   "CUSTOM_PRINTS_UNAVAILABLE_MESSAGE": "Sorry for the inconvenience, custom prints are currently unavailable.",
 

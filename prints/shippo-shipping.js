@@ -5,6 +5,7 @@ let lastShippoOrder = null;
 let shippoSuggestTimer = null;
 let shippoSuggestionResults = [];
 let shippoConfigPromise = null;
+let shippoOrderDraftAttempted = false;
 
 function shippoMoney(amount) {
   return `$${Number(amount || 0).toFixed(2)}`;
@@ -214,7 +215,7 @@ async function getShippoRates() {
 
   if (!SHIPPO_RATES_WEBAPP_URL || SHIPPO_RATES_WEBAPP_URL.includes("PASTE_")) {
     setShippoMessage(
-      "Shippo rates are not configured yet. Add your Apps Script /exec URL to config.json.",
+      "Shipping is not configured yet. Add your Apps Script /exec URL to config.json.",
       true
     );
     return;
@@ -223,6 +224,7 @@ async function getShippoRates() {
   selectedShippoRate = null;
   lastShippoRates = [];
   lastShippoOrder = null;
+  shippoOrderDraftAttempted = false;
   renderShippoRates([]);
 
   setShippoMessage("Getting shipping options…", false);
@@ -258,7 +260,9 @@ async function getShippoRates() {
       );
     } else {
       setShippoMessage(
-        hasLocal ? "Local option available. Choose one option." : "Choose one shipping option.",
+        hasLocal
+          ? "Local option available. Choose one option."
+          : "Choose one shipping option.",
         false
       );
     }
@@ -325,6 +329,8 @@ function renderShippoRates(rates) {
 
     card.addEventListener("click", () => {
       selectedShippoRate = rate;
+      lastShippoOrder = null;
+      shippoOrderDraftAttempted = false;
 
       document.querySelectorAll(".shippo-rate-card").forEach((el) => {
         el.classList.remove("selected");
@@ -475,6 +481,7 @@ function queueShippoSuggest() {
 function resetSelectedRateBecauseAddressChanged(showMessage) {
   selectedShippoRate = null;
   lastShippoOrder = null;
+  shippoOrderDraftAttempted = false;
   renderShippoRates([]);
 
   if (showMessage) {
@@ -501,7 +508,8 @@ function buildShippoDiscordNote() {
       selectedShippoRate.localDistanceMiles != null
         ? `Distance estimate: ${Number(selectedShippoRate.localDistanceMiles).toFixed(1)} miles`
         : "",
-      "Local option: arrange by appointment after Square invoice payment"
+      "Local timing: local delivery timing varies",
+      "Local option: arrange after Square invoice payment"
     ]
       .filter(Boolean)
       .join("\n");
@@ -527,6 +535,9 @@ function buildShippoDiscordNote() {
     lastShippoOrder && lastShippoOrder.orderId
       ? `Shippo order ID: ${lastShippoOrder.orderId}`
       : "",
+    lastShippoOrder && lastShippoOrder.error
+      ? `Shippo order draft error: ${lastShippoOrder.error}`
+      : "",
     "Label purchase: manual after Square invoice payment"
   ]
     .filter(Boolean)
@@ -534,6 +545,8 @@ function buildShippoDiscordNote() {
 }
 
 async function createShippoOrderDraft() {
+  shippoOrderDraftAttempted = true;
+
   if (!selectedShippoRate) return null;
 
   if (isLocalRate(selectedShippoRate)) {
@@ -542,12 +555,21 @@ async function createShippoOrderDraft() {
       orderNumber: "local-" + Date.now(),
       local: true
     };
+
     return lastShippoOrder;
   }
 
   await ensureShippoConfigLoaded();
 
-  if (!SHIPPO_RATES_WEBAPP_URL || SHIPPO_RATES_WEBAPP_URL.includes("PASTE_")) return null;
+  if (!SHIPPO_RATES_WEBAPP_URL || SHIPPO_RATES_WEBAPP_URL.includes("PASTE_")) {
+    lastShippoOrder = {
+      orderId: "NOT_CREATED",
+      orderNumber: "",
+      error: "Shippo web app URL missing"
+    };
+
+    return lastShippoOrder;
+  }
 
   const address = buildShippoAddress();
   const totals = getCartTotalsForShippo();
@@ -576,10 +598,23 @@ async function createShippoOrderDraft() {
       return lastShippoOrder;
     }
 
-    return null;
+    lastShippoOrder = {
+      orderId: "NOT_CREATED",
+      orderNumber: "",
+      error: (data && data.error) || "Shippo order draft was not created"
+    };
+
+    console.warn("[SHIPPO] Order draft failed:", data);
+    return lastShippoOrder;
   } catch (err) {
+    lastShippoOrder = {
+      orderId: "NOT_CREATED",
+      orderNumber: "",
+      error: String(err && err.message ? err.message : err)
+    };
+
     console.warn("[SHIPPO] Could not create Shippo order draft:", err);
-    return null;
+    return lastShippoOrder;
   }
 }
 
@@ -624,27 +659,35 @@ async function prepareShippoBeforeOrderSubmit(event) {
     return;
   }
 
-  if (!lastShippoOrder) {
+  if (!shippoOrderDraftAttempted) {
     event.preventDefault();
     event.stopImmediatePropagation();
 
     setShippoMessage(
       isLocalRate(selectedShippoRate)
         ? "Saving local option…"
-        : "Creating Shippo order draft…",
+        : "Preparing shipping details…",
       false
     );
 
     await createShippoOrderDraft();
 
-    setShippoMessage(
-      selectedShippoRate
-        ? `Selected ${selectedShippoRate.service} for ${shippoMoney(selectedShippoRate.customerCharge)}.`
-        : "",
-      false
-    );
+    if (lastShippoOrder && lastShippoOrder.error) {
+      setShippoMessage(
+        "Shipping rate is selected, but Shippo order draft was not created. Submitting order to Discord anyway.",
+        false
+      );
+    } else {
+      setShippoMessage(
+        `Selected ${selectedShippoRate.service} for ${shippoMoney(selectedShippoRate.customerCharge)}.`,
+        false
+      );
+    }
 
-    submitBtn.click();
+    setTimeout(() => {
+      submitBtn.click();
+    }, 50);
+
     return;
   }
 

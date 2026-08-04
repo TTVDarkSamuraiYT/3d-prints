@@ -307,7 +307,7 @@ function renderShippoRates(rates) {
       if (rate.localDistanceMiles != null) {
         details.push(`${Number(rate.localDistanceMiles).toFixed(1)} miles away`);
       }
-      details.push("by appointment");
+      details.push("local delivery timing varies");
     } else {
       if (rate.carrier) details.push(rate.carrier);
       if (rate.estimatedDays) {

@@ -1944,9 +1944,6 @@ async function handleSubmitOrder() {
   lines.push(`**Contact:** ${contact}`);
   lines.push(`**Name:** ${nameText}`);
   lines.push("**Delivery:** Shipping by default — " + shipText);
-  lines.push(
-    "**Local pickup note:** Worcester, MA pickup is by appointment only if requested in notes and approved after purchase confirmation."
-  );
 
   const notesText = notesInput.value.trim();
 

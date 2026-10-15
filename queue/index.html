@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#111827">
+  <title>Remote Print Queue — Tekniq Solutions</title>
+  <link rel="stylesheet" href="./style.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script defer src="./app.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="../">Tekniq <span>Solutions</span></a>
+    <nav><a href="../prints/">Shop</a><a href="./" aria-current="page">Print Queue</a></nav>
+  </header>
+  <main class="wrap">
+    <section class="hero">
+      <p class="eyebrow">PRIVATE FAMILY WORKSPACE</p>
+      <h1>Remote print queue</h1>
+      <p>Save tested, pre-sliced files and queue them for the printers at home.</p>
+      <p class="notice"><strong>Printer start is currently disabled.</strong> Queue and file storage can be configured now; automatic submission stays locked until the Bambu printer protocol is verified on your hardware.</p>
+    </section>
+    <section id="config-warning" class="panel warning" hidden>Supabase is not configured yet. Follow the setup guide in <code>supabase/README.md</code>, then set the public project URL and anon key in <code>queue/app.js</code>.</section>
+    <section id="auth-panel" class="panel">
+      <h2>Family sign-in</h2>
+      <p class="muted">Use an invited family account. Public sign-up is intentionally disabled.</p>
+      <form id="login-form" class="form-grid">
+        <label>Email<input id="email" type="email" autocomplete="email" required></label>
+        <label>Password<input id="password" type="password" autocomplete="current-password" minlength="8" required></label>
+        <button type="submit">Sign in</button>
+      </form>
+      <p id="auth-message" class="status" role="status"></p>
+    </section>
+    <div id="app-panel" hidden>
+      <section class="toolbar">
+        <div><h2>Print library & queue</h2><p id="signed-in" class="muted"></p></div>
+        <button id="sign-out" class="secondary">Sign out</button>
+      </section>
+      <section class="columns">
+        <article class="panel">
+          <h3>Add tested sliced file</h3>
+          <form id="upload-form" class="form-grid">
+            <label>Print name<input id="print-name" maxlength="120" required placeholder="e.g. Yozma cable clip"></label>
+            <label>Notes (optional)<textarea id="print-notes" maxlength="1000" rows="2" placeholder="Material, plate, orientation, tested printer…"></textarea></label>
+            <label>Tested on<select id="tested-printer"><option value="not-tested">Not yet tested</option><option value="A1 mini #1">A1 mini #1</option><option value="A1 mini #2">A1 mini #2</option><option value="both">Both A1 minis</option></select></label>
+            <label>Printer-ready file (.3mf or .gcode)<input id="print-file" type="file" accept=".3mf,.gcode,.gcode.3mf" required></label>
+            <label class="check"><input id="tested-confirm" type="checkbox"> I confirm this is already sliced and has been tested successfully.</label>
+            <button type="submit">Upload to private library</button>
+          </form>
+          <p class="muted small">Private storage; uploads are limited to 100 MB in this starter. Only queue files you trust. Project files that need slicing are not accepted.</p>
+          <p id="upload-message" class="status" role="status"></p>
+        </article>
+        <article class="panel">
+          <h3>Available tested files</h3>
+          <div id="library" class="stack"><p class="muted">Sign in to load your library.</p></div>
+        </article>
+      </section>
+      <section class="panel">
+        <div class="section-heading"><div><h3>Queue</h3><p class="muted">Newest jobs appear below. Printer submission is locked until verified.</p></div><button id="refresh" class="secondary">Refresh</button></div>
+        <div class="table-scroll"><table><thead><tr><th>Print</th><th>Target</th><th>Status</th><th>Added</th><th></th></tr></thead><tbody id="queue-rows"><tr><td colspan="5" class="muted">No jobs loaded.</td></tr></tbody></table></div>
+        <p id="queue-message" class="status" role="status"></p>
+      </section>
+      <section class="panel">
+        <h3>Printer connectivity</h3>
+        <div class="printer-grid">
+          <div class="printer"><span class="lamp"></span><div><strong>Bambu A1 mini #1</strong><p>Bridge not paired</p></div></div>
+          <div class="printer"><span class="lamp"></span><div><strong>Bambu A1 mini #2</strong><p>Bridge not paired</p></div></div>
+        </div>
+        <p class="muted small">Cloud monitoring and print submission require a verified adapter. Do not paste printer passwords or access codes into this page.</p>
+      </section>
+    </div>
+    <footer>Tekniq Solutions · Remote print queue · Private by invitation</footer>
+  </main>
+</body>
+</html>
